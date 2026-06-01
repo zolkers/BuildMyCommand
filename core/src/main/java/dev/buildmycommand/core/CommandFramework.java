@@ -194,6 +194,10 @@ public final class CommandFramework {
             matchedNodes.add(command);
             tokenIndex++;
         }
+        if (tokenIndex < tokens.size()) {
+            matchedNodes = literalDescendantPath(command, tokens.subList(tokenIndex, tokens.size()), matchedNodes);
+            command = matchedNodes.get(matchedNodes.size() - 1);
+        }
 
         if (current.startsWith("-")) {
             if (!canAccess(source, matchedNodes)) {
@@ -204,9 +208,10 @@ public final class CommandFramework {
                 .filter(name -> name.startsWith(current))
                 .toList();
         }
+        List<SimpleCommandRegistry.CommandNode> suggestionPath = matchedNodes;
         return command.children().values().stream()
             .distinct()
-            .filter(child -> canDiscover(source, append(matchedNodes, child), child))
+            .filter(child -> canDiscover(source, append(suggestionPath, child), child))
             .map(SimpleCommandRegistry.CommandNode::literal)
             .filter(literal -> literal.startsWith(current))
             .toList();

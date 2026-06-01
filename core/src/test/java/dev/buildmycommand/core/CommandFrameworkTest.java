@@ -564,6 +564,18 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void suggestionsIncludeFlagsForPermittedArgumentedRoutes() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user <target:int> rank set <rank:String> [--force]")
+            .permission("user.rank.set")
+            .executes(ctx -> Results.success("ok"));
+
+        assertEquals(List.of("--force"), framework.suggest(allowedSource(), "user 7 rank set --", 18));
+    }
+
+    @Test
     void routeDslDispatchesGreedyOptionalArgumentAndFlagAlias() {
         CommandFramework framework = CommandFramework.create();
 
