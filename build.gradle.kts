@@ -3,7 +3,7 @@ plugins {
     jacoco
 }
 
-group = "dev.buildmycommand"
+group = "dev.riege.buildmycommand"
 version = "0.1.0-SNAPSHOT"
 
 subprojects {
