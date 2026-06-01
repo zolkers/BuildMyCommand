@@ -189,13 +189,23 @@ class CommandFrameworkTest {
 
         framework.registry().command("repeat", command -> command
             .argument("count", int.class)
-            .executes(ctx -> Results.success(String.valueOf(ctx.arg("count", Integer.class)))));
+            .executes(ctx -> Results.success(String.valueOf(ctx.arg("count", int.class)))));
 
         CommandResult result = framework.dispatch(new CommandSource() {
         }, "repeat 3");
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("3"), result.reply());
+    }
+
+    @Test
+    void rejectsDuplicateArgumentNames() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalStateException.class, () -> framework.registry().command("bad", command -> command
+            .argument("value", String.class)
+            .argument("value", String.class)
+            .executes(ctx -> Results.silent())));
     }
 
     @Test

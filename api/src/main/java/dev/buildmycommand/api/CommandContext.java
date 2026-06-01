@@ -23,7 +23,7 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
         if (value == null) {
             throw new IllegalArgumentException("argument not found: " + name);
         }
-        return type.cast(value);
+        return cast(type, value);
     }
 
     public <T> Optional<T> optionalArg(String name, Class<T> type) {
@@ -34,7 +34,7 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
         if (value == null) {
             return Optional.empty();
         }
-        return Optional.of(type.cast(value));
+        return Optional.of(cast(type, value));
     }
 
     @SuppressWarnings("unchecked")
@@ -46,5 +46,19 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
             return fallback;
         }
         return (T) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T cast(Class<T> type, Object value) {
+        Class<?> effectiveType = type.isPrimitive() ? primitiveWrapper(type) : type;
+        Object castValue = effectiveType.cast(value);
+        return (T) castValue;
+    }
+
+    private static Class<?> primitiveWrapper(Class<?> type) {
+        if (type == int.class) {
+            return Integer.class;
+        }
+        return type;
     }
 }

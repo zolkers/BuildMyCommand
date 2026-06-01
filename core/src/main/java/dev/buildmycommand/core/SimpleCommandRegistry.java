@@ -38,21 +38,21 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
         @Override
         public <T> CommandBuilder argument(String name, Class<T> type) {
-            validateCanAdd(ArgumentKind.REQUIRED);
+            validateCanAdd(name, ArgumentKind.REQUIRED);
             arguments.add(new ArgumentSpec(name, type, ArgumentKind.REQUIRED));
             return this;
         }
 
         @Override
         public <T> CommandBuilder optionalArgument(String name, Class<T> type) {
-            validateCanAdd(ArgumentKind.OPTIONAL);
+            validateCanAdd(name, ArgumentKind.OPTIONAL);
             arguments.add(new ArgumentSpec(name, type, ArgumentKind.OPTIONAL));
             return this;
         }
 
         @Override
         public <T> CommandBuilder greedyArgument(String name, Class<T> type) {
-            validateCanAdd(ArgumentKind.GREEDY);
+            validateCanAdd(name, ArgumentKind.GREEDY);
             arguments.add(new ArgumentSpec(name, type, ArgumentKind.GREEDY));
             return this;
         }
@@ -66,7 +66,11 @@ final class SimpleCommandRegistry implements CommandRegistry {
             return new CommandDefinition(executor, arguments);
         }
 
-        private void validateCanAdd(ArgumentKind nextKind) {
+        private void validateCanAdd(String nextName, ArgumentKind nextKind) {
+            if (arguments.stream().anyMatch(argument -> argument.name().equals(nextName))) {
+                throw new IllegalStateException("argument already declared: " + nextName);
+            }
+
             boolean hasOptional = arguments.stream()
                 .anyMatch(argument -> argument.kind() == ArgumentKind.OPTIONAL);
             if (nextKind == ArgumentKind.REQUIRED && hasOptional) {
