@@ -5,6 +5,7 @@
 **Goal:** Add the first permission enforcement path and improve permission-aware user-facing discovery without introducing a full middleware system yet.
 
 **Architecture:** Permission checks stay platform-neutral through `CommandSource.hasPermission(String)`. Metadata continues to live on command nodes. Adapters can later map native platform permissions into `CommandSource`.
+Permissions are inherited along the matched command path: any permission declared on a matched parent or final command must be granted before dispatch or discovery proceeds.
 
 **Tech Stack:** Java 21, Gradle Kotlin DSL, JUnit 5.
 
@@ -19,7 +20,7 @@
 
 - [x] Write failing tests for denied and allowed permissioned command dispatch.
 - [x] Add `CommandSource.hasPermission(String)` defaulting to `true`.
-- [x] Return a failure result when the matched executable command has a permission and the source lacks it.
+- [x] Return a failure result when the matched executable command or matched parent command path has a permission and the source lacks it.
 - [x] Verify commands without permissions and sources using the default method preserve existing dispatch behavior.
 
 ### Task 16: Permission-Aware Suggestions

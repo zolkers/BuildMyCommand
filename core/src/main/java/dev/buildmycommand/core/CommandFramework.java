@@ -92,9 +92,15 @@ public final class CommandFramework {
 
         int tokenIndex = 1;
         Map<String, Object> pathValues = new HashMap<>();
+        List<SimpleCommandRegistry.CommandNode> matchedNodes = new ArrayList<>();
+        matchedNodes.add(command);
         while (tokenIndex < tokens.size()) {
             SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
             if (child == null) {
+                Optional<String> deniedPermission = deniedPermission(source, matchedNodes);
+                if (deniedPermission.isPresent()) {
+                    return Results.failure("Missing permission: " + deniedPermission.get());
+                }
                 if (!command.children().isEmpty() && !command.arguments().isEmpty()) {
                     ParseArgumentPrefixResult prefix = parseArgumentPrefix(command.arguments(), tokens.subList(tokenIndex, tokens.size()));
                     if (prefix.failure().isPresent()) {
@@ -109,7 +115,13 @@ public final class CommandFramework {
                 break;
             }
             command = child;
+            matchedNodes.add(command);
             tokenIndex++;
+        }
+
+        Optional<String> deniedPermission = deniedPermission(source, matchedNodes);
+        if (deniedPermission.isPresent()) {
+            return Results.failure("Missing permission: " + deniedPermission.get());
         }
 
         ParseOptionsResult options = parseOptions(command.options(), tokens.subList(tokenIndex, tokens.size()));
@@ -126,10 +138,6 @@ public final class CommandFramework {
         values.putAll(arguments.values());
         values.putAll(options.values());
         CommandContext context = new CommandContext(source, input, values);
-        Optional<String> permission = command.permissionOptional();
-        if (permission.isPresent() && !source.hasPermission(permission.get())) {
-            return Results.failure("Missing permission: " + permission.get());
-        }
         return Objects.requireNonNull(command.executor().execute(context), "command result");
     }
 
@@ -147,7 +155,7 @@ public final class CommandFramework {
         String current = currentToken(prefixInput, tokens);
         if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
             return registry.roots().stream()
-                .filter(command -> canAccess(source, command))
+                .filter(command -> canAccess(source, List.of(command)))
                 .map(SimpleCommandRegistry.CommandNode::literal)
                 .filter(literal -> literal.startsWith(current))
                 .toList();
@@ -159,17 +167,20 @@ public final class CommandFramework {
         }
 
         int tokenIndex = 1;
+        List<SimpleCommandRegistry.CommandNode> matchedNodes = new ArrayList<>();
+        matchedNodes.add(command);
         while (tokenIndex < tokens.size()) {
             SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
             if (child == null) {
                 break;
             }
             command = child;
+            matchedNodes.add(command);
             tokenIndex++;
         }
 
         if (current.startsWith("-")) {
-            if (!canAccess(source, command)) {
+            if (!canAccess(source, matchedNodes)) {
                 return List.of();
             }
             return command.options().stream()
@@ -179,16 +190,36 @@ public final class CommandFramework {
         }
         return command.children().values().stream()
             .distinct()
-            .filter(child -> canAccess(source, child))
+            .filter(child -> canAccess(source, append(matchedNodes, child)))
             .map(SimpleCommandRegistry.CommandNode::literal)
             .filter(literal -> literal.startsWith(current))
             .toList();
     }
 
-    private static boolean canAccess(CommandSource source, SimpleCommandRegistry.CommandNode command) {
-        return command.permissionOptional()
-            .map(source::hasPermission)
-            .orElse(true);
+    private static List<SimpleCommandRegistry.CommandNode> append(
+        List<SimpleCommandRegistry.CommandNode> nodes,
+        SimpleCommandRegistry.CommandNode child
+    ) {
+        List<SimpleCommandRegistry.CommandNode> appended = new ArrayList<>(nodes);
+        appended.add(child);
+        return appended;
+    }
+
+    private static boolean canAccess(CommandSource source, List<SimpleCommandRegistry.CommandNode> commands) {
+        return deniedPermission(source, commands).isEmpty();
+    }
+
+    private static Optional<String> deniedPermission(
+        CommandSource source,
+        List<SimpleCommandRegistry.CommandNode> commands
+    ) {
+        for (SimpleCommandRegistry.CommandNode command : commands) {
+            Optional<String> permission = command.permissionOptional();
+            if (permission.isPresent() && !source.hasPermission(permission.get())) {
+                return permission;
+            }
+        }
+        return Optional.empty();
     }
 
     private static String usage(SimpleCommandRegistry.CommandPath commandPath) {

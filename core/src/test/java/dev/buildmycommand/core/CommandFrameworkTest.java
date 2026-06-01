@@ -922,6 +922,39 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void deniesDispatchBeforeParsingPermissionedCommandArgumentsAndOptions() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .argument("name", String.class)
+            .flag("force")
+            .executes(ctx -> Results.success("ok")));
+
+        CommandResult missingArgument = framework.dispatch(deniedSource(), "secure");
+        CommandResult unknownOption = framework.dispatch(deniedSource(), "secure bob --bad");
+
+        assertEquals(CommandResult.Status.FAILURE, missingArgument.status());
+        assertEquals(Optional.of("Missing permission: admin.secure"), missingArgument.reply());
+        assertEquals(CommandResult.Status.FAILURE, unknownOption.status());
+        assertEquals(Optional.of("Missing permission: admin.secure"), unknownOption.reply());
+    }
+
+    @Test
+    void deniesDispatchWhenMatchedParentPermissionIsMissing() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("admin", admin -> admin
+            .permission("admin.root")
+            .subcommand("child", child -> child.executes(ctx -> Results.success("ok"))));
+
+        CommandResult result = framework.dispatch(deniedSource(), "admin child");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing permission: admin.root"), result.reply());
+    }
+
+    @Test
     void allowsDispatchWhenSourceHasCommandPermission() {
         CommandFramework framework = CommandFramework.create();
 
