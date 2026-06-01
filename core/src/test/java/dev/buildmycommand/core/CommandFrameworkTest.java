@@ -554,4 +554,49 @@ class CommandFrameworkTest {
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("ban <target:String> [--target]").executes(ctx -> Results.silent()));
     }
+
+    @Test
+    void routeDslMergesRoutesSharingTheSameRoot() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank set <target:String>")
+            .executes(ctx -> Results.success("set " + ctx.arg("target", String.class)));
+        framework.registry()
+            .route("user rank remove <target:String>")
+            .executes(ctx -> Results.success("remove " + ctx.arg("target", String.class)));
+
+        CommandResult set = framework.dispatch(new CommandSource() {
+        }, "user rank set Alex");
+        CommandResult remove = framework.dispatch(new CommandSource() {
+        }, "user rank remove Alex");
+
+        assertEquals(CommandResult.Status.SUCCESS, set.status());
+        assertEquals(Optional.of("set Alex"), set.reply());
+        assertEquals(CommandResult.Status.SUCCESS, remove.status());
+        assertEquals(Optional.of("remove Alex"), remove.reply());
+    }
+
+    @Test
+    void routeDslDispatchesLiteralAfterParentArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user <target:String> rank set <rank:String>")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class) + "=" + ctx.arg("rank", String.class)));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user Alex rank set admin");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Alex=admin"), result.reply());
+    }
+
+    @Test
+    void routeDslRejectsNonStringGreedyArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("sum <values:Integer...>").executes(ctx -> Results.silent()));
+    }
 }

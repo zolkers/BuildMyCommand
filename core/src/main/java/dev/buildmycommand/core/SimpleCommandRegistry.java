@@ -59,29 +59,33 @@ final class SimpleCommandRegistry implements CommandRegistry {
         public CommandBuilder executes(CommandExecutor executor) {
             Objects.requireNonNull(executor, "executor");
             SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral());
-            configureRoute(builder, 0, route, executor);
+            configureRoute(builder, 0, route.steps(), executor);
             CommandNode node = builder.node();
-            registerAll(commands, node.literals(), node, "command already registered: ");
+            mergeRoot(node);
             return builder;
         }
 
         private void configureRoute(
             CommandBuilder builder,
-            int childLiteralIndex,
-            ParsedRoute route,
+            int stepIndex,
+            List<RouteStep> steps,
             CommandExecutor executor
         ) {
             try {
-                if (childLiteralIndex < route.childLiterals().size()) {
-                    builder.subcommand(route.childLiterals().get(childLiteralIndex),
-                        child -> configureRoute(child, childLiteralIndex + 1, route, executor));
+                if (stepIndex >= steps.size()) {
+                    builder.executes(executor);
                     return;
                 }
 
-                for (RouteElement element : route.elements()) {
-                    element.apply(builder);
+                RouteStep step = steps.get(stepIndex);
+                if (step instanceof LiteralStep literal) {
+                    builder.subcommand(literal.value(),
+                        child -> configureRoute(child, stepIndex + 1, steps, executor));
+                    return;
                 }
-                builder.executes(executor);
+
+                ((ElementStep) step).element().apply(builder);
+                configureRoute(builder, stepIndex + 1, steps, executor);
             } catch (IllegalStateException exception) {
                 throw new IllegalArgumentException("invalid route pattern", exception);
             }
@@ -252,6 +256,61 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
     }
 
+    private void mergeRoot(CommandNode node) {
+        CommandNode existing = commands.get(node.literal());
+        if (existing == null) {
+            registerAll(commands, node.literals(), node, "command already registered: ");
+            return;
+        }
+
+        CommandNode merged = mergeNodes(existing, node);
+        replaceNode(commands, existing, merged);
+    }
+
+    private static CommandNode mergeNodes(CommandNode existing, CommandNode incoming) {
+        if (!existing.literal().equals(incoming.literal())) {
+            throw new IllegalArgumentException("cannot merge different literals: " + incoming.literal());
+        }
+
+        List<ArgumentSpec> arguments = mergeSpecs(existing.arguments(), incoming.arguments());
+        List<OptionSpec> options = mergeSpecs(existing.options(), incoming.options());
+        Map<String, CommandNode> children = new LinkedHashMap<>(existing.children());
+        for (CommandNode incomingChild : incoming.uniqueChildren()) {
+            CommandNode existingChild = children.get(incomingChild.literal());
+            if (existingChild == null) {
+                registerAll(children, incomingChild.literals(), incomingChild, "subcommand already registered: ");
+                continue;
+            }
+
+            CommandNode mergedChild = mergeNodes(existingChild, incomingChild);
+            replaceNode(children, existingChild, mergedChild);
+        }
+
+        return new CommandNode(existing.literal(), existing.aliases(), incoming.executor(), arguments, options, children);
+    }
+
+    private static <T> List<T> mergeSpecs(List<T> existing, List<T> incoming) {
+        if (existing.isEmpty()) {
+            return incoming;
+        }
+        if (incoming.isEmpty() || existing.equals(incoming)) {
+            return existing;
+        }
+        throw new IllegalArgumentException("route conflicts with existing command shape");
+    }
+
+    private static void replaceNode(Map<String, CommandNode> nodes, CommandNode oldNode, CommandNode newNode) {
+        List<String> keys = new ArrayList<>();
+        for (Map.Entry<String, CommandNode> entry : nodes.entrySet()) {
+            if (entry.getValue() == oldNode) {
+                keys.add(entry.getKey());
+            }
+        }
+        for (String key : keys) {
+            nodes.put(key, newNode);
+        }
+    }
+
     private static String validateLiteral(String literal, String label) {
         Objects.requireNonNull(literal, label);
         if (literal.isBlank()) {
@@ -282,6 +341,16 @@ final class SimpleCommandRegistry implements CommandRegistry {
             literals.add(literal);
             literals.addAll(aliases);
             return literals;
+        }
+
+        List<CommandNode> uniqueChildren() {
+            List<CommandNode> unique = new ArrayList<>();
+            for (CommandNode child : children.values()) {
+                if (!unique.contains(child)) {
+                    unique.add(child);
+                }
+            }
+            return unique;
         }
     }
 
@@ -328,8 +397,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
     private record ParsedRoute(
         String rootLiteral,
-        List<String> childLiterals,
-        List<RouteElement> elements
+        List<RouteStep> steps
     ) {
         private static ParsedRoute parse(String pattern) {
             Objects.requireNonNull(pattern, "pattern");
@@ -338,28 +406,31 @@ final class SimpleCommandRegistry implements CommandRegistry {
             }
 
             String[] tokens = pattern.trim().split("\\s+");
-            List<String> literals = new ArrayList<>();
-            List<RouteElement> elements = new ArrayList<>();
-            boolean seenNonLiteral = false;
+            String rootLiteral = null;
+            List<RouteStep> steps = new ArrayList<>();
 
             for (String token : tokens) {
                 RouteElement element = parseElement(token);
                 if (element == null) {
-                    if (seenNonLiteral) {
-                        throw new IllegalArgumentException("route literals must appear before arguments and options: " + token);
+                    String literal = validateLiteral(token, "route literal");
+                    if (rootLiteral == null) {
+                        rootLiteral = literal;
+                    } else {
+                        steps.add(new LiteralStep(literal));
                     }
-                    literals.add(validateLiteral(token, "route literal"));
                     continue;
                 }
-                seenNonLiteral = true;
-                elements.add(element);
+                if (rootLiteral == null) {
+                    throw new IllegalArgumentException("route pattern must start with a literal");
+                }
+                steps.add(new ElementStep(element));
             }
 
-            if (literals.isEmpty()) {
+            if (rootLiteral == null) {
                 throw new IllegalArgumentException("route pattern must start with a literal");
             }
 
-            return new ParsedRoute(literals.get(0), literals.subList(1, literals.size()), elements);
+            return new ParsedRoute(rootLiteral, steps);
         }
 
         private static RouteElement parseElement(String token) {
@@ -405,7 +476,11 @@ final class SimpleCommandRegistry implements CommandRegistry {
             if (greedy) {
                 typeName = typeName.substring(0, typeName.length() - 3);
             }
-            return new ArgumentToken(validateName(name, "argument name"), typeFor(typeName), greedy);
+            Class<?> type = typeFor(typeName);
+            if (greedy && type != String.class) {
+                throw new IllegalArgumentException("greedy route arguments must be String: " + token);
+            }
+            return new ArgumentToken(validateName(name, "argument name"), type, greedy);
         }
 
         private static RouteElement parseOptionToken(String body, String token) {
@@ -474,5 +549,14 @@ final class SimpleCommandRegistry implements CommandRegistry {
     @FunctionalInterface
     private interface RouteElement {
         void apply(CommandBuilder builder);
+    }
+
+    private sealed interface RouteStep permits LiteralStep, ElementStep {
+    }
+
+    private record LiteralStep(String value) implements RouteStep {
+    }
+
+    private record ElementStep(RouteElement element) implements RouteStep {
     }
 }

@@ -64,9 +64,21 @@ public final class CommandFramework {
         }
 
         int tokenIndex = 1;
+        Map<String, Object> pathValues = new HashMap<>();
         while (tokenIndex < tokens.size()) {
             SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
             if (child == null) {
+                if (!command.children().isEmpty() && !command.arguments().isEmpty()) {
+                    ParseArgumentPrefixResult prefix = parseArgumentPrefix(command.arguments(), tokens.subList(tokenIndex, tokens.size()));
+                    if (prefix.failure().isPresent()) {
+                        return Results.failure(prefix.failure().get());
+                    }
+                    if (prefix.consumed() > 0) {
+                        pathValues.putAll(prefix.values());
+                        tokenIndex += prefix.consumed();
+                        continue;
+                    }
+                }
                 break;
             }
             command = child;
@@ -83,7 +95,8 @@ public final class CommandFramework {
             return Results.failure(arguments.failure().get());
         }
 
-        Map<String, Object> values = new HashMap<>(arguments.values());
+        Map<String, Object> values = new HashMap<>(pathValues);
+        values.putAll(arguments.values());
         values.putAll(options.values());
         CommandContext context = new CommandContext(source, input, values);
         return Objects.requireNonNull(command.executor().execute(context), "command result");
@@ -256,6 +269,38 @@ public final class CommandFramework {
         return ParseArgumentsResult.success(values);
     }
 
+    private ParseArgumentPrefixResult parseArgumentPrefix(
+        List<SimpleCommandRegistry.ArgumentSpec> specs,
+        List<String> tokens
+    ) {
+        Map<String, Object> values = new HashMap<>();
+        int tokenIndex = 0;
+
+        for (SimpleCommandRegistry.ArgumentSpec spec : specs) {
+            if (spec.kind() == SimpleCommandRegistry.ArgumentKind.GREEDY
+                || spec.kind() == SimpleCommandRegistry.ArgumentKind.OPTIONAL_GREEDY) {
+                return ParseArgumentPrefixResult.failure("greedy arguments cannot appear before subcommands: " + spec.name());
+            }
+
+            if (tokenIndex >= tokens.size()) {
+                if (spec.kind() == SimpleCommandRegistry.ArgumentKind.REQUIRED) {
+                    return ParseArgumentPrefixResult.failure("Missing required argument: " + spec.name());
+                }
+                continue;
+            }
+
+            String raw = tokens.get(tokenIndex);
+            ParseResult<?> parsed = parse(spec.type(), raw);
+            if (parsed.failure().isPresent()) {
+                return ParseArgumentPrefixResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
+            }
+            values.put(spec.name(), parsed.value());
+            tokenIndex++;
+        }
+
+        return ParseArgumentPrefixResult.success(values, tokenIndex);
+    }
+
     private ParseResult<?> parse(Class<?> type, String raw) {
         Function<String, ParseResult<?>> parser = parsers.get(type);
         if (parser == null) {
@@ -329,6 +374,16 @@ public final class CommandFramework {
 
         static ParseArgumentsResult failure(String failure) {
             return new ParseArgumentsResult(Map.of(), Optional.of(failure));
+        }
+    }
+
+    private record ParseArgumentPrefixResult(Map<String, Object> values, int consumed, Optional<String> failure) {
+        static ParseArgumentPrefixResult success(Map<String, Object> values, int consumed) {
+            return new ParseArgumentPrefixResult(Map.copyOf(values), consumed, Optional.empty());
+        }
+
+        static ParseArgumentPrefixResult failure(String failure) {
+            return new ParseArgumentPrefixResult(Map.of(), 0, Optional.of(failure));
         }
     }
 
