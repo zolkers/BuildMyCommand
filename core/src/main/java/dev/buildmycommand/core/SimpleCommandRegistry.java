@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 final class SimpleCommandRegistry implements CommandRegistry {
@@ -711,12 +712,23 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         private static Class<?> typeFor(String typeName) {
-            return switch (typeName) {
+            Class<?> type = switch (typeName) {
                 case "String" -> String.class;
                 case "Integer" -> Integer.class;
                 case "int" -> int.class;
-                default -> throw new IllegalArgumentException("unknown route type: " + typeName);
+                case "Long" -> Long.class;
+                case "long" -> long.class;
+                case "Double" -> Double.class;
+                case "double" -> double.class;
+                case "Boolean" -> Boolean.class;
+                case "boolean" -> boolean.class;
+                case "UUID" -> UUID.class;
+                default -> null;
             };
+            if (type != null) {
+                return type;
+            }
+            throw new IllegalArgumentException("unknown route type: " + typeName);
         }
 
         private static String validateName(String name, String label) {

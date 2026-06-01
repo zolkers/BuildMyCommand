@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -249,6 +250,64 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("3"), result.reply());
+    }
+
+    @Test
+    void parsesAdditionalBuiltInArgumentTypes() {
+        CommandFramework framework = CommandFramework.create();
+        UUID id = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+
+        framework.registry().command("types", command -> command
+            .argument("longValue", long.class)
+            .argument("doubleValue", Double.class)
+            .argument("enabled", boolean.class)
+            .argument("id", UUID.class)
+            .argument("mode", Mode.class)
+            .executes(ctx -> Results.success(
+                ctx.arg("longValue", long.class)
+                    + ":"
+                    + ctx.arg("doubleValue", Double.class)
+                    + ":"
+                    + ctx.arg("enabled", boolean.class)
+                    + ":"
+                    + ctx.arg("id", UUID.class)
+                    + ":"
+                    + ctx.arg("mode", Mode.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "types 42 3.5 true " + id + " FAST");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("42:3.5:true:" + id + ":FAST"), result.reply());
+    }
+
+    @Test
+    void failsWithStableMessagesForAdditionalBuiltInTypes() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("types", command -> command
+            .argument("longValue", Long.class)
+            .argument("doubleValue", Double.class)
+            .argument("enabled", Boolean.class)
+            .argument("id", UUID.class)
+            .argument("mode", Mode.class)
+            .executes(ctx -> Results.silent()));
+
+        assertEquals(Optional.of("Invalid long for argument longValue: nope"),
+            framework.dispatch(new CommandSource() {
+            }, "types nope 3.5 true 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
+        assertEquals(Optional.of("Invalid double for argument doubleValue: nope"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 nope true 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
+        assertEquals(Optional.of("Invalid boolean for argument enabled: maybe"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 3.5 maybe 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
+        assertEquals(Optional.of("Invalid UUID for argument id: nope"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 3.5 true nope FAST").reply());
+        assertEquals(Optional.of("Invalid enum for argument mode: slow"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 3.5 true 123e4567-e89b-12d3-a456-426614174000 slow").reply());
     }
 
     @Test
@@ -793,11 +852,34 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void routeDslSupportsAdditionalBuiltInTypes() {
+        CommandFramework framework = CommandFramework.create();
+        UUID id = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+
+        framework.registry()
+            .route("types <longValue:long> <enabled:boolean> <id:UUID> [--ratio:double]")
+            .executes(ctx -> Results.success(
+                ctx.arg("longValue", long.class)
+                    + ":"
+                    + ctx.arg("enabled", boolean.class)
+                    + ":"
+                    + ctx.arg("id", UUID.class)
+                    + ":"
+                    + ctx.option("ratio", double.class).orElse(1.0)));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "types 7 false " + id + " --ratio 2.5");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("7:false:" + id + ":2.5"), result.reply());
+    }
+
+    @Test
     void routeDslRejectsInvalidPatternAtRegistration() {
         CommandFramework framework = CommandFramework.create();
 
         assertThrows(IllegalArgumentException.class,
-            () -> framework.registry().route("ban <target:Double>").executes(ctx -> Results.silent()));
+            () -> framework.registry().route("ban <target:Unknown>").executes(ctx -> Results.silent()));
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("ban [--silent|-silent]").executes(ctx -> Results.silent()));
         assertThrows(IllegalArgumentException.class,
@@ -1150,5 +1232,10 @@ class CommandFrameworkTest {
                 return true;
             }
         };
+    }
+
+    private enum Mode {
+        FAST,
+        SAFE
     }
 }
