@@ -72,4 +72,94 @@ class CommandFrameworkTest {
         assertThrows(NullPointerException.class, () -> Results.success(null));
         assertThrows(NullPointerException.class, () -> Results.failure(null));
     }
+
+    @Test
+    void parsesQuotedStringArgumentAsOneValue() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say \"hello world\"");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("hello world"), result.reply());
+    }
+
+    @Test
+    void failsWhenRequiredArgumentIsMissing() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing required argument: message"), result.reply());
+    }
+
+    @Test
+    void parsesOptionalArgumentWhenPresent() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("greet", command -> command
+            .optionalArgument("name", String.class)
+            .executes(ctx -> Results.success(ctx.optionalArg("name", String.class).orElse("stranger"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "greet Ada");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Ada"), result.reply());
+    }
+
+    @Test
+    void usesFallbackForMissingOptionalArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("greet", command -> command
+            .optionalArgument("name", String.class)
+            .executes(ctx -> Results.success(ctx.argOr("name", "stranger"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "greet");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("stranger"), result.reply());
+    }
+
+    @Test
+    void parsesGreedyArgumentFromRemainingInput() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("announce", command -> command
+            .greedyArgument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "announce hello brave new world");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("hello brave new world"), result.reply());
+    }
+
+    @Test
+    void failsInsteadOfThrowingForInvalidIntegerArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("repeat", command -> command
+            .argument("count", Integer.class)
+            .executes(ctx -> Results.success(String.valueOf(ctx.arg("count", Integer.class)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "repeat many");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Invalid integer for argument count: many"), result.reply());
+    }
 }
