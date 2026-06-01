@@ -150,7 +150,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
         for (dev.buildmycommand.api.CommandNode child : node.children()) {
             builder.subcommand(child.literal(), childBuilder -> configureManualNode((SimpleCommandBuilder) childBuilder, child));
         }
-        builder.executes(node.executor());
+        node.executor().ifPresent(builder::executes);
     }
 
     private static void applyManualArgument(

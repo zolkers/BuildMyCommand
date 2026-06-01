@@ -3,6 +3,7 @@ package dev.buildmycommand.api;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public record CommandNode(
     String literal,
@@ -10,7 +11,7 @@ public record CommandNode(
     List<ArgumentSpec<?>> arguments,
     List<FlagSpec<?>> flags,
     List<CommandNode> children,
-    CommandRegistry.CommandExecutor executor
+    Optional<CommandRegistry.CommandExecutor> executor
 ) {
     public CommandNode {
         Objects.requireNonNull(literal, "literal");
@@ -30,7 +31,7 @@ public record CommandNode(
         private final List<ArgumentSpec<?>> arguments = new ArrayList<>();
         private final List<FlagSpec<?>> flags = new ArrayList<>();
         private final List<CommandNode> children = new ArrayList<>();
-        private CommandRegistry.CommandExecutor executor = context -> Results.silent();
+        private CommandRegistry.CommandExecutor executor;
 
         Builder(String literal) {
             this.literal = Objects.requireNonNull(literal, "literal");
@@ -70,7 +71,7 @@ public record CommandNode(
         }
 
         public CommandNode build() {
-            return new CommandNode(literal, aliases, arguments, flags, children, executor);
+            return new CommandNode(literal, aliases, arguments, flags, children, Optional.ofNullable(executor));
         }
     }
 }

@@ -11,6 +11,9 @@ public record FlagSpec<T>(String name, Class<T> type, String alias, Kind kind) {
         }
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(kind, "kind");
+        if (kind == Kind.FLAG && type != Boolean.class && type != boolean.class) {
+            throw new IllegalArgumentException("boolean flag type must be Boolean");
+        }
         if (alias != null && alias.isBlank()) {
             throw new IllegalArgumentException("flag or option alias must not be blank");
         }

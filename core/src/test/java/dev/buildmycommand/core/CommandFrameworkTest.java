@@ -617,6 +617,31 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void manualApiNodesWithoutHandlersCanLaterMergeWithExecutableRoutes() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().register(Commands.literal("user")
+            .child(Commands.literal("rank").build())
+            .build());
+        framework.registry()
+            .route("user rank")
+            .executes(ctx -> Results.success("rank"));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("rank"), result.reply());
+    }
+
+    @Test
+    void flagSpecRejectsNonBooleanBooleanFlags() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new dev.buildmycommand.api.FlagSpec<>("dry", String.class, null,
+                dev.buildmycommand.api.FlagSpec.Kind.FLAG));
+    }
+
+    @Test
     void routeDslDispatchesNestedLiteralsRequiredArgumentsAndValuedOptionAlias() {
         CommandFramework framework = CommandFramework.create();
 
