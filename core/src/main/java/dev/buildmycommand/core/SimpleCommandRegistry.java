@@ -21,7 +21,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
         SimpleCommandBuilder builder = new SimpleCommandBuilder();
         configure.accept(builder);
-        commands.put(literal, builder.executor());
+        if (commands.putIfAbsent(literal, builder.executor()) != null) {
+            throw new IllegalArgumentException("command already registered: " + literal);
+        }
     }
 
     CommandExecutor find(String input) {
