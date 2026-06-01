@@ -43,6 +43,30 @@ public final class CommandFramework {
         return registry;
     }
 
+    public String help(String path) {
+        Objects.requireNonNull(path, "path");
+
+        TokenizeResult tokenizeResult = tokenize(path);
+        if (tokenizeResult.failure().isPresent() || tokenizeResult.tokens().isEmpty()) {
+            return "Unknown command: " + path;
+        }
+
+        SimpleCommandRegistry.CommandPath commandPath = registry.findPath(tokenizeResult.tokens());
+        if (commandPath == null) {
+            return "Unknown command: " + path;
+        }
+
+        return "Usage: " + usage(commandPath.literals(), commandPath.node());
+    }
+
+    public String schema() {
+        StringBuilder builder = new StringBuilder();
+        for (SimpleCommandRegistry.CommandNode root : registry.roots()) {
+            appendSchema(builder, List.of(root.literal()), root);
+        }
+        return builder.toString();
+    }
+
     public CommandResult dispatch(CommandSource source, String input) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(input, "input");
@@ -147,6 +171,90 @@ public final class CommandFramework {
             .map(SimpleCommandRegistry.CommandNode::literal)
             .filter(literal -> literal.startsWith(current))
             .toList();
+    }
+
+    private static String usage(List<String> path, SimpleCommandRegistry.CommandNode command) {
+        List<String> parts = new ArrayList<>(path);
+        parts.addAll(command.arguments().stream()
+            .map(CommandFramework::formatUsageArgument)
+            .toList());
+        parts.addAll(command.options().stream()
+            .map(CommandFramework::formatUsageOption)
+            .toList());
+        return String.join(" ", parts);
+    }
+
+    private static String formatUsageArgument(SimpleCommandRegistry.ArgumentSpec argument) {
+        String body = argument.name() + ":" + typeName(argument.type());
+        return switch (argument.kind()) {
+            case REQUIRED -> "<" + body + ">";
+            case OPTIONAL -> "[" + body + "]";
+            case GREEDY -> "<" + body + "...>";
+            case OPTIONAL_GREEDY -> "[" + body + "...]";
+        };
+    }
+
+    private static String formatUsageOption(SimpleCommandRegistry.OptionSpec option) {
+        StringBuilder builder = new StringBuilder("[--").append(option.name());
+        if (option.kind() == SimpleCommandRegistry.OptionKind.VALUE) {
+            builder.append(":").append(typeName(option.type()));
+        }
+        option.aliasOptional().ifPresent(alias -> builder.append("|-").append(alias));
+        return builder.append("]").toString();
+    }
+
+    private static void appendSchema(
+        StringBuilder builder,
+        List<String> path,
+        SimpleCommandRegistry.CommandNode command
+    ) {
+        appendLine(builder, "command " + String.join(" ", path));
+        for (SimpleCommandRegistry.ArgumentSpec argument : command.arguments()) {
+            appendLine(builder, "  argument " + argument.name() + ":" + typeName(argument.type())
+                + " " + schemaArgumentKind(argument.kind()));
+        }
+        for (SimpleCommandRegistry.OptionSpec option : command.options()) {
+            String alias = option.aliasOptional()
+                .map(value -> " alias=" + value)
+                .orElse("");
+            appendLine(builder, "  option " + option.name() + ":" + typeName(option.type())
+                + " " + schemaOptionKind(option.kind()) + alias);
+        }
+        for (SimpleCommandRegistry.CommandNode child : command.uniqueChildren()) {
+            appendLine(builder, "  child " + child.literal());
+        }
+        for (SimpleCommandRegistry.CommandNode child : command.uniqueChildren()) {
+            List<String> childPath = new ArrayList<>(path);
+            childPath.add(child.literal());
+            appendSchema(builder, childPath, child);
+        }
+    }
+
+    private static void appendLine(StringBuilder builder, String line) {
+        if (builder.length() > 0) {
+            builder.append('\n');
+        }
+        builder.append(line);
+    }
+
+    private static String schemaArgumentKind(SimpleCommandRegistry.ArgumentKind kind) {
+        return switch (kind) {
+            case REQUIRED -> "required";
+            case OPTIONAL -> "optional";
+            case GREEDY -> "greedy";
+            case OPTIONAL_GREEDY -> "optional-greedy";
+        };
+    }
+
+    private static String schemaOptionKind(SimpleCommandRegistry.OptionKind kind) {
+        return switch (kind) {
+            case FLAG -> "flag";
+            case VALUE -> "value";
+        };
+    }
+
+    private static String typeName(Class<?> type) {
+        return type == int.class ? "int" : type.getSimpleName();
     }
 
     private static String currentToken(String input, List<String> tokens) {

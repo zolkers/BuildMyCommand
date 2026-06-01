@@ -641,4 +641,64 @@ class CommandFrameworkTest {
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("user rank").executes(ctx -> Results.success("again")));
     }
+
+    @Test
+    void returnsHelpForCommandUsage() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban <target:String> [reason:String...] [--silent|-s]")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("Usage: ban <target:String> [reason:String...] [--silent|-s]", framework.help("ban"));
+    }
+
+    @Test
+    void returnsHelpForNestedCommandUsage() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank set <target:String>")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("Usage: user rank set <target:String>", framework.help("user rank set"));
+    }
+
+    @Test
+    void returnsUsefulHelpForUnknownCommandPath() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank set <target:String>")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("Unknown command: user missing", framework.help("user missing"));
+    }
+
+    @Test
+    void exportsDeterministicSchemaFromCommandTree() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban <target:String> [reason:String...] [--silent|-s]")
+            .executes(ctx -> Results.silent());
+        framework.registry()
+            .route("user rank set <target:String>")
+            .executes(ctx -> Results.silent());
+
+        String expected = """
+            command ban
+              argument target:String required
+              argument reason:String optional-greedy
+              option silent:Boolean flag alias=s
+            command user
+              child rank
+            command user rank
+              child set
+            command user rank set
+              argument target:String required""";
+
+        assertEquals(expected, framework.schema());
+        assertEquals(expected, framework.schema());
+    }
 }
