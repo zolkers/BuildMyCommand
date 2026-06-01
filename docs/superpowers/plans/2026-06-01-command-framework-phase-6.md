@@ -16,8 +16,8 @@
 - Modify: `core/src/main/java/dev/buildmycommand/core/CommandFramework.java`
 - Modify tests under `core/src/test/java/...`
 
-- [x] Write failing tests for single-quoted strings, escaped double quotes, escaped single quotes, escaped backslashes, and trailing escape errors.
+- [x] Write failing tests for single-quoted strings, escaped double quotes, escaped single quotes, escaped backslashes, escaped whitespace, and bare path-like backslashes.
 - [x] Support single and double quoted strings.
-- [x] Support backslash escaping inside and outside quotes.
+- [x] Support backslash escaping for syntax characters inside and outside quotes while preserving path-like backslashes.
 - [x] Preserve existing unclosed quote behavior with clearer quote-specific coverage.
 - [x] Verify existing dispatch, route DSL, suggestions, permissions, and help tests still pass.

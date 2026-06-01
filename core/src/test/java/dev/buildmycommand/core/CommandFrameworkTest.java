@@ -123,6 +123,25 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void preservesBareBackslashesInPathLikeArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult path = framework.dispatch(new CommandSource() {
+        }, "say C:\\tools");
+        CommandResult trailing = framework.dispatch(new CommandSource() {
+        }, "say C:\\");
+
+        assertEquals(CommandResult.Status.SUCCESS, path.status());
+        assertEquals(Optional.of("C:\\tools"), path.reply());
+        assertEquals(CommandResult.Status.SUCCESS, trailing.status());
+        assertEquals(Optional.of("C:\\"), trailing.reply());
+    }
+
+    @Test
     void failsWhenRequiredArgumentIsMissing() {
         CommandFramework framework = CommandFramework.create();
 
@@ -258,7 +277,7 @@ class CommandFrameworkTest {
     }
 
     @Test
-    void failsForTrailingEscape() {
+    void failsForTrailingEscapedWhitespace() {
         CommandFramework framework = CommandFramework.create();
 
         framework.registry().command("say", command -> command
@@ -266,10 +285,10 @@ class CommandFrameworkTest {
             .executes(ctx -> Results.success(ctx.arg("message", String.class))));
 
         CommandResult result = framework.dispatch(new CommandSource() {
-        }, "say hello\\");
+        }, "say hello\\ ");
 
-        assertEquals(CommandResult.Status.FAILURE, result.status());
-        assertEquals(Optional.of("Trailing escape"), result.reply());
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("hello "), result.reply());
     }
 
     @Test

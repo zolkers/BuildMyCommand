@@ -548,6 +548,17 @@ public final class CommandFramework {
             }
 
             if (character == '\\') {
+                if (index + 1 >= input.length()) {
+                    current.append(character);
+                    tokenStarted = true;
+                    continue;
+                }
+                char next = input.charAt(index + 1);
+                if (next != '\\' && next != '"' && next != '\'' && !Character.isWhitespace(next)) {
+                    current.append(character);
+                    tokenStarted = true;
+                    continue;
+                }
                 escaped = true;
                 continue;
             }
@@ -575,10 +586,6 @@ public final class CommandFramework {
 
             current.append(character);
             tokenStarted = true;
-        }
-
-        if (escaped) {
-            return TokenizeResult.failure("Trailing escape");
         }
 
         if (quote != 0) {
