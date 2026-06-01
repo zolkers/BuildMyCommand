@@ -30,9 +30,9 @@
 - Create: `examples/build.gradle.kts`
 - Create examples under `examples/src/main/java/...`
 
-- [ ] Add compile-tested minimal builder/manual/route DSL/annotation/terminal example classes with no runtime integration assertions.
-- [ ] Keep examples dependency-only; no runtime platform dependencies beyond existing modules.
-- [ ] Verify examples compile in the normal build.
+- [x] Add compile-tested minimal builder/manual/route DSL/annotation/terminal example classes with no runtime integration assertions.
+- [x] Keep examples dependency-only; no runtime platform dependencies beyond existing modules.
+- [x] Verify examples compile in the normal build.
 
 ### Task 14: Coverage Baseline
 
