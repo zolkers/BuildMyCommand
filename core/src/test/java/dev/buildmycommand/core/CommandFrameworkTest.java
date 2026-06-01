@@ -237,4 +237,71 @@ class CommandFrameworkTest {
         assertEquals(CommandResult.Status.FAILURE, result.status());
         assertEquals(Optional.of("Unexpected argument: extra"), result.reply());
     }
+
+    @Test
+    void dispatchesNestedSubcommandArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("user", user -> user
+            .subcommand("rank", rank -> rank
+                .subcommand("set", set -> set
+                    .argument("target", String.class)
+                    .argument("rank", String.class)
+                    .executes(ctx -> Results.success(ctx.arg("target", String.class) + "=" + ctx.arg("rank", String.class))))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank set Victor admin");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Victor=admin"), result.reply());
+    }
+
+    @Test
+    void matchesSubcommandLiteralBeforeParsingArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("user", user -> user
+            .argument("target", String.class)
+            .executes(ctx -> Results.success("profile " + ctx.arg("target", String.class)))
+            .subcommand("rank", rank -> rank
+                .argument("target", String.class)
+                .executes(ctx -> Results.success("rank " + ctx.arg("target", String.class)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank Victor");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("rank Victor"), result.reply());
+    }
+
+    @Test
+    void dispatchesTopLevelCommandAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ping", command -> command
+            .alias("p")
+            .executes(ctx -> Results.success("Pong")));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "p");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Pong"), result.reply());
+    }
+
+    @Test
+    void dispatchesSubcommandAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("user", user -> user
+            .subcommand("rank", rank -> rank
+                .aliases("r", "roles")
+                .executes(ctx -> Results.success("rank"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user roles");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("rank"), result.reply());
+    }
 }

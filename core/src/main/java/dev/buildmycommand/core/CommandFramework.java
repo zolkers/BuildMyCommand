@@ -58,12 +58,22 @@ public final class CommandFramework {
         }
 
         String literal = tokens.get(0);
-        SimpleCommandRegistry.CommandDefinition command = registry.find(literal);
+        SimpleCommandRegistry.CommandNode command = registry.find(literal);
         if (command == null) {
             return Results.failure("Unknown command: " + literal);
         }
 
-        ParseArgumentsResult arguments = parseArguments(command.arguments(), tokens.subList(1, tokens.size()));
+        int tokenIndex = 1;
+        while (tokenIndex < tokens.size()) {
+            SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
+            if (child == null) {
+                break;
+            }
+            command = child;
+            tokenIndex++;
+        }
+
+        ParseArgumentsResult arguments = parseArguments(command.arguments(), tokens.subList(tokenIndex, tokens.size()));
         if (arguments.failure().isPresent()) {
             return Results.failure(arguments.failure().get());
         }

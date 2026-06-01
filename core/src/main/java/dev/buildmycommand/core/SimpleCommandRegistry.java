@@ -11,7 +11,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 final class SimpleCommandRegistry implements CommandRegistry {
-    private final Map<String, CommandDefinition> commands = new HashMap<>();
+    private final Map<String, CommandNode> commands = new HashMap<>();
 
     @Override
     public void command(String literal, Consumer<CommandBuilder> configure) {
@@ -21,20 +21,57 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
         Objects.requireNonNull(configure, "configure");
 
-        SimpleCommandBuilder builder = new SimpleCommandBuilder();
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(literal);
         configure.accept(builder);
-        if (commands.putIfAbsent(literal, builder.definition()) != null) {
-            throw new IllegalArgumentException("command already registered: " + literal);
-        }
+        CommandNode node = builder.node();
+        registerAll(commands, node.literals(), node, "command already registered: ");
     }
 
-    CommandDefinition find(String literal) {
+    CommandNode find(String literal) {
         return commands.get(literal);
     }
 
     private static final class SimpleCommandBuilder implements CommandBuilder {
+        private final String literal;
+        private final List<String> aliases = new ArrayList<>();
         private final List<ArgumentSpec> arguments = new ArrayList<>();
+        private final Map<String, CommandNode> children = new HashMap<>();
         private CommandExecutor executor = context -> Results.silent();
+
+        private SimpleCommandBuilder(String literal) {
+            this.literal = validateLiteral(literal, "literal");
+        }
+
+        @Override
+        public CommandBuilder alias(String alias) {
+            String validatedAlias = validateLiteral(alias, "alias");
+            if (validatedAlias.equals(literal) || aliases.contains(validatedAlias)) {
+                throw new IllegalArgumentException("alias already registered: " + validatedAlias);
+            }
+            aliases.add(validatedAlias);
+            return this;
+        }
+
+        @Override
+        public CommandBuilder aliases(String... aliases) {
+            Objects.requireNonNull(aliases, "aliases");
+            for (String alias : aliases) {
+                alias(alias);
+            }
+            return this;
+        }
+
+        @Override
+        public CommandBuilder subcommand(String literal, Consumer<CommandBuilder> configure) {
+            String validatedLiteral = validateLiteral(literal, "literal");
+            Objects.requireNonNull(configure, "configure");
+
+            SimpleCommandBuilder builder = new SimpleCommandBuilder(validatedLiteral);
+            configure.accept(builder);
+            CommandNode child = builder.node();
+            registerAll(children, child.literals(), child, "subcommand already registered: ");
+            return this;
+        }
 
         @Override
         public <T> CommandBuilder argument(String name, Class<T> type) {
@@ -58,12 +95,13 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         @Override
-        public void executes(CommandExecutor executor) {
+        public CommandBuilder executes(CommandExecutor executor) {
             this.executor = Objects.requireNonNull(executor, "executor");
+            return this;
         }
 
-        CommandDefinition definition() {
-            return new CommandDefinition(executor, arguments);
+        CommandNode node() {
+            return new CommandNode(literal, aliases, executor, arguments, children);
         }
 
         private void validateCanAdd(String nextName, ArgumentKind nextKind) {
@@ -85,10 +123,50 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
     }
 
-    record CommandDefinition(CommandExecutor executor, List<ArgumentSpec> arguments) {
-        CommandDefinition {
+    private static void registerAll(
+        Map<String, CommandNode> nodes,
+        List<String> literals,
+        CommandNode node,
+        String duplicateMessage
+    ) {
+        for (String literal : literals) {
+            if (nodes.containsKey(literal)) {
+                throw new IllegalArgumentException(duplicateMessage + literal);
+            }
+        }
+        for (String literal : literals) {
+            nodes.put(literal, node);
+        }
+    }
+
+    private static String validateLiteral(String literal, String label) {
+        Objects.requireNonNull(literal, label);
+        if (literal.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        return literal;
+    }
+
+    record CommandNode(
+        String literal,
+        List<String> aliases,
+        CommandExecutor executor,
+        List<ArgumentSpec> arguments,
+        Map<String, CommandNode> children
+    ) {
+        CommandNode {
+            Objects.requireNonNull(literal, "literal");
+            aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
             Objects.requireNonNull(executor, "executor");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
+            children = Map.copyOf(Objects.requireNonNull(children, "children"));
+        }
+
+        List<String> literals() {
+            List<String> literals = new ArrayList<>(aliases.size() + 1);
+            literals.add(literal);
+            literals.addAll(aliases);
+            return literals;
         }
     }
 

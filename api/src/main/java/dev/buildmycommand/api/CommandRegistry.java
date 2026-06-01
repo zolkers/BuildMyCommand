@@ -6,13 +6,19 @@ public interface CommandRegistry {
     void command(String literal, Consumer<CommandBuilder> configure);
 
     interface CommandBuilder {
+        CommandBuilder alias(String alias);
+
+        CommandBuilder aliases(String... aliases);
+
+        CommandBuilder subcommand(String literal, Consumer<CommandBuilder> configure);
+
         <T> CommandBuilder argument(String name, Class<T> type);
 
         <T> CommandBuilder optionalArgument(String name, Class<T> type);
 
         <T> CommandBuilder greedyArgument(String name, Class<T> type);
 
-        void executes(CommandExecutor executor);
+        CommandBuilder executes(CommandExecutor executor);
     }
 
     @FunctionalInterface
