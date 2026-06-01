@@ -52,15 +52,18 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         List<String> canonicalPath = new ArrayList<>();
+        List<CommandNode> nodes = new ArrayList<>();
         canonicalPath.add(command.literal());
+        nodes.add(command);
         for (int index = 1; index < literals.size(); index++) {
             command = command.children().get(literals.get(index));
             if (command == null) {
                 return null;
             }
             canonicalPath.add(command.literal());
+            nodes.add(command);
         }
-        return new CommandPath(canonicalPath, command);
+        return new CommandPath(canonicalPath, nodes);
     }
 
     List<CommandNode> roots() {
@@ -348,10 +351,17 @@ final class SimpleCommandRegistry implements CommandRegistry {
         return literal;
     }
 
-    record CommandPath(List<String> literals, CommandNode node) {
+    record CommandPath(List<String> literals, List<CommandNode> nodes) {
         CommandPath {
             literals = List.copyOf(Objects.requireNonNull(literals, "literals"));
-            Objects.requireNonNull(node, "node");
+            nodes = List.copyOf(Objects.requireNonNull(nodes, "nodes"));
+            if (nodes.isEmpty()) {
+                throw new IllegalArgumentException("nodes must not be empty");
+            }
+        }
+
+        CommandNode node() {
+            return nodes.get(nodes.size() - 1);
         }
     }
 

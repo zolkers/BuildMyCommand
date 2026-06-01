@@ -56,7 +56,7 @@ public final class CommandFramework {
             return "Unknown command: " + path;
         }
 
-        return "Usage: " + usage(commandPath.literals(), commandPath.node());
+        return "Usage: " + usage(commandPath);
     }
 
     public String schema() {
@@ -173,12 +173,15 @@ public final class CommandFramework {
             .toList();
     }
 
-    private static String usage(List<String> path, SimpleCommandRegistry.CommandNode command) {
-        List<String> parts = new ArrayList<>(path);
-        parts.addAll(command.arguments().stream()
-            .map(CommandFramework::formatUsageArgument)
-            .toList());
-        parts.addAll(command.options().stream()
+    private static String usage(SimpleCommandRegistry.CommandPath commandPath) {
+        List<String> parts = new ArrayList<>();
+        for (int index = 0; index < commandPath.nodes().size(); index++) {
+            parts.add(commandPath.literals().get(index));
+            parts.addAll(commandPath.nodes().get(index).arguments().stream()
+                .map(CommandFramework::formatUsageArgument)
+                .toList());
+        }
+        parts.addAll(commandPath.node().options().stream()
             .map(CommandFramework::formatUsageOption)
             .toList());
         return String.join(" ", parts);

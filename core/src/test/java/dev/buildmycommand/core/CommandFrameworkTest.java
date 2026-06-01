@@ -665,6 +665,17 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void helpIncludesArgumentsDeclaredBeforeSubcommandLiterals() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user <target:String> rank set <rank:String>")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("Usage: user <target:String> rank set <rank:String>", framework.help("user rank set"));
+    }
+
+    @Test
     void returnsUsefulHelpForUnknownCommandPath() {
         CommandFramework framework = CommandFramework.create();
 
