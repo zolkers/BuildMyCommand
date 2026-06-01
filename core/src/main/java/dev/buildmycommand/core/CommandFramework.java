@@ -73,13 +73,136 @@ public final class CommandFramework {
             tokenIndex++;
         }
 
-        ParseArgumentsResult arguments = parseArguments(command.arguments(), tokens.subList(tokenIndex, tokens.size()));
+        ParseOptionsResult options = parseOptions(command.options(), tokens.subList(tokenIndex, tokens.size()));
+        if (options.failure().isPresent()) {
+            return Results.failure(options.failure().get());
+        }
+
+        ParseArgumentsResult arguments = parseArguments(command.arguments(), options.positionals());
         if (arguments.failure().isPresent()) {
             return Results.failure(arguments.failure().get());
         }
 
-        CommandContext context = new CommandContext(source, input, arguments.values());
+        Map<String, Object> values = new HashMap<>(arguments.values());
+        values.putAll(options.values());
+        CommandContext context = new CommandContext(source, input, values);
         return Objects.requireNonNull(command.executor().execute(context), "command result");
+    }
+
+    public List<String> suggest(CommandSource source, String input, int cursor) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(input, "input");
+
+        String prefixInput = input.substring(0, Math.max(0, Math.min(cursor, input.length())));
+        TokenizeResult tokenizeResult = tokenize(prefixInput);
+        if (tokenizeResult.failure().isPresent()) {
+            return List.of();
+        }
+
+        List<String> tokens = tokenizeResult.tokens();
+        String current = currentToken(prefixInput, tokens);
+        if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
+            return registry.roots().stream()
+                .map(SimpleCommandRegistry.CommandNode::literal)
+                .filter(literal -> literal.startsWith(current))
+                .toList();
+        }
+
+        SimpleCommandRegistry.CommandNode command = registry.find(tokens.get(0));
+        if (command == null) {
+            return List.of();
+        }
+
+        int tokenIndex = 1;
+        while (tokenIndex < tokens.size()) {
+            SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
+            if (child == null) {
+                break;
+            }
+            command = child;
+            tokenIndex++;
+        }
+
+        if (current.startsWith("-")) {
+            return command.options().stream()
+                .map(option -> "--" + option.name())
+                .filter(name -> name.startsWith(current))
+                .toList();
+        }
+        return command.children().values().stream()
+            .distinct()
+            .map(SimpleCommandRegistry.CommandNode::literal)
+            .filter(literal -> literal.startsWith(current))
+            .toList();
+    }
+
+    private static String currentToken(String input, List<String> tokens) {
+        if (input.isEmpty() || input.endsWith(" ")) {
+            return "";
+        }
+        if (tokens.isEmpty()) {
+            return "";
+        }
+        return tokens.get(tokens.size() - 1);
+    }
+
+    private ParseOptionsResult parseOptions(
+        List<SimpleCommandRegistry.OptionSpec> specs,
+        List<String> tokens
+    ) {
+        Map<String, Object> values = new HashMap<>();
+        List<String> positionals = new ArrayList<>();
+
+        int tokenIndex = 0;
+        while (tokenIndex < tokens.size()) {
+            String token = tokens.get(tokenIndex);
+            if (!isOptionToken(token)) {
+                positionals.add(token);
+                tokenIndex++;
+                continue;
+            }
+
+            SimpleCommandRegistry.OptionSpec spec = findOption(specs, token);
+            if (spec == null) {
+                return ParseOptionsResult.failure("Unknown flag or option: " + token);
+            }
+
+            if (spec.kind() == SimpleCommandRegistry.OptionKind.FLAG) {
+                values.put(spec.name(), true);
+                tokenIndex++;
+                continue;
+            }
+
+            if (tokenIndex + 1 >= tokens.size() || isOptionToken(tokens.get(tokenIndex + 1))) {
+                return ParseOptionsResult.failure("Missing value for option: " + spec.name());
+            }
+
+            String raw = tokens.get(tokenIndex + 1);
+            ParseResult<?> parsed = parse(spec.type(), raw);
+            if (parsed.failure().isPresent()) {
+                return ParseOptionsResult.failure(parsed.failure().get() + " for option " + spec.name() + ": " + raw);
+            }
+            values.put(spec.name(), parsed.value());
+            tokenIndex += 2;
+        }
+
+        return ParseOptionsResult.success(values, positionals);
+    }
+
+    private static boolean isOptionToken(String token) {
+        return token.length() > 1 && token.startsWith("-");
+    }
+
+    private static SimpleCommandRegistry.OptionSpec findOption(
+        List<SimpleCommandRegistry.OptionSpec> specs,
+        String token
+    ) {
+        for (SimpleCommandRegistry.OptionSpec spec : specs) {
+            if (token.equals("--" + spec.name()) || spec.aliasOptional().map(alias -> token.equals("-" + alias)).orElse(false)) {
+                return spec;
+            }
+        }
+        return null;
     }
 
     private ParseArgumentsResult parseArguments(
@@ -95,7 +218,7 @@ public final class CommandFramework {
                     return ParseArgumentsResult.failure("Missing required argument: " + spec.name());
                 }
                 String raw = String.join(" ", tokens.subList(tokenIndex, tokens.size()));
-                ParseResult<?> parsed = parse(spec, raw);
+                ParseResult<?> parsed = parse(spec.type(), raw);
                 if (parsed.failure().isPresent()) {
                     return ParseArgumentsResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
                 }
@@ -112,7 +235,7 @@ public final class CommandFramework {
             }
 
             String raw = tokens.get(tokenIndex);
-            ParseResult<?> parsed = parse(spec, raw);
+            ParseResult<?> parsed = parse(spec.type(), raw);
             if (parsed.failure().isPresent()) {
                 return ParseArgumentsResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
             }
@@ -127,8 +250,8 @@ public final class CommandFramework {
         return ParseArgumentsResult.success(values);
     }
 
-    private ParseResult<?> parse(SimpleCommandRegistry.ArgumentSpec spec, String raw) {
-        Function<String, ParseResult<?>> parser = parsers.get(spec.type());
+    private ParseResult<?> parse(Class<?> type, String raw) {
+        Function<String, ParseResult<?>> parser = parsers.get(type);
         if (parser == null) {
             return ParseResult.failure("No parser registered");
         }
@@ -180,6 +303,16 @@ public final class CommandFramework {
 
         static TokenizeResult failure(String failure) {
             return new TokenizeResult(List.of(), Optional.of(failure));
+        }
+    }
+
+    private record ParseOptionsResult(Map<String, Object> values, List<String> positionals, Optional<String> failure) {
+        static ParseOptionsResult success(Map<String, Object> values, List<String> positionals) {
+            return new ParseOptionsResult(Map.copyOf(values), List.copyOf(positionals), Optional.empty());
+        }
+
+        static ParseOptionsResult failure(String failure) {
+            return new ParseOptionsResult(Map.of(), List.of(), Optional.of(failure));
         }
     }
 

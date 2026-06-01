@@ -4,14 +4,15 @@ import dev.buildmycommand.api.CommandRegistry;
 import dev.buildmycommand.api.Results;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 final class SimpleCommandRegistry implements CommandRegistry {
-    private final Map<String, CommandNode> commands = new HashMap<>();
+    private final Map<String, CommandNode> commands = new LinkedHashMap<>();
 
     @Override
     public void command(String literal, Consumer<CommandBuilder> configure) {
@@ -31,11 +32,22 @@ final class SimpleCommandRegistry implements CommandRegistry {
         return commands.get(literal);
     }
 
+    List<CommandNode> roots() {
+        List<CommandNode> roots = new ArrayList<>();
+        for (CommandNode command : commands.values()) {
+            if (!roots.contains(command)) {
+                roots.add(command);
+            }
+        }
+        return roots;
+    }
+
     private static final class SimpleCommandBuilder implements CommandBuilder {
         private final String literal;
         private final List<String> aliases = new ArrayList<>();
         private final List<ArgumentSpec> arguments = new ArrayList<>();
-        private final Map<String, CommandNode> children = new HashMap<>();
+        private final List<OptionSpec> options = new ArrayList<>();
+        private final Map<String, CommandNode> children = new LinkedHashMap<>();
         private CommandExecutor executor = context -> Results.silent();
 
         private SimpleCommandBuilder(String literal) {
@@ -95,13 +107,37 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         @Override
+        public CommandBuilder flag(String name) {
+            return flag(name, null);
+        }
+
+        @Override
+        public CommandBuilder flag(String name, String alias) {
+            options.add(new OptionSpec(name, Boolean.class, alias, OptionKind.FLAG));
+            validateOptionNames();
+            return this;
+        }
+
+        @Override
+        public <T> CommandBuilder option(String name, Class<T> type) {
+            return option(name, type, null);
+        }
+
+        @Override
+        public <T> CommandBuilder option(String name, Class<T> type, String alias) {
+            options.add(new OptionSpec(name, type, alias, OptionKind.VALUE));
+            validateOptionNames();
+            return this;
+        }
+
+        @Override
         public CommandBuilder executes(CommandExecutor executor) {
             this.executor = Objects.requireNonNull(executor, "executor");
             return this;
         }
 
         CommandNode node() {
-            return new CommandNode(literal, aliases, executor, arguments, children);
+            return new CommandNode(literal, aliases, executor, arguments, options, children);
         }
 
         private void validateCanAdd(String nextName, ArgumentKind nextKind) {
@@ -119,6 +155,23 @@ final class SimpleCommandRegistry implements CommandRegistry {
                 .anyMatch(argument -> argument.kind() == ArgumentKind.GREEDY);
             if (hasGreedy) {
                 throw new IllegalStateException("greedy argument must be the last argument");
+            }
+        }
+
+        private void validateOptionNames() {
+            List<String> seenNames = new ArrayList<>();
+            List<String> seenAliases = new ArrayList<>();
+            for (OptionSpec option : options) {
+                if (seenNames.contains(option.name())) {
+                    throw new IllegalStateException("flag or option already declared: " + option.name());
+                }
+                seenNames.add(option.name());
+                option.aliasOptional().ifPresent(alias -> {
+                    if (seenAliases.contains(alias)) {
+                        throw new IllegalStateException("flag or option alias already declared: " + alias);
+                    }
+                    seenAliases.add(alias);
+                });
             }
         }
     }
@@ -152,6 +205,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
         List<String> aliases,
         CommandExecutor executor,
         List<ArgumentSpec> arguments,
+        List<OptionSpec> options,
         Map<String, CommandNode> children
     ) {
         CommandNode {
@@ -159,7 +213,8 @@ final class SimpleCommandRegistry implements CommandRegistry {
             aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
             Objects.requireNonNull(executor, "executor");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
-            children = Map.copyOf(Objects.requireNonNull(children, "children"));
+            options = List.copyOf(Objects.requireNonNull(options, "options"));
+            children = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(children, "children")));
         }
 
         List<String> literals() {
@@ -181,9 +236,32 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
     }
 
+    record OptionSpec(String name, Class<?> type, String alias, OptionKind kind) {
+        OptionSpec {
+            Objects.requireNonNull(name, "name");
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("flag or option name must not be blank");
+            }
+            Objects.requireNonNull(type, "type");
+            if (alias != null && alias.isBlank()) {
+                throw new IllegalArgumentException("flag or option alias must not be blank");
+            }
+            Objects.requireNonNull(kind, "kind");
+        }
+
+        java.util.Optional<String> aliasOptional() {
+            return java.util.Optional.ofNullable(alias);
+        }
+    }
+
     enum ArgumentKind {
         REQUIRED,
         OPTIONAL,
         GREEDY
+    }
+
+    enum OptionKind {
+        FLAG,
+        VALUE
     }
 }

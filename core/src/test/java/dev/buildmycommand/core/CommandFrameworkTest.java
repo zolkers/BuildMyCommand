@@ -5,6 +5,7 @@ import dev.buildmycommand.api.CommandSource;
 import dev.buildmycommand.api.Results;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -334,5 +335,121 @@ class CommandFrameworkTest {
         assertThrows(IllegalArgumentException.class, () -> framework.registry().command("ping", command -> command
             .aliases("p", "p")
             .executes(ctx -> Results.success("Pong"))));
+    }
+
+    @Test
+    void parsesBooleanFlagAfterPositionalArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ban", command -> command
+            .argument("target", String.class)
+            .flag("silent")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class) + ":" + ctx.flag("silent"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ban Steve --silent");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Steve:true"), result.reply());
+    }
+
+    @Test
+    void parsesValuedOptionAfterPositionalArguments() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("give", command -> command
+            .argument("target", String.class)
+            .argument("item", String.class)
+            .option("amount", Integer.class)
+            .executes(ctx -> Results.success(
+                ctx.arg("target", String.class) + " gets "
+                    + ctx.option("amount", Integer.class).orElse(1)
+                    + " " + ctx.arg("item", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "give Steve diamond --amount 64");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Steve gets 64 diamond"), result.reply());
+    }
+
+    @Test
+    void parsesShortFlagAndOptionAliases() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("give", command -> command
+            .argument("target", String.class)
+            .argument("item", String.class)
+            .flag("silent", "s")
+            .option("amount", Integer.class, "a")
+            .executes(ctx -> Results.success(
+                ctx.flag("silent") + ":" + ctx.option("amount", Integer.class).orElse(1))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "give Steve diamond -s -a 64");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("true:64"), result.reply());
+    }
+
+    @Test
+    void failsForUnknownFlagOrOption() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ban", command -> command
+            .argument("target", String.class)
+            .flag("silent")
+            .executes(ctx -> Results.silent()));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ban Steve --force");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Unknown flag or option: --force"), result.reply());
+    }
+
+    @Test
+    void failsWhenOptionValueIsMissing() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("give", command -> command
+            .argument("target", String.class)
+            .option("amount", Integer.class)
+            .executes(ctx -> Results.silent()));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "give Steve --amount");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing value for option: amount"), result.reply());
+    }
+
+    @Test
+    void suggestsRootCommandsByPrefix() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.silent()));
+        framework.registry().command("ban", command -> command.executes(ctx -> Results.silent()));
+
+        List<String> suggestions = framework.suggest(new CommandSource() {
+        }, "p", 1);
+
+        assertEquals(List.of("ping"), suggestions);
+    }
+
+    @Test
+    void suggestsFlagsForMatchedCommand() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ban", command -> command
+            .argument("target", String.class)
+            .flag("silent", "s")
+            .option("reason", String.class, "r")
+            .executes(ctx -> Results.silent()));
+
+        List<String> suggestions = framework.suggest(new CommandSource() {
+        }, "ban Steve --", 12);
+
+        assertEquals(List.of("--silent", "--reason"), suggestions);
     }
 }

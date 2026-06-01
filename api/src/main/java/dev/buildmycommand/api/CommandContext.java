@@ -37,6 +37,26 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
         return Optional.of(cast(type, value));
     }
 
+    public boolean flag(String name) {
+        Objects.requireNonNull(name, "name");
+        Object value = arguments.get(name);
+        if (value == null) {
+            return false;
+        }
+        return cast(Boolean.class, value);
+    }
+
+    public <T> Optional<T> option(String name, Class<T> type) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(type, "type");
+
+        Object value = arguments.get(name);
+        if (value == null) {
+            return Optional.empty();
+        }
+        return Optional.of(cast(type, value));
+    }
+
     @SuppressWarnings("unchecked")
     public <T> T argOr(String name, T fallback) {
         Objects.requireNonNull(name, "name");
