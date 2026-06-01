@@ -126,6 +126,10 @@ public final class CommandFramework {
         values.putAll(arguments.values());
         values.putAll(options.values());
         CommandContext context = new CommandContext(source, input, values);
+        Optional<String> permission = command.permissionOptional();
+        if (permission.isPresent() && !source.hasPermission(permission.get())) {
+            return Results.failure("Missing permission: " + permission.get());
+        }
         return Objects.requireNonNull(command.executor().execute(context), "command result");
     }
 

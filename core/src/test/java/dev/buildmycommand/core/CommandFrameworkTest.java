@@ -864,6 +864,34 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void deniesDispatchWhenSourceLacksCommandPermission() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .executes(ctx -> Results.success("ok")));
+
+        CommandResult result = framework.dispatch(deniedSource(), "secure");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing permission: admin.secure"), result.reply());
+    }
+
+    @Test
+    void allowsDispatchWhenSourceHasCommandPermission() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .executes(ctx -> Results.success("ok")));
+
+        CommandResult result = framework.dispatch(allowedSource(), "secure");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("ok"), result.reply());
+    }
+
+    @Test
     void schemaIncludesBuilderManualAndRouteMetadata() {
         CommandFramework framework = CommandFramework.create();
 
@@ -894,5 +922,23 @@ class CommandFrameworkTest {
             command user rank
               description Manage ranks
               permission user.rank""", framework.schema());
+    }
+
+    private static CommandSource deniedSource() {
+        return new CommandSource() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return false;
+            }
+        };
+    }
+
+    private static CommandSource allowedSource() {
+        return new CommandSource() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return true;
+            }
+        };
     }
 }
