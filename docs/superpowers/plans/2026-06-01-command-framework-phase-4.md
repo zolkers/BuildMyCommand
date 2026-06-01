@@ -40,6 +40,6 @@
 - Modify: root `build.gradle.kts`
 - Modify module build files as needed.
 
-- [ ] Add JaCoCo report generation for Java modules.
-- [ ] Add a conservative coverage verification baseline that current tests pass, excluding the compile-only `examples` module.
-- [ ] Verify `test` and coverage tasks pass.
+- [x] Add JaCoCo report generation for Java modules.
+- [x] Add a conservative coverage verification baseline that current tests pass, excluding the compile-only `examples` module.
+- [x] Verify `test` and coverage tasks pass.
