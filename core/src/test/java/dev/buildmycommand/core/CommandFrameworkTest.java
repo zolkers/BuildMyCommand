@@ -599,4 +599,34 @@ class CommandFrameworkTest {
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("sum <values:Integer...>").executes(ctx -> Results.silent()));
     }
+
+    @Test
+    void routeDslMergeKeepsExistingParentExecutor() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user")
+            .executes(ctx -> Results.success("user root"));
+        framework.registry()
+            .route("user rank")
+            .executes(ctx -> Results.success("rank root"));
+
+        CommandResult root = framework.dispatch(new CommandSource() {
+        }, "user");
+        CommandResult child = framework.dispatch(new CommandSource() {
+        }, "user rank");
+
+        assertEquals(CommandResult.Status.SUCCESS, root.status());
+        assertEquals(Optional.of("user root"), root.reply());
+        assertEquals(CommandResult.Status.SUCCESS, child.status());
+        assertEquals(Optional.of("rank root"), child.reply());
+    }
+
+    @Test
+    void routeDslRejectsOptionsBeforeLaterLiterals() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("tool [--verbose] run").executes(ctx -> Results.silent()));
+    }
 }

@@ -12,6 +12,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 final class SimpleCommandRegistry implements CommandRegistry {
+    private static final CommandExecutor DEFAULT_EXECUTOR = context -> Results.silent();
+
     private final Map<String, CommandNode> commands = new LinkedHashMap<>();
 
     @Override
@@ -98,7 +100,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
         private final List<ArgumentSpec> arguments = new ArrayList<>();
         private final List<OptionSpec> options = new ArrayList<>();
         private final Map<String, CommandNode> children = new LinkedHashMap<>();
-        private CommandExecutor executor = context -> Results.silent();
+        private CommandExecutor executor = DEFAULT_EXECUTOR;
 
         private SimpleCommandBuilder(String literal) {
             this.literal = validateLiteral(literal, "literal");
@@ -286,7 +288,8 @@ final class SimpleCommandRegistry implements CommandRegistry {
             replaceNode(children, existingChild, mergedChild);
         }
 
-        return new CommandNode(existing.literal(), existing.aliases(), incoming.executor(), arguments, options, children);
+        CommandExecutor executor = incoming.isExecutable() ? incoming.executor() : existing.executor();
+        return new CommandNode(existing.literal(), existing.aliases(), executor, arguments, options, children);
     }
 
     private static <T> List<T> mergeSpecs(List<T> existing, List<T> incoming) {
@@ -341,6 +344,10 @@ final class SimpleCommandRegistry implements CommandRegistry {
             literals.add(literal);
             literals.addAll(aliases);
             return literals;
+        }
+
+        boolean isExecutable() {
+            return executor != DEFAULT_EXECUTOR;
         }
 
         List<CommandNode> uniqueChildren() {
@@ -408,10 +415,14 @@ final class SimpleCommandRegistry implements CommandRegistry {
             String[] tokens = pattern.trim().split("\\s+");
             String rootLiteral = null;
             List<RouteStep> steps = new ArrayList<>();
+            boolean seenOption = false;
 
             for (String token : tokens) {
                 RouteElement element = parseElement(token);
                 if (element == null) {
+                    if (seenOption) {
+                        throw new IllegalArgumentException("route options must appear after literals: " + token);
+                    }
                     String literal = validateLiteral(token, "route literal");
                     if (rootLiteral == null) {
                         rootLiteral = literal;
@@ -422,6 +433,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
                 }
                 if (rootLiteral == null) {
                     throw new IllegalArgumentException("route pattern must start with a literal");
+                }
+                if (element instanceof OptionRouteElement) {
+                    seenOption = true;
                 }
                 steps.add(new ElementStep(element));
             }
@@ -492,9 +506,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
             String option = parts[0];
             String alias = parts.length == 2 ? parseAlias(parts[1], token) : null;
             int separator = option.indexOf(':');
-            if (separator < 0) {
-                String name = parseLongOptionName(option, token);
-                return builder -> builder.flag(name, alias);
+                if (separator < 0) {
+                    String name = parseLongOptionName(option, token);
+                return new OptionRouteElement(builder -> builder.flag(name, alias));
             }
             if (separator == option.length() - 1 || option.indexOf(':', separator + 1) != -1) {
                 throw new IllegalArgumentException("invalid option token: " + token);
@@ -502,7 +516,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
             String name = parseLongOptionName(option.substring(0, separator), token);
             Class<?> type = typeFor(option.substring(separator + 1));
-            return builder -> builder.option(name, type, alias);
+            return new OptionRouteElement(builder -> builder.option(name, type, alias));
         }
 
         private static String parseLongOptionName(String raw, String token) {
@@ -549,6 +563,13 @@ final class SimpleCommandRegistry implements CommandRegistry {
     @FunctionalInterface
     private interface RouteElement {
         void apply(CommandBuilder builder);
+    }
+
+    private record OptionRouteElement(RouteElement delegate) implements RouteElement {
+        @Override
+        public void apply(CommandBuilder builder) {
+            delegate.apply(builder);
+        }
     }
 
     private sealed interface RouteStep permits LiteralStep, ElementStep {
