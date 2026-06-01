@@ -36,6 +36,14 @@ public final class AnnotationCommandScanner {
         makeAccessible(target, method);
 
         registry.command(command.value(), builder -> {
+            Description description = method.getAnnotation(Description.class);
+            if (description != null) {
+                builder.description(description.value());
+            }
+            Permission permission = method.getAnnotation(Permission.class);
+            if (permission != null) {
+                builder.permission(permission.value());
+            }
             for (ParameterBinding binding : bindings) {
                 binding.apply(builder);
             }
