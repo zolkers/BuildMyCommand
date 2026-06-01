@@ -10,10 +10,18 @@ public interface CommandRegistry {
     RouteBuilder route(String pattern);
 
     interface RouteBuilder {
+        RouteBuilder description(String description);
+
+        RouteBuilder permission(String permission);
+
         CommandBuilder executes(CommandExecutor executor);
     }
 
     interface CommandBuilder {
+        CommandBuilder description(String description);
+
+        CommandBuilder permission(String permission);
+
         CommandBuilder alias(String alias);
 
         CommandBuilder aliases(String... aliases);

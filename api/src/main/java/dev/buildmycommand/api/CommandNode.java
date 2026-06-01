@@ -7,6 +7,8 @@ import java.util.Optional;
 
 public record CommandNode(
     String literal,
+    Optional<String> description,
+    Optional<String> permission,
     List<String> aliases,
     List<ArgumentSpec<?>> arguments,
     List<FlagSpec<?>> flags,
@@ -18,6 +20,8 @@ public record CommandNode(
         if (literal.isBlank()) {
             throw new IllegalArgumentException("literal must not be blank");
         }
+        description = Objects.requireNonNull(description, "description");
+        permission = Objects.requireNonNull(permission, "permission");
         aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         flags = List.copyOf(Objects.requireNonNull(flags, "flags"));
@@ -27,6 +31,8 @@ public record CommandNode(
 
     public static final class Builder {
         private final String literal;
+        private String description;
+        private String permission;
         private final List<String> aliases = new ArrayList<>();
         private final List<ArgumentSpec<?>> arguments = new ArrayList<>();
         private final List<FlagSpec<?>> flags = new ArrayList<>();
@@ -35,6 +41,16 @@ public record CommandNode(
 
         Builder(String literal) {
             this.literal = Objects.requireNonNull(literal, "literal");
+        }
+
+        public Builder description(String description) {
+            this.description = validateMetadata(description, "description");
+            return this;
+        }
+
+        public Builder permission(String permission) {
+            this.permission = validateMetadata(permission, "permission");
+            return this;
         }
 
         public Builder alias(String alias) {
@@ -71,7 +87,24 @@ public record CommandNode(
         }
 
         public CommandNode build() {
-            return new CommandNode(literal, aliases, arguments, flags, children, Optional.ofNullable(executor));
+            return new CommandNode(
+                literal,
+                Optional.ofNullable(description),
+                Optional.ofNullable(permission),
+                aliases,
+                arguments,
+                flags,
+                children,
+                Optional.ofNullable(executor)
+            );
+        }
+
+        private static String validateMetadata(String value, String label) {
+            Objects.requireNonNull(value, label);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException(label + " must not be blank");
+            }
+            return value;
         }
     }
 }

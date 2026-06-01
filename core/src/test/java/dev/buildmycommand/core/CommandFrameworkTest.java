@@ -832,4 +832,67 @@ class CommandFrameworkTest {
         assertEquals(expected, framework.schema());
         assertEquals(expected, framework.schema());
     }
+
+    @Test
+    void helpIncludesCommandDescriptionWhenPresent() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ban", command -> command
+            .description("Ban a user")
+            .argument("target", String.class)
+            .executes(ctx -> Results.silent()));
+
+        assertEquals("""
+            Usage: ban <target:String>
+            Description: Ban a user""", framework.help("ban"));
+    }
+
+    @Test
+    void metadataDoesNotChangeDispatchSemantics() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .description("Secure command")
+            .permission("admin.secure")
+            .executes(ctx -> Results.success("ok")));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "secure");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("ok"), result.reply());
+    }
+
+    @Test
+    void schemaIncludesBuilderManualAndRouteMetadata() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ban", command -> command
+            .description("Ban a user")
+            .permission("mod.ban")
+            .executes(ctx -> Results.silent()));
+        framework.registry().register(Commands.literal("reload")
+            .description("Reload configuration")
+            .permission("admin.reload")
+            .handler(ctx -> Results.silent())
+            .build());
+        framework.registry()
+            .route("user rank")
+            .description("Manage ranks")
+            .permission("user.rank")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("""
+            command ban
+              description Ban a user
+              permission mod.ban
+            command reload
+              description Reload configuration
+              permission admin.reload
+            command user
+              child rank
+            command user rank
+              description Manage ranks
+              permission user.rank""", framework.schema());
+    }
 }

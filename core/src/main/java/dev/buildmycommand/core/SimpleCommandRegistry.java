@@ -92,9 +92,23 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
     private final class SimpleRouteBuilder implements RouteBuilder {
         private final ParsedRoute route;
+        private String description;
+        private String permission;
 
         private SimpleRouteBuilder(ParsedRoute route) {
             this.route = route;
+        }
+
+        @Override
+        public RouteBuilder description(String description) {
+            this.description = validateMetadata(description, "description");
+            return this;
+        }
+
+        @Override
+        public RouteBuilder permission(String permission) {
+            this.permission = validateMetadata(permission, "permission");
+            return this;
         }
 
         @Override
@@ -115,6 +129,12 @@ final class SimpleCommandRegistry implements CommandRegistry {
         ) {
             try {
                 if (stepIndex >= steps.size()) {
+                    if (description != null) {
+                        builder.description(description);
+                    }
+                    if (permission != null) {
+                        builder.permission(permission);
+                    }
                     builder.executes(executor);
                     return;
                 }
@@ -141,6 +161,8 @@ final class SimpleCommandRegistry implements CommandRegistry {
         for (String alias : node.aliases()) {
             builder.alias(alias);
         }
+        node.description().ifPresent(builder::description);
+        node.permission().ifPresent(builder::permission);
         for (dev.buildmycommand.api.ArgumentSpec<?> argument : node.arguments()) {
             applyManualArgument(builder, argument);
         }
@@ -175,6 +197,8 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
     private static final class SimpleCommandBuilder implements CommandBuilder {
         private final String literal;
+        private String description;
+        private String permission;
         private final List<String> aliases = new ArrayList<>();
         private final List<ArgumentSpec> arguments = new ArrayList<>();
         private final List<OptionSpec> options = new ArrayList<>();
@@ -183,6 +207,18 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
         private SimpleCommandBuilder(String literal) {
             this.literal = validateLiteral(literal, "literal");
+        }
+
+        @Override
+        public CommandBuilder description(String description) {
+            this.description = validateMetadata(description, "description");
+            return this;
+        }
+
+        @Override
+        public CommandBuilder permission(String permission) {
+            this.permission = validateMetadata(permission, "permission");
+            return this;
         }
 
         @Override
@@ -274,7 +310,7 @@ final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         CommandNode node() {
-            return new CommandNode(literal, aliases, executor, arguments, options, children);
+            return new CommandNode(literal, description, permission, aliases, executor, arguments, options, children);
         }
 
         private void validateCanAdd(String nextName, ArgumentKind nextKind) {
@@ -371,7 +407,28 @@ final class SimpleCommandRegistry implements CommandRegistry {
             throw new IllegalArgumentException("command already registered: " + incoming.literal());
         }
         CommandExecutor executor = incoming.isExecutable() ? incoming.executor() : existing.executor();
-        return new CommandNode(existing.literal(), existing.aliases(), executor, arguments, options, children);
+        String description = mergeMetadata(existing.description(), incoming.description(), "description");
+        String permission = mergeMetadata(existing.permission(), incoming.permission(), "permission");
+        return new CommandNode(
+            existing.literal(),
+            description,
+            permission,
+            existing.aliases(),
+            executor,
+            arguments,
+            options,
+            children
+        );
+    }
+
+    private static String mergeMetadata(String existing, String incoming, String label) {
+        if (existing == null) {
+            return incoming;
+        }
+        if (incoming == null || existing.equals(incoming)) {
+            return existing;
+        }
+        throw new IllegalArgumentException("route conflicts with existing " + label);
     }
 
     private static <T> List<T> mergeSpecs(List<T> existing, List<T> incoming) {
@@ -404,6 +461,14 @@ final class SimpleCommandRegistry implements CommandRegistry {
         return literal;
     }
 
+    private static String validateMetadata(String value, String label) {
+        Objects.requireNonNull(value, label);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        return value;
+    }
+
     record CommandPath(List<String> literals, List<CommandNode> nodes) {
         CommandPath {
             literals = List.copyOf(Objects.requireNonNull(literals, "literals"));
@@ -420,6 +485,8 @@ final class SimpleCommandRegistry implements CommandRegistry {
 
     record CommandNode(
         String literal,
+        String description,
+        String permission,
         List<String> aliases,
         CommandExecutor executor,
         List<ArgumentSpec> arguments,
@@ -428,6 +495,12 @@ final class SimpleCommandRegistry implements CommandRegistry {
     ) {
         CommandNode {
             Objects.requireNonNull(literal, "literal");
+            if (description != null && description.isBlank()) {
+                throw new IllegalArgumentException("description must not be blank");
+            }
+            if (permission != null && permission.isBlank()) {
+                throw new IllegalArgumentException("permission must not be blank");
+            }
             aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
             Objects.requireNonNull(executor, "executor");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
@@ -440,6 +513,14 @@ final class SimpleCommandRegistry implements CommandRegistry {
             literals.add(literal);
             literals.addAll(aliases);
             return literals;
+        }
+
+        java.util.Optional<String> descriptionOptional() {
+            return java.util.Optional.ofNullable(description);
+        }
+
+        java.util.Optional<String> permissionOptional() {
+            return java.util.Optional.ofNullable(permission);
         }
 
         boolean isExecutable() {

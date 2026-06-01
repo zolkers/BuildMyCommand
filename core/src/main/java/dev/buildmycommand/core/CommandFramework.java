@@ -56,7 +56,10 @@ public final class CommandFramework {
             return "Unknown command: " + path;
         }
 
-        return "Usage: " + usage(commandPath);
+        StringBuilder builder = new StringBuilder("Usage: ").append(usage(commandPath));
+        commandPath.node().descriptionOptional()
+            .ifPresent(description -> appendLine(builder, "Description: " + description));
+        return builder.toString();
     }
 
     public String schema() {
@@ -212,6 +215,10 @@ public final class CommandFramework {
         SimpleCommandRegistry.CommandNode command
     ) {
         appendLine(builder, "command " + String.join(" ", path));
+        command.descriptionOptional()
+            .ifPresent(description -> appendLine(builder, "  description " + description));
+        command.permissionOptional()
+            .ifPresent(permission -> appendLine(builder, "  permission " + permission));
         for (SimpleCommandRegistry.ArgumentSpec argument : command.arguments()) {
             appendLine(builder, "  argument " + argument.name() + ":" + typeName(argument.type())
                 + " " + schemaArgumentKind(argument.kind()));
