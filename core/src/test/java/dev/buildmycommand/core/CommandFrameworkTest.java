@@ -162,4 +162,69 @@ class CommandFrameworkTest {
         assertEquals(CommandResult.Status.FAILURE, result.status());
         assertEquals(Optional.of("Invalid integer for argument count: many"), result.reply());
     }
+
+    @Test
+    void rejectsRequiredArgumentAfterOptionalArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalStateException.class, () -> framework.registry().command("bad", command -> command
+            .optionalArgument("maybe", String.class)
+            .argument("required", String.class)
+            .executes(ctx -> Results.silent())));
+    }
+
+    @Test
+    void rejectsArgumentAfterGreedyArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalStateException.class, () -> framework.registry().command("bad", command -> command
+            .greedyArgument("message", String.class)
+            .argument("tail", String.class)
+            .executes(ctx -> Results.silent())));
+    }
+
+    @Test
+    void supportsPrimitiveIntegerArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("repeat", command -> command
+            .argument("count", int.class)
+            .executes(ctx -> Results.success(String.valueOf(ctx.arg("count", Integer.class)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "repeat 3");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("3"), result.reply());
+    }
+
+    @Test
+    void failsForUnclosedQuote() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say \"hello");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Unclosed quote"), result.reply());
+    }
+
+    @Test
+    void failsForUnexpectedExtraArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say hello extra");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Unexpected argument: extra"), result.reply());
+    }
 }

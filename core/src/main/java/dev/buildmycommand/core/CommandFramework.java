@@ -22,14 +22,17 @@ public final class CommandFramework {
         this.registry = registry;
         this.parsers = Map.of(
             String.class, value -> ParseResult.success(value),
-            Integer.class, value -> {
-                try {
-                    return ParseResult.success(Integer.valueOf(value));
-                } catch (NumberFormatException exception) {
-                    return ParseResult.failure("Invalid integer");
-                }
-            }
+            int.class, value -> parseInteger(value),
+            Integer.class, value -> parseInteger(value)
         );
+    }
+
+    private static ParseResult<Integer> parseInteger(String value) {
+        try {
+            return ParseResult.success(Integer.valueOf(value));
+        } catch (NumberFormatException exception) {
+            return ParseResult.failure("Invalid integer");
+        }
     }
 
     public static CommandFramework create() {
