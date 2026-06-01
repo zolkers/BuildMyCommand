@@ -465,6 +465,16 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void rejectsArgumentNameConflictingWithExistingOptionName() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalStateException.class, () -> framework.registry().command("ban", command -> command
+            .flag("target")
+            .argument("target", String.class)
+            .executes(ctx -> Results.silent())));
+    }
+
+    @Test
     void suggestsRootCommandsByPrefix() {
         CommandFramework framework = CommandFramework.create();
 

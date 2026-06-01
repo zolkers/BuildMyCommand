@@ -144,6 +144,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
             if (arguments.stream().anyMatch(argument -> argument.name().equals(nextName))) {
                 throw new IllegalStateException("argument already declared: " + nextName);
             }
+            if (options.stream().anyMatch(option -> option.name().equals(nextName))) {
+                throw new IllegalStateException("argument conflicts with flag or option: " + nextName);
+            }
 
             boolean hasOptional = arguments.stream()
                 .anyMatch(argument -> argument.kind() == ArgumentKind.OPTIONAL);
