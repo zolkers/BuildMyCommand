@@ -16,4 +16,5 @@ rootProject.name = "buildmycommand"
 
 include("api")
 include("core")
+include("annotations")
 include("testkit")
