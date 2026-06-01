@@ -5,6 +5,8 @@ import java.util.function.Consumer;
 public interface CommandRegistry {
     void command(String literal, Consumer<CommandBuilder> configure);
 
+    void register(CommandNode node);
+
     RouteBuilder route(String pattern);
 
     interface RouteBuilder {

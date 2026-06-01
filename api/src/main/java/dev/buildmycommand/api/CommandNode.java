@@ -1,0 +1,76 @@
+package dev.buildmycommand.api;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+public record CommandNode(
+    String literal,
+    List<String> aliases,
+    List<ArgumentSpec<?>> arguments,
+    List<FlagSpec<?>> flags,
+    List<CommandNode> children,
+    CommandRegistry.CommandExecutor executor
+) {
+    public CommandNode {
+        Objects.requireNonNull(literal, "literal");
+        if (literal.isBlank()) {
+            throw new IllegalArgumentException("literal must not be blank");
+        }
+        aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
+        arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
+        flags = List.copyOf(Objects.requireNonNull(flags, "flags"));
+        children = List.copyOf(Objects.requireNonNull(children, "children"));
+        executor = Objects.requireNonNull(executor, "executor");
+    }
+
+    public static final class Builder {
+        private final String literal;
+        private final List<String> aliases = new ArrayList<>();
+        private final List<ArgumentSpec<?>> arguments = new ArrayList<>();
+        private final List<FlagSpec<?>> flags = new ArrayList<>();
+        private final List<CommandNode> children = new ArrayList<>();
+        private CommandRegistry.CommandExecutor executor = context -> Results.silent();
+
+        Builder(String literal) {
+            this.literal = Objects.requireNonNull(literal, "literal");
+        }
+
+        public Builder alias(String alias) {
+            aliases.add(Objects.requireNonNull(alias, "alias"));
+            return this;
+        }
+
+        public Builder aliases(String... aliases) {
+            Objects.requireNonNull(aliases, "aliases");
+            for (String alias : aliases) {
+                alias(alias);
+            }
+            return this;
+        }
+
+        public Builder argument(ArgumentSpec<?> argument) {
+            arguments.add(Objects.requireNonNull(argument, "argument"));
+            return this;
+        }
+
+        public Builder flag(FlagSpec<?> flag) {
+            flags.add(Objects.requireNonNull(flag, "flag"));
+            return this;
+        }
+
+        public Builder child(CommandNode child) {
+            children.add(Objects.requireNonNull(child, "child"));
+            return this;
+        }
+
+        public Builder handler(CommandRegistry.CommandExecutor executor) {
+            this.executor = Objects.requireNonNull(executor, "executor");
+            return this;
+        }
+
+        public CommandNode build() {
+            return new CommandNode(literal, aliases, arguments, flags, children, executor);
+        }
+    }
+}

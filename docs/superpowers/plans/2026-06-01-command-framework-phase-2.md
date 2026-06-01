@@ -17,9 +17,9 @@
 - Modify: `core/src/main/java/dev/buildmycommand/core/SimpleCommandRegistry.java`
 - Modify: `core/src/test/java/dev/buildmycommand/core/CommandFrameworkTest.java`
 
-- [ ] Write failing tests for `registry.route("ban <target:String> [reason:String...] [--silent|-s]")`.
-- [ ] Implement route pattern parsing for literals, required typed args, optional typed args, greedy string args, boolean flags, valued options, and short aliases.
-- [ ] Verify route DSL dispatch compiles to existing command behavior.
+- [x] Write failing tests for `registry.route("ban <target:String> [reason:String...] [--silent|-s]")`.
+- [x] Implement route pattern parsing for literals, required typed args, optional typed args, greedy string args, boolean flags, valued options, and short aliases.
+- [x] Verify route DSL dispatch compiles to existing command behavior.
 
 ### Task 7: Help And Schema
 
@@ -28,9 +28,9 @@
 - Modify: `core/src/main/java/dev/buildmycommand/core/SimpleCommandRegistry.java`
 - Modify: `core/src/test/java/dev/buildmycommand/core/CommandFrameworkTest.java`
 
-- [ ] Write failing tests for usage/help text and a simple schema export.
-- [ ] Implement `framework.help("command path")` and `framework.schema()` using the command tree.
-- [ ] Verify output is deterministic.
+- [x] Write failing tests for usage/help text and a simple schema export.
+- [x] Implement `framework.help("command path")` and `framework.schema()` using the command tree.
+- [x] Verify output is deterministic.
 
 ### Task 8: Annotation API Module
 
@@ -40,9 +40,9 @@
 - Create: `annotations/src/main/java/dev/buildmycommand/annotation/*`
 - Create tests under `annotations/src/test/java/...`
 
-- [ ] Write failing tests for scanning `@Command` methods with `@Arg` and `@Flag`.
-- [ ] Compile annotations into the existing registry builder.
-- [ ] Verify annotated command dispatch.
+- [x] Write failing tests for scanning `@Command` methods with `@Arg` and `@Flag`.
+- [x] Compile annotations into the existing registry builder.
+- [x] Verify annotated command dispatch.
 
 ### Task 9: Terminal Adapter Module
 
@@ -52,6 +52,6 @@
 - Create: `terminal-adapter/src/main/java/dev/buildmycommand/terminal/*`
 - Create tests under `terminal-adapter/src/test/java/...`
 
-- [ ] Write tests for mapping terminal input to framework dispatch.
-- [ ] Implement a minimal adapter around `InputStream`/`PrintStream` without adding platform dependencies.
-- [ ] Verify adapter can execute one line and print a reply.
+- [x] Write tests for mapping terminal input to framework dispatch.
+- [x] Implement a minimal adapter around `InputStream`/`PrintStream` without adding platform dependencies.
+- [x] Verify adapter can execute one line and print a reply.

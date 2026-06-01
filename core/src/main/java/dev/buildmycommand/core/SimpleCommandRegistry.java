@@ -31,6 +31,20 @@ final class SimpleCommandRegistry implements CommandRegistry {
     }
 
     @Override
+    public void register(dev.buildmycommand.api.CommandNode node) {
+        Objects.requireNonNull(node, "node");
+
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(node.literal());
+        try {
+            configureManualNode(builder, node);
+        } catch (IllegalStateException exception) {
+            throw new IllegalArgumentException("invalid command tree", exception);
+        }
+        CommandNode internal = builder.node();
+        registerAll(commands, internal.literals(), internal, "command already registered: ");
+    }
+
+    @Override
     public RouteBuilder route(String pattern) {
         ParsedRoute route = ParsedRoute.parse(pattern);
         return new SimpleRouteBuilder(route);
@@ -117,6 +131,45 @@ final class SimpleCommandRegistry implements CommandRegistry {
             } catch (IllegalStateException exception) {
                 throw new IllegalArgumentException("invalid route pattern", exception);
             }
+        }
+    }
+
+    private static void configureManualNode(
+        SimpleCommandBuilder builder,
+        dev.buildmycommand.api.CommandNode node
+    ) {
+        for (String alias : node.aliases()) {
+            builder.alias(alias);
+        }
+        for (dev.buildmycommand.api.ArgumentSpec<?> argument : node.arguments()) {
+            applyManualArgument(builder, argument);
+        }
+        for (dev.buildmycommand.api.FlagSpec<?> flag : node.flags()) {
+            applyManualFlag(builder, flag);
+        }
+        for (dev.buildmycommand.api.CommandNode child : node.children()) {
+            builder.subcommand(child.literal(), childBuilder -> configureManualNode((SimpleCommandBuilder) childBuilder, child));
+        }
+        builder.executes(node.executor());
+    }
+
+    private static void applyManualArgument(
+        SimpleCommandBuilder builder,
+        dev.buildmycommand.api.ArgumentSpec<?> argument
+    ) {
+        switch (argument.kind()) {
+            case REQUIRED -> builder.argument(argument.name(), argument.type());
+            case OPTIONAL -> builder.optionalArgument(argument.name(), argument.type());
+            case GREEDY -> builder.greedyArgument(argument.name(), argument.type());
+            case OPTIONAL_GREEDY -> builder.optionalGreedyArgument(argument.name(), argument.type());
+        }
+    }
+
+    private static void applyManualFlag(SimpleCommandBuilder builder, dev.buildmycommand.api.FlagSpec<?> flag) {
+        String alias = flag.aliasOptional().orElse(null);
+        switch (flag.kind()) {
+            case FLAG -> builder.flag(flag.name(), alias);
+            case VALUE -> builder.option(flag.name(), flag.type(), alias);
         }
     }
 

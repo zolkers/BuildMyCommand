@@ -2,6 +2,9 @@ package dev.buildmycommand.core;
 
 import dev.buildmycommand.api.CommandResult;
 import dev.buildmycommand.api.CommandSource;
+import dev.buildmycommand.api.Arguments;
+import dev.buildmycommand.api.Commands;
+import dev.buildmycommand.api.Flags;
 import dev.buildmycommand.api.Results;
 import org.junit.jupiter.api.Test;
 
@@ -519,6 +522,98 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("Steve:griefing in spawn:true"), result.reply());
+    }
+
+    @Test
+    void manualApiRegistersCommandTree() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().register(Commands.literal("ban")
+            .alias("block")
+            .argument(Arguments.required("target", String.class))
+            .argument(Arguments.greedyOptional("reason", String.class))
+            .flag(Flags.bool("silent").alias("s"))
+            .handler(ctx -> Results.success(
+                ctx.arg("target", String.class)
+                    + ":" + ctx.argOr("reason", "")
+                    + ":" + ctx.flag("silent")))
+            .build());
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "block Steve griefing -s");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Steve:griefing:true"), result.reply());
+        assertEquals("Usage: ban <target:String> [reason:String...] [--silent|-s]", framework.help("ban"));
+    }
+
+    @Test
+    void manualApiRegistersNestedCommandTreeWithValueOption() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().register(Commands.literal("user")
+            .child(Commands.literal("rank")
+                .child(Commands.literal("set")
+                    .argument(Arguments.required("target", String.class))
+                    .flag(Flags.option("amount", Integer.class).alias("a"))
+                    .handler(ctx -> Results.success(ctx.arg("target", String.class)
+                        + ":" + ctx.option("amount", Integer.class).orElse(0)))
+                    .build())
+                .build())
+            .build());
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank set Alex -a 4");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Alex:4"), result.reply());
+        assertEquals("Usage: user rank set <target:String> [--amount:Integer|-a]", framework.help("user rank set"));
+    }
+
+    @Test
+    void manualApiRejectsInvalidTreeShapesAtRegistration() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().register(Commands.literal("bad")
+                .alias("bad")
+                .build()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().register(Commands.literal("bad")
+                .argument(Arguments.optional("maybe", String.class))
+                .argument(Arguments.required("required", String.class))
+                .build()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().register(Commands.literal("bad")
+                .argument(Arguments.greedy("message", String.class))
+                .argument(Arguments.required("tail", String.class))
+                .build()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().register(Commands.literal("bad")
+                .flag(Flags.bool("silent"))
+                .flag(Flags.option("silent", String.class))
+                .build()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().register(Commands.literal("bad")
+                .child(Commands.literal("run").build())
+                .child(Commands.literal("run").build())
+                .build()));
+    }
+
+    @Test
+    void manualApiFailsWhenValueOptionIsMissingAtDispatch() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().register(Commands.literal("give")
+            .flag(Flags.option("amount", Integer.class))
+            .handler(ctx -> Results.silent())
+            .build());
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "give --amount");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing value for option: amount"), result.reply());
     }
 
     @Test
