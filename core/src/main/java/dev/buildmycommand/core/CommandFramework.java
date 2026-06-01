@@ -108,7 +108,12 @@ public final class CommandFramework {
         while (tokenIndex < tokens.size()) {
             SimpleCommandRegistry.CommandNode child = command.children().get(tokens.get(tokenIndex));
             if (child == null) {
-                Optional<String> deniedPermission = deniedPermission(source, matchedNodes);
+                List<SimpleCommandRegistry.CommandNode> possiblePath = literalDescendantPath(
+                    command,
+                    tokens.subList(tokenIndex, tokens.size()),
+                    matchedNodes
+                );
+                Optional<String> deniedPermission = deniedPermission(source, possiblePath);
                 if (deniedPermission.isPresent()) {
                     return Results.failure("Missing permission: " + deniedPermission.get());
                 }
@@ -166,7 +171,7 @@ public final class CommandFramework {
         String current = currentToken(prefixInput, tokens);
         if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
             return registry.roots().stream()
-                .filter(command -> canAccess(source, List.of(command)))
+                .filter(command -> canDiscover(source, List.of(command), command))
                 .map(SimpleCommandRegistry.CommandNode::literal)
                 .filter(literal -> literal.startsWith(current))
                 .toList();
@@ -201,10 +206,28 @@ public final class CommandFramework {
         }
         return command.children().values().stream()
             .distinct()
-            .filter(child -> canAccess(source, append(matchedNodes, child)))
+            .filter(child -> canDiscover(source, append(matchedNodes, child), child))
             .map(SimpleCommandRegistry.CommandNode::literal)
             .filter(literal -> literal.startsWith(current))
             .toList();
+    }
+
+    private static List<SimpleCommandRegistry.CommandNode> literalDescendantPath(
+        SimpleCommandRegistry.CommandNode command,
+        List<String> tokens,
+        List<SimpleCommandRegistry.CommandNode> currentPath
+    ) {
+        List<SimpleCommandRegistry.CommandNode> path = new ArrayList<>(currentPath);
+        SimpleCommandRegistry.CommandNode current = command;
+        for (String token : tokens) {
+            SimpleCommandRegistry.CommandNode child = current.children().get(token);
+            if (child == null) {
+                continue;
+            }
+            path.add(child);
+            current = child;
+        }
+        return path;
     }
 
     private static List<SimpleCommandRegistry.CommandNode> append(
@@ -218,6 +241,25 @@ public final class CommandFramework {
 
     private static boolean canAccess(CommandSource source, List<SimpleCommandRegistry.CommandNode> commands) {
         return deniedPermission(source, commands).isEmpty();
+    }
+
+    private static boolean canDiscover(
+        CommandSource source,
+        List<SimpleCommandRegistry.CommandNode> path,
+        SimpleCommandRegistry.CommandNode command
+    ) {
+        if (!canAccess(source, path)) {
+            return false;
+        }
+        if (command.isExecutable()) {
+            return true;
+        }
+        for (SimpleCommandRegistry.CommandNode child : command.uniqueChildren()) {
+            if (canDiscover(source, append(path, child), child)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Optional<String> deniedPermission(

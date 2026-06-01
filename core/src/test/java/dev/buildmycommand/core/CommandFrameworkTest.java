@@ -551,6 +551,19 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void suggestionsHideArgumentedRoutesWhenDescendantPermissionIsMissing() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user <target:int> rank set <rank:String>")
+            .permission("user.rank.set")
+            .executes(ctx -> Results.success("ok"));
+
+        assertEquals(List.of(), framework.suggest(deniedSource(), "", 0));
+        assertEquals(List.of(), framework.suggest(deniedSource(), "user 7 rank ", 12));
+    }
+
+    @Test
     void routeDslDispatchesGreedyOptionalArgumentAndFlagAlias() {
         CommandFramework framework = CommandFramework.create();
 
@@ -981,6 +994,21 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.FAILURE, result.status());
         assertEquals(Optional.of("Missing permission: admin.root"), result.reply());
+    }
+
+    @Test
+    void deniesDispatchBeforeParsingParentArgumentsForPermissionedDescendantRoute() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user <target:int> rank set <rank:String>")
+            .permission("user.rank.set")
+            .executes(ctx -> Results.success("ok"));
+
+        CommandResult result = framework.dispatch(deniedSource(), "user nope rank set admin");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Missing permission: user.rank.set"), result.reply());
     }
 
     @Test
