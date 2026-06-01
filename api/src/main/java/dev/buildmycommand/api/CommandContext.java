@@ -59,6 +59,27 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
         if (type == int.class) {
             return Integer.class;
         }
+        if (type == boolean.class) {
+            return Boolean.class;
+        }
+        if (type == long.class) {
+            return Long.class;
+        }
+        if (type == double.class) {
+            return Double.class;
+        }
+        if (type == float.class) {
+            return Float.class;
+        }
+        if (type == short.class) {
+            return Short.class;
+        }
+        if (type == byte.class) {
+            return Byte.class;
+        }
+        if (type == char.class) {
+            return Character.class;
+        }
         return type;
     }
 }
