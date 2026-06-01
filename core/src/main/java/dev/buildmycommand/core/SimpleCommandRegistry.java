@@ -28,6 +28,12 @@ final class SimpleCommandRegistry implements CommandRegistry {
         registerAll(commands, node.literals(), node, "command already registered: ");
     }
 
+    @Override
+    public RouteBuilder route(String pattern) {
+        ParsedRoute route = ParsedRoute.parse(pattern);
+        return new SimpleRouteBuilder(route);
+    }
+
     CommandNode find(String literal) {
         return commands.get(literal);
     }
@@ -40,6 +46,42 @@ final class SimpleCommandRegistry implements CommandRegistry {
             }
         }
         return roots;
+    }
+
+    private final class SimpleRouteBuilder implements RouteBuilder {
+        private final ParsedRoute route;
+
+        private SimpleRouteBuilder(ParsedRoute route) {
+            this.route = route;
+        }
+
+        @Override
+        public CommandBuilder executes(CommandExecutor executor) {
+            Objects.requireNonNull(executor, "executor");
+            SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral());
+            configureRoute(builder, 0, route, executor);
+            CommandNode node = builder.node();
+            registerAll(commands, node.literals(), node, "command already registered: ");
+            return builder;
+        }
+
+        private void configureRoute(
+            CommandBuilder builder,
+            int childLiteralIndex,
+            ParsedRoute route,
+            CommandExecutor executor
+        ) {
+            if (childLiteralIndex < route.childLiterals().size()) {
+                builder.subcommand(route.childLiterals().get(childLiteralIndex),
+                    child -> configureRoute(child, childLiteralIndex + 1, route, executor));
+                return;
+            }
+
+            for (RouteElement element : route.elements()) {
+                element.apply(builder);
+            }
+            builder.executes(executor);
+        }
     }
 
     private static final class SimpleCommandBuilder implements CommandBuilder {
@@ -106,6 +148,12 @@ final class SimpleCommandRegistry implements CommandRegistry {
             return this;
         }
 
+        private CommandBuilder optionalGreedyArgument(String name, Class<?> type) {
+            validateCanAdd(name, ArgumentKind.OPTIONAL_GREEDY);
+            arguments.add(new ArgumentSpec(name, type, ArgumentKind.OPTIONAL_GREEDY));
+            return this;
+        }
+
         @Override
         public CommandBuilder flag(String name) {
             return flag(name, null);
@@ -149,13 +197,15 @@ final class SimpleCommandRegistry implements CommandRegistry {
             }
 
             boolean hasOptional = arguments.stream()
-                .anyMatch(argument -> argument.kind() == ArgumentKind.OPTIONAL);
+                .anyMatch(argument -> argument.kind() == ArgumentKind.OPTIONAL
+                    || argument.kind() == ArgumentKind.OPTIONAL_GREEDY);
             if (nextKind == ArgumentKind.REQUIRED && hasOptional) {
                 throw new IllegalStateException("required arguments must be declared before optional arguments");
             }
 
             boolean hasGreedy = arguments.stream()
-                .anyMatch(argument -> argument.kind() == ArgumentKind.GREEDY);
+                .anyMatch(argument -> argument.kind() == ArgumentKind.GREEDY
+                    || argument.kind() == ArgumentKind.OPTIONAL_GREEDY);
             if (hasGreedy) {
                 throw new IllegalStateException("greedy argument must be the last argument");
             }
@@ -263,11 +313,162 @@ final class SimpleCommandRegistry implements CommandRegistry {
     enum ArgumentKind {
         REQUIRED,
         OPTIONAL,
-        GREEDY
+        GREEDY,
+        OPTIONAL_GREEDY
     }
 
     enum OptionKind {
         FLAG,
         VALUE
+    }
+
+    private record ParsedRoute(
+        String rootLiteral,
+        List<String> childLiterals,
+        List<RouteElement> elements
+    ) {
+        private static ParsedRoute parse(String pattern) {
+            Objects.requireNonNull(pattern, "pattern");
+            if (pattern.isBlank()) {
+                throw new IllegalArgumentException("route pattern must not be blank");
+            }
+
+            String[] tokens = pattern.trim().split("\\s+");
+            List<String> literals = new ArrayList<>();
+            List<RouteElement> elements = new ArrayList<>();
+            boolean seenNonLiteral = false;
+
+            for (String token : tokens) {
+                RouteElement element = parseElement(token);
+                if (element == null) {
+                    if (seenNonLiteral) {
+                        throw new IllegalArgumentException("route literals must appear before arguments and options: " + token);
+                    }
+                    literals.add(validateLiteral(token, "route literal"));
+                    continue;
+                }
+                seenNonLiteral = true;
+                elements.add(element);
+            }
+
+            if (literals.isEmpty()) {
+                throw new IllegalArgumentException("route pattern must start with a literal");
+            }
+
+            return new ParsedRoute(literals.get(0), literals.subList(1, literals.size()), elements);
+        }
+
+        private static RouteElement parseElement(String token) {
+            if (token.startsWith("<") || token.endsWith(">")) {
+                if (!token.startsWith("<") || !token.endsWith(">")) {
+                    throw new IllegalArgumentException("invalid required argument token: " + token);
+                }
+                ArgumentToken argument = parseArgumentToken(token.substring(1, token.length() - 1), token);
+                if (argument.greedy()) {
+                    return builder -> builder.greedyArgument(argument.name(), argument.type());
+                }
+                return builder -> builder.argument(argument.name(), argument.type());
+            }
+
+            if (token.startsWith("[") || token.endsWith("]")) {
+                if (!token.startsWith("[") || !token.endsWith("]")) {
+                    throw new IllegalArgumentException("invalid optional token: " + token);
+                }
+                String body = token.substring(1, token.length() - 1);
+                if (body.startsWith("--")) {
+                    return parseOptionToken(body, token);
+                }
+
+                ArgumentToken argument = parseArgumentToken(body, token);
+                if (argument.greedy()) {
+                    return builder -> ((SimpleCommandBuilder) builder).optionalGreedyArgument(argument.name(), argument.type());
+                }
+                return builder -> builder.optionalArgument(argument.name(), argument.type());
+            }
+
+            return null;
+        }
+
+        private static ArgumentToken parseArgumentToken(String body, String token) {
+            int separator = body.indexOf(':');
+            if (separator <= 0 || separator == body.length() - 1 || body.indexOf(':', separator + 1) != -1) {
+                throw new IllegalArgumentException("invalid argument token: " + token);
+            }
+
+            String name = body.substring(0, separator);
+            String typeName = body.substring(separator + 1);
+            boolean greedy = typeName.endsWith("...");
+            if (greedy) {
+                typeName = typeName.substring(0, typeName.length() - 3);
+            }
+            return new ArgumentToken(validateName(name, "argument name"), typeFor(typeName), greedy);
+        }
+
+        private static RouteElement parseOptionToken(String body, String token) {
+            String[] parts = body.split("\\|", -1);
+            if (parts.length > 2) {
+                throw new IllegalArgumentException("invalid option token: " + token);
+            }
+
+            String option = parts[0];
+            String alias = parts.length == 2 ? parseAlias(parts[1], token) : null;
+            int separator = option.indexOf(':');
+            if (separator < 0) {
+                String name = parseLongOptionName(option, token);
+                return builder -> builder.flag(name, alias);
+            }
+            if (separator == option.length() - 1 || option.indexOf(':', separator + 1) != -1) {
+                throw new IllegalArgumentException("invalid option token: " + token);
+            }
+
+            String name = parseLongOptionName(option.substring(0, separator), token);
+            Class<?> type = typeFor(option.substring(separator + 1));
+            return builder -> builder.option(name, type, alias);
+        }
+
+        private static String parseLongOptionName(String raw, String token) {
+            if (!raw.startsWith("--") || raw.length() <= 2) {
+                throw new IllegalArgumentException("invalid long option token: " + token);
+            }
+            return validateName(raw.substring(2), "option name");
+        }
+
+        private static String parseAlias(String raw, String token) {
+            if (!raw.startsWith("-") || raw.startsWith("--") || raw.length() != 2) {
+                throw new IllegalArgumentException("invalid option alias token: " + token);
+            }
+            return validateName(raw.substring(1), "option alias");
+        }
+
+        private static Class<?> typeFor(String typeName) {
+            return switch (typeName) {
+                case "String" -> String.class;
+                case "Integer" -> Integer.class;
+                case "int" -> int.class;
+                default -> throw new IllegalArgumentException("unknown route type: " + typeName);
+            };
+        }
+
+        private static String validateName(String name, String label) {
+            Objects.requireNonNull(name, label);
+            if (name.isBlank()) {
+                throw new IllegalArgumentException(label + " must not be blank");
+            }
+            for (int index = 0; index < name.length(); index++) {
+                char character = name.charAt(index);
+                if (!Character.isLetterOrDigit(character) && character != '-' && character != '_') {
+                    throw new IllegalArgumentException("invalid " + label + ": " + name);
+                }
+            }
+            return name;
+        }
+    }
+
+    private record ArgumentToken(String name, Class<?> type, boolean greedy) {
+    }
+
+    @FunctionalInterface
+    private interface RouteElement {
+        void apply(CommandBuilder builder);
     }
 }

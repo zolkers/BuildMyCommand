@@ -502,4 +502,50 @@ class CommandFrameworkTest {
 
         assertEquals(List.of("--silent", "--reason"), suggestions);
     }
+
+    @Test
+    void routeDslDispatchesGreedyOptionalArgumentAndFlagAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban <target:String> [reason:String...] [--silent|-s]")
+            .executes(ctx -> Results.success(
+                ctx.arg("target", String.class)
+                    + ":" + ctx.argOr("reason", "")
+                    + ":" + ctx.flag("silent")));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ban Steve griefing in spawn -s");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Steve:griefing in spawn:true"), result.reply());
+    }
+
+    @Test
+    void routeDslDispatchesNestedLiteralsRequiredArgumentsAndValuedOptionAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank set <target:String> <count:int> [--amount:Integer|-a]")
+            .executes(ctx -> Results.success(
+                ctx.arg("target", String.class)
+                    + ":" + ctx.arg("count", int.class)
+                    + ":" + ctx.option("amount", Integer.class).orElse(0)));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank set Alex 2 -a 5");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Alex:2:5"), result.reply());
+    }
+
+    @Test
+    void routeDslRejectsInvalidPatternAtRegistration() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("ban <target:Double>").executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("ban [--silent|-silent]").executes(ctx -> Results.silent()));
+    }
 }

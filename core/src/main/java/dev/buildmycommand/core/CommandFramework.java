@@ -215,9 +215,13 @@ public final class CommandFramework {
         int tokenIndex = 0;
 
         for (SimpleCommandRegistry.ArgumentSpec spec : specs) {
-            if (spec.kind() == SimpleCommandRegistry.ArgumentKind.GREEDY) {
+            if (spec.kind() == SimpleCommandRegistry.ArgumentKind.GREEDY
+                || spec.kind() == SimpleCommandRegistry.ArgumentKind.OPTIONAL_GREEDY) {
                 if (tokenIndex >= tokens.size()) {
-                    return ParseArgumentsResult.failure("Missing required argument: " + spec.name());
+                    if (spec.kind() == SimpleCommandRegistry.ArgumentKind.GREEDY) {
+                        return ParseArgumentsResult.failure("Missing required argument: " + spec.name());
+                    }
+                    continue;
                 }
                 String raw = String.join(" ", tokens.subList(tokenIndex, tokens.size()));
                 ParseResult<?> parsed = parse(spec.type(), raw);

@@ -5,6 +5,12 @@ import java.util.function.Consumer;
 public interface CommandRegistry {
     void command(String literal, Consumer<CommandBuilder> configure);
 
+    RouteBuilder route(String pattern);
+
+    interface RouteBuilder {
+        CommandBuilder executes(CommandExecutor executor);
+    }
+
     interface CommandBuilder {
         CommandBuilder alias(String alias);
 
