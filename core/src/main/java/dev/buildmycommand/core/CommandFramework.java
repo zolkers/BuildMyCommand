@@ -147,6 +147,7 @@ public final class CommandFramework {
         String current = currentToken(prefixInput, tokens);
         if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
             return registry.roots().stream()
+                .filter(command -> canAccess(source, command))
                 .map(SimpleCommandRegistry.CommandNode::literal)
                 .filter(literal -> literal.startsWith(current))
                 .toList();
@@ -168,6 +169,9 @@ public final class CommandFramework {
         }
 
         if (current.startsWith("-")) {
+            if (!canAccess(source, command)) {
+                return List.of();
+            }
             return command.options().stream()
                 .map(option -> "--" + option.name())
                 .filter(name -> name.startsWith(current))
@@ -175,9 +179,16 @@ public final class CommandFramework {
         }
         return command.children().values().stream()
             .distinct()
+            .filter(child -> canAccess(source, child))
             .map(SimpleCommandRegistry.CommandNode::literal)
             .filter(literal -> literal.startsWith(current))
             .toList();
+    }
+
+    private static boolean canAccess(CommandSource source, SimpleCommandRegistry.CommandNode command) {
+        return command.permissionOptional()
+            .map(source::hasPermission)
+            .orElse(true);
     }
 
     private static String usage(SimpleCommandRegistry.CommandPath commandPath) {

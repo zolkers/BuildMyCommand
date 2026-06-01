@@ -28,9 +28,9 @@
 - Modify: `core/src/main/java/dev/buildmycommand/core/CommandFramework.java`
 - Modify tests under `core/src/test/java/...`
 
-- [ ] Write failing tests for hiding root commands, subcommands, and flags/options when the current source cannot execute the relevant command.
-- [ ] Filter suggestions using the nearest command permission available.
-- [ ] Verify existing suggestions remain deterministic for permitted sources.
+- [x] Write failing tests for hiding root commands, subcommands, and flags/options when the current source cannot execute the relevant command.
+- [x] Filter suggestions using the nearest command permission available.
+- [x] Verify existing suggestions remain deterministic for permitted sources.
 
 ### Task 17: Permission-Aware Help
 

@@ -507,6 +507,50 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void suggestionsHideRootCommandsWithoutPermission() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("public", command -> command.executes(ctx -> Results.silent()));
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .executes(ctx -> Results.silent()));
+
+        List<String> suggestions = framework.suggest(deniedSource(), "", 0);
+
+        assertEquals(List.of("public"), suggestions);
+    }
+
+    @Test
+    void suggestionsHideSubcommandsWithoutPermission() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("user", user -> user
+            .subcommand("info", info -> info.executes(ctx -> Results.silent()))
+            .subcommand("delete", delete -> delete
+                .permission("admin.delete")
+                .executes(ctx -> Results.silent())));
+
+        List<String> suggestions = framework.suggest(deniedSource(), "user ", 5);
+
+        assertEquals(List.of("info"), suggestions);
+    }
+
+    @Test
+    void suggestionsHideFlagsWhenCurrentCommandIsNotPermitted() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .flag("force")
+            .option("reason", String.class)
+            .executes(ctx -> Results.silent()));
+
+        List<String> suggestions = framework.suggest(deniedSource(), "secure --", 9);
+
+        assertEquals(List.of(), suggestions);
+    }
+
+    @Test
     void routeDslDispatchesGreedyOptionalArgumentAndFlagAlias() {
         CommandFramework framework = CommandFramework.create();
 
