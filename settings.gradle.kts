@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 rootProject.name = "buildmycommand"
 
 include("api")
-include("core")
 include("annotations")
+include("core")
+include("terminal-adapter")
 include("testkit")
