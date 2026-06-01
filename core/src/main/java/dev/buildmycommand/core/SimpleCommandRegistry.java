@@ -71,16 +71,20 @@ final class SimpleCommandRegistry implements CommandRegistry {
             ParsedRoute route,
             CommandExecutor executor
         ) {
-            if (childLiteralIndex < route.childLiterals().size()) {
-                builder.subcommand(route.childLiterals().get(childLiteralIndex),
-                    child -> configureRoute(child, childLiteralIndex + 1, route, executor));
-                return;
-            }
+            try {
+                if (childLiteralIndex < route.childLiterals().size()) {
+                    builder.subcommand(route.childLiterals().get(childLiteralIndex),
+                        child -> configureRoute(child, childLiteralIndex + 1, route, executor));
+                    return;
+                }
 
-            for (RouteElement element : route.elements()) {
-                element.apply(builder);
+                for (RouteElement element : route.elements()) {
+                    element.apply(builder);
+                }
+                builder.executes(executor);
+            } catch (IllegalStateException exception) {
+                throw new IllegalArgumentException("invalid route pattern", exception);
             }
-            builder.executes(executor);
         }
     }
 

@@ -547,5 +547,11 @@ class CommandFrameworkTest {
             () -> framework.registry().route("ban <target:Double>").executes(ctx -> Results.silent()));
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("ban [--silent|-silent]").executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("ban [reason:String...] <tail:String>").executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("ban [reason:String] <target:String>").executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("ban <target:String> [--target]").executes(ctx -> Results.silent()));
     }
 }
