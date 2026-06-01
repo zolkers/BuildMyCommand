@@ -629,4 +629,16 @@ class CommandFrameworkTest {
         assertThrows(IllegalArgumentException.class,
             () -> framework.registry().route("tool [--verbose] run").executes(ctx -> Results.silent()));
     }
+
+    @Test
+    void routeDslRejectsDuplicateExactRouteRegistration() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank")
+            .executes(ctx -> Results.success("rank"));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("user rank").executes(ctx -> Results.success("again")));
+    }
 }

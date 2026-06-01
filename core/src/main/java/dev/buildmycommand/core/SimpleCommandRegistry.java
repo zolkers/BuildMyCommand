@@ -288,6 +288,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
             replaceNode(children, existingChild, mergedChild);
         }
 
+        if (existing.isExecutable() && incoming.isExecutable()) {
+            throw new IllegalArgumentException("command already registered: " + incoming.literal());
+        }
         CommandExecutor executor = incoming.isExecutable() ? incoming.executor() : existing.executor();
         return new CommandNode(existing.literal(), existing.aliases(), executor, arguments, options, children);
     }
