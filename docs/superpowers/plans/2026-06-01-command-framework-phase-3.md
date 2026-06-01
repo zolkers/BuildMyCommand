@@ -38,7 +38,7 @@
 - Modify: `core/src/main/java/dev/buildmycommand/core/SimpleCommandRegistry.java`
 - Modify tests under `core/src/test/java/...`
 
-- [ ] Write failing tests for description and permission metadata on builder/manual/route declarations.
-- [ ] Add metadata storage without enforcing permissions yet.
-- [ ] Surface descriptions in help/schema in a deterministic format.
-- [ ] Verify metadata does not change dispatch semantics.
+- [x] Write failing tests for description and permission metadata on builder/manual/route declarations.
+- [x] Add metadata storage without enforcing permissions yet.
+- [x] Surface descriptions in help/schema in a deterministic format.
+- [x] Verify metadata does not change dispatch semantics.
