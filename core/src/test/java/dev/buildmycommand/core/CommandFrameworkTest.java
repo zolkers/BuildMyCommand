@@ -304,4 +304,35 @@ class CommandFrameworkTest {
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("rank"), result.reply());
     }
+
+    @Test
+    void rejectsTopLevelAliasConflict() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("pong", command -> command
+            .alias("ping")
+            .executes(ctx -> Results.success("Again"))));
+    }
+
+    @Test
+    void rejectsSiblingSubcommandAliasConflict() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("user", user -> user
+            .subcommand("rank", rank -> rank.executes(ctx -> Results.success("rank")))
+            .subcommand("role", role -> role
+                .alias("rank")
+                .executes(ctx -> Results.success("role")))));
+    }
+
+    @Test
+    void rejectsDuplicateAliasesOnSameBuilder() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("ping", command -> command
+            .aliases("p", "p")
+            .executes(ctx -> Results.success("Pong"))));
+    }
 }
