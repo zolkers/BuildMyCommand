@@ -1,0 +1,38 @@
+package dev.riege.buildmycommand.core;
+
+import java.util.Objects;
+
+final class Validators {
+    private Validators() {
+    }
+
+    static String literal(String literal, String label) {
+        Objects.requireNonNull(literal, label);
+        if (literal.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        return literal;
+    }
+
+    static String metadata(String value, String label) {
+        Objects.requireNonNull(value, label);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        return value;
+    }
+
+    static String name(String name, String label) {
+        Objects.requireNonNull(name, label);
+        if (name.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
+        }
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if (!Character.isLetterOrDigit(character) && character != '-' && character != '_') {
+                throw new IllegalArgumentException("invalid " + label + ": " + name);
+            }
+        }
+        return name;
+    }
+}
