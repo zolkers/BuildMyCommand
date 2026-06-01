@@ -22,6 +22,8 @@ public record CommandNode(
         }
         description = Objects.requireNonNull(description, "description");
         permission = Objects.requireNonNull(permission, "permission");
+        description.ifPresent(value -> validateMetadata(value, "description"));
+        permission.ifPresent(value -> validateMetadata(value, "permission"));
         aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         flags = List.copyOf(Objects.requireNonNull(flags, "flags"));
@@ -99,12 +101,13 @@ public record CommandNode(
             );
         }
 
-        private static String validateMetadata(String value, String label) {
-            Objects.requireNonNull(value, label);
-            if (value.isBlank()) {
-                throw new IllegalArgumentException(label + " must not be blank");
-            }
-            return value;
+    }
+
+    private static String validateMetadata(String value, String label) {
+        Objects.requireNonNull(value, label);
+        if (value.isBlank()) {
+            throw new IllegalArgumentException(label + " must not be blank");
         }
+        return value;
     }
 }
