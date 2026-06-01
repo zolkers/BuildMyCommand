@@ -11,7 +11,6 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TerminalAdapterTest {
     @Test
@@ -25,7 +24,7 @@ class TerminalAdapterTest {
             .output(output(captured))
             .runOnce(source());
 
-        assertTrue(text(captured).contains("Pong"));
+        assertEquals(line("Pong"), text(captured));
     }
 
     @Test
@@ -38,7 +37,7 @@ class TerminalAdapterTest {
             .output(output(captured))
             .runOnce(source());
 
-        assertTrue(text(captured).contains("Unknown command: missing"));
+        assertEquals(line("Unknown command: missing"), text(captured));
     }
 
     @Test
@@ -55,6 +54,38 @@ class TerminalAdapterTest {
         assertEquals("", text(captured));
     }
 
+    @Test
+    void repeatedRunOnceCallsReadSubsequentInputLines() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        TerminalAdapter adapter = TerminalAdapter.attach(framework)
+            .input(input("ping\nping\n"))
+            .output(output(captured));
+
+        adapter.runOnce(source());
+        adapter.runOnce(source());
+
+        assertEquals(line("Pong") + line("Pong"), text(captured));
+    }
+
+    @Test
+    void noArgRunOnceUsesTerminalCommandSource() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("reply", command -> command.executes(ctx -> {
+            ctx.source().reply("from source");
+            return Results.silent();
+        }));
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+
+        TerminalAdapter.attach(framework)
+            .input(input("reply\n"))
+            .output(output(captured))
+            .runOnce();
+
+        assertEquals(line("from source"), text(captured));
+    }
+
     private static ByteArrayInputStream input(String value) {
         return new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8));
     }
@@ -65,6 +96,10 @@ class TerminalAdapterTest {
 
     private static String text(ByteArrayOutputStream captured) {
         return captured.toString(StandardCharsets.UTF_8);
+    }
+
+    private static String line(String value) {
+        return value + System.lineSeparator();
     }
 
     private static CommandSource source() {

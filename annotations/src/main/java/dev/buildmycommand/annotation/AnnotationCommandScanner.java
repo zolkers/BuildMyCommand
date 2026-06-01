@@ -9,6 +9,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -20,19 +22,18 @@ public final class AnnotationCommandScanner {
         Objects.requireNonNull(registry, "registry");
         Objects.requireNonNull(commands, "commands");
 
-        for (Method method : commands.getClass().getDeclaredMethods()) {
-            Command command = method.getAnnotation(Command.class);
-            if (command == null) {
-                continue;
-            }
-            registerMethod(registry, commands, method, command);
-        }
+        Arrays.stream(commands.getClass().getDeclaredMethods())
+            .filter(method -> method.isAnnotationPresent(Command.class))
+            .sorted(Comparator
+                .comparing((Method method) -> method.getAnnotation(Command.class).value())
+                .thenComparing(AnnotationCommandScanner::signature))
+            .forEach(method -> registerMethod(registry, commands, method, method.getAnnotation(Command.class)));
     }
 
     private static void registerMethod(CommandRegistry registry, Object target, Method method, Command command) {
         validateMethod(method);
         List<ParameterBinding> bindings = bindingsFor(method);
-        method.setAccessible(true);
+        makeAccessible(target, method);
 
         registry.command(command.value(), builder -> {
             for (ParameterBinding binding : bindings) {
@@ -40,6 +41,28 @@ public final class AnnotationCommandScanner {
             }
             builder.executes(context -> invoke(target, method, bindings, context));
         });
+    }
+
+    private static String signature(Method method) {
+        StringBuilder builder = new StringBuilder(method.getName()).append('(');
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        for (int index = 0; index < parameterTypes.length; index++) {
+            if (index > 0) {
+                builder.append(',');
+            }
+            builder.append(parameterTypes[index].getName());
+        }
+        return builder.append(')').toString();
+    }
+
+    private static void makeAccessible(Object target, Method method) {
+        try {
+            if (!method.canAccess(target)) {
+                method.setAccessible(true);
+            }
+        } catch (SecurityException exception) {
+            throw new IllegalStateException("cannot access annotated command method: " + method.getName(), exception);
+        }
     }
 
     private static void validateMethod(Method method) {

@@ -16,6 +16,7 @@ public final class TerminalAdapter {
     private final CommandFramework framework;
     private InputStream input;
     private PrintStream output;
+    private BufferedReader reader;
 
     private TerminalAdapter(CommandFramework framework) {
         this.framework = Objects.requireNonNull(framework, "framework");
@@ -29,6 +30,7 @@ public final class TerminalAdapter {
 
     public TerminalAdapter input(InputStream input) {
         this.input = Objects.requireNonNull(input, "input");
+        this.reader = null;
         return this;
     }
 
@@ -55,10 +57,17 @@ public final class TerminalAdapter {
 
     private String readLine() {
         try {
-            return new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8)).readLine();
+            return reader().readLine();
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to read terminal input", exception);
         }
+    }
+
+    private BufferedReader reader() {
+        if (reader == null) {
+            reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+        }
+        return reader;
     }
 
     private record TerminalCommandSource(PrintStream output) implements CommandSource {

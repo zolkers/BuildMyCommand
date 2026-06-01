@@ -1,7 +1,6 @@
 package dev.buildmycommand.annotation;
 
 import dev.buildmycommand.api.CommandContext;
-import dev.buildmycommand.api.CommandRegistry;
 import dev.buildmycommand.api.CommandResult;
 import dev.buildmycommand.api.CommandSource;
 import dev.buildmycommand.api.Results;
@@ -48,6 +47,17 @@ class AnnotationCommandScannerTest {
         assertEquals("unsupported annotated command parameter: reason", exception.getMessage());
     }
 
+    @Test
+    void registersMultipleAnnotatedCommandsInDeterministicCommandOrder() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new OrderedCommands());
+
+        assertEquals("""
+            command alpha
+            command zeta""", framework.schema());
+    }
+
     private static CommandSource source() {
         return new CommandSource() {
         };
@@ -71,6 +81,18 @@ class AnnotationCommandScannerTest {
         @Command("bad")
         CommandResult bad(@Arg("reason") Double reason) {
             return Results.success(String.valueOf(reason));
+        }
+    }
+
+    static final class OrderedCommands {
+        @Command("zeta")
+        CommandResult zeta() {
+            return Results.success("zeta");
+        }
+
+        @Command("alpha")
+        CommandResult alpha() {
+            return Results.success("alpha");
         }
     }
 }
