@@ -534,18 +534,37 @@ public final class CommandFramework {
     private TokenizeResult tokenize(String input) {
         List<String> tokens = new ArrayList<>();
         StringBuilder current = new StringBuilder();
-        boolean quoted = false;
+        char quote = 0;
+        boolean escaped = false;
         boolean tokenStarted = false;
 
         for (int index = 0; index < input.length(); index++) {
             char character = input.charAt(index);
-            if (character == '"') {
-                quoted = !quoted;
+            if (escaped) {
+                current.append(character);
+                tokenStarted = true;
+                escaped = false;
+                continue;
+            }
+
+            if (character == '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if ((character == '"' || character == '\'') && quote == 0) {
+                quote = character;
                 tokenStarted = true;
                 continue;
             }
 
-            if (Character.isWhitespace(character) && !quoted) {
+            if (character == quote) {
+                quote = 0;
+                tokenStarted = true;
+                continue;
+            }
+
+            if (Character.isWhitespace(character) && quote == 0) {
                 if (tokenStarted) {
                     tokens.add(current.toString());
                     current.setLength(0);
@@ -558,7 +577,11 @@ public final class CommandFramework {
             tokenStarted = true;
         }
 
-        if (quoted) {
+        if (escaped) {
+            return TokenizeResult.failure("Trailing escape");
+        }
+
+        if (quote != 0) {
             return TokenizeResult.failure("Unclosed quote");
         }
 

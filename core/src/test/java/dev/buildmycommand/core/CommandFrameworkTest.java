@@ -93,6 +93,36 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void parsesSingleQuotedStringArgumentAsOneValue() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say 'hello world'");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("hello world"), result.reply());
+    }
+
+    @Test
+    void parsesEscapedQuotesAndBackslashes() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .greedyArgument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say \"hello \\\"Ada\\\"\" 'it\\'s ok' C:\\\\tools");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("hello \"Ada\" it's ok C:\\tools"), result.reply());
+    }
+
+    @Test
     void failsWhenRequiredArgumentIsMissing() {
         CommandFramework framework = CommandFramework.create();
 
@@ -225,6 +255,21 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.FAILURE, result.status());
         assertEquals(Optional.of("Unclosed quote"), result.reply());
+    }
+
+    @Test
+    void failsForTrailingEscape() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("say", command -> command
+            .argument("message", String.class)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "say hello\\");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Trailing escape"), result.reply());
     }
 
     @Test
