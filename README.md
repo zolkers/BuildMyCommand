@@ -20,9 +20,9 @@ The long-form architecture plan is tracked in `java_command_framework_master_pla
 
 The repository is being built incrementally from a minimal command dispatcher toward the full roadmap:
 
-1. literal command dispatch
-2. typed arguments
-3. subcommands and aliases
-4. flags and options
-5. suggestions and help
-6. DSL, annotations, adapters, and studio modules
+1. literal command dispatch: implemented
+2. typed arguments: implemented
+3. subcommands and aliases: implemented
+4. flags and options: in progress
+5. suggestions and help: suggestions in progress, help later
+6. DSL, annotations, adapters, and studio modules: planned
