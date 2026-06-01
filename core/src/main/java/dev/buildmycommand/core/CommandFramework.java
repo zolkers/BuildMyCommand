@@ -53,7 +53,11 @@ public final class CommandFramework {
 
     private static ParseResult<Double> parseDouble(String value) {
         try {
-            return ParseResult.success(Double.valueOf(value));
+            Double parsed = Double.valueOf(value);
+            if (!Double.isFinite(parsed)) {
+                return ParseResult.failure("Invalid double");
+            }
+            return ParseResult.success(parsed);
         } catch (NumberFormatException exception) {
             return ParseResult.failure("Invalid double");
         }

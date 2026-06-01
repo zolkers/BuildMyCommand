@@ -299,6 +299,12 @@ class CommandFrameworkTest {
         assertEquals(Optional.of("Invalid double for argument doubleValue: nope"),
             framework.dispatch(new CommandSource() {
             }, "types 42 nope true 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
+        assertEquals(Optional.of("Invalid double for argument doubleValue: NaN"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 NaN true 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
+        assertEquals(Optional.of("Invalid double for argument doubleValue: Infinity"),
+            framework.dispatch(new CommandSource() {
+            }, "types 42 Infinity true 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
         assertEquals(Optional.of("Invalid boolean for argument enabled: maybe"),
             framework.dispatch(new CommandSource() {
             }, "types 42 3.5 maybe 123e4567-e89b-12d3-a456-426614174000 FAST").reply());
