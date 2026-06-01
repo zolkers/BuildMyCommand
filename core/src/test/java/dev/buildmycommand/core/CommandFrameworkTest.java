@@ -425,6 +425,46 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void parsesNegativeIntegerPositionalArgument() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("repeat", command -> command
+            .argument("count", Integer.class)
+            .executes(ctx -> Results.success(String.valueOf(ctx.arg("count", Integer.class)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "repeat -3");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("-3"), result.reply());
+    }
+
+    @Test
+    void parsesNegativeIntegerOptionValue() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("move", command -> command
+            .option("offset", Integer.class)
+            .executes(ctx -> Results.success(String.valueOf(ctx.option("offset", Integer.class).orElse(0)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "move --offset -5");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("-5"), result.reply());
+    }
+
+    @Test
+    void rejectsOptionNameConflictingWithArgumentName() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalStateException.class, () -> framework.registry().command("ban", command -> command
+            .argument("target", String.class)
+            .flag("target")
+            .executes(ctx -> Results.silent())));
+    }
+
+    @Test
     void suggestsRootCommandsByPrefix() {
         CommandFramework framework = CommandFramework.create();
 

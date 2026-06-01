@@ -156,15 +156,14 @@ public final class CommandFramework {
         int tokenIndex = 0;
         while (tokenIndex < tokens.size()) {
             String token = tokens.get(tokenIndex);
-            if (!isOptionToken(token)) {
+            SimpleCommandRegistry.OptionSpec spec = findOption(specs, token);
+            if (spec == null) {
+                if (isOptionLike(token)) {
+                    return ParseOptionsResult.failure("Unknown flag or option: " + token);
+                }
                 positionals.add(token);
                 tokenIndex++;
                 continue;
-            }
-
-            SimpleCommandRegistry.OptionSpec spec = findOption(specs, token);
-            if (spec == null) {
-                return ParseOptionsResult.failure("Unknown flag or option: " + token);
             }
 
             if (spec.kind() == SimpleCommandRegistry.OptionKind.FLAG) {
@@ -173,7 +172,7 @@ public final class CommandFramework {
                 continue;
             }
 
-            if (tokenIndex + 1 >= tokens.size() || isOptionToken(tokens.get(tokenIndex + 1))) {
+            if (tokenIndex + 1 >= tokens.size()) {
                 return ParseOptionsResult.failure("Missing value for option: " + spec.name());
             }
 
@@ -189,8 +188,11 @@ public final class CommandFramework {
         return ParseOptionsResult.success(values, positionals);
     }
 
-    private static boolean isOptionToken(String token) {
-        return token.length() > 1 && token.startsWith("-");
+    private static boolean isOptionLike(String token) {
+        if (token.startsWith("--")) {
+            return token.length() > 2;
+        }
+        return token.length() > 1 && token.charAt(0) == '-' && !Character.isDigit(token.charAt(1));
     }
 
     private static SimpleCommandRegistry.OptionSpec findOption(

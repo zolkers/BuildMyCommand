@@ -162,6 +162,9 @@ final class SimpleCommandRegistry implements CommandRegistry {
             List<String> seenNames = new ArrayList<>();
             List<String> seenAliases = new ArrayList<>();
             for (OptionSpec option : options) {
+                if (arguments.stream().anyMatch(argument -> argument.name().equals(option.name()))) {
+                    throw new IllegalStateException("flag or option conflicts with argument: " + option.name());
+                }
                 if (seenNames.contains(option.name())) {
                     throw new IllegalStateException("flag or option already declared: " + option.name());
                 }
