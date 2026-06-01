@@ -851,6 +851,35 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void sourceAwareHelpDeniesPermissionedCommandHelpWhenPermissionIsMissing() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .description("Secure command")
+            .executes(ctx -> Results.silent()));
+
+        assertEquals("Missing permission: admin.secure", framework.help(deniedSource(), "secure"));
+    }
+
+    @Test
+    void sourceAwareHelpAllowsPermissionedCommandHelpWhenPermissionIsGranted() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .description("Secure command")
+            .executes(ctx -> Results.silent()));
+
+        assertEquals("""
+            Usage: secure
+            Description: Secure command""", framework.help(allowedSource(), "secure"));
+        assertEquals("""
+            Usage: secure
+            Description: Secure command""", framework.help("secure"));
+    }
+
+    @Test
     void exportsDeterministicSchemaFromCommandTree() {
         CommandFramework framework = CommandFramework.create();
 

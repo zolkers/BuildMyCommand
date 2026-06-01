@@ -44,6 +44,12 @@ public final class CommandFramework {
     }
 
     public String help(String path) {
+        return help(new CommandSource() {
+        }, path);
+    }
+
+    public String help(CommandSource source, String path) {
+        Objects.requireNonNull(source, "source");
         Objects.requireNonNull(path, "path");
 
         TokenizeResult tokenizeResult = tokenize(path);
@@ -54,6 +60,11 @@ public final class CommandFramework {
         SimpleCommandRegistry.CommandPath commandPath = registry.findPath(tokenizeResult.tokens());
         if (commandPath == null) {
             return "Unknown command: " + path;
+        }
+
+        Optional<String> deniedPermission = deniedPermission(source, commandPath.nodes());
+        if (deniedPermission.isPresent()) {
+            return "Missing permission: " + deniedPermission.get();
         }
 
         StringBuilder builder = new StringBuilder("Usage: ").append(usage(commandPath));

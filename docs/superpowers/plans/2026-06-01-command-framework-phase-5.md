@@ -39,6 +39,6 @@ Permissions are inherited along the matched command path: any permission declare
 - Modify: `core/src/main/java/dev/buildmycommand/core/CommandFramework.java`
 - Modify tests under `core/src/test/java/...`
 
-- [ ] Add a source-aware help overload while keeping the existing `help(String)` convenience method.
-- [ ] Hide or deny permissioned command help for sources without permission.
-- [ ] Verify existing help output stays unchanged for the convenience overload.
+- [x] Add a source-aware help overload while keeping the existing `help(String)` convenience method.
+- [x] Hide or deny permissioned command help for sources without permission.
+- [x] Verify existing help output stays unchanged for the convenience overload.
