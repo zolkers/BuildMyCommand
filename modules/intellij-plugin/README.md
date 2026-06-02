@@ -1,10 +1,14 @@
 # BuildMyCommand IntelliJ Plugin
 
-This module is the in-repository home for IDE support.
+This module is the in-repository home for IDE support around the BuildMyCommand route DSL.
 
-The first slice uses IntelliJ IntelliLang configuration to mark BuildMyCommand DSL strings:
+The current slice provides:
 
 - `@dev.riege.buildmycommand.annotation.Command`
+- `@dev.riege.buildmycommand.annotation.Route`
+- `@dev.riege.buildmycommand.annotation.Subcommand`
 - `CommandRegistry#route(String)`
+- a lightweight `BuildMyCommandRoute` language with syntax highlighting
+- a bundled TextMate grammar and light/Darcula color attributes
 
-The next architectural step is a real IntelliJ Platform module with a BuildMyCommand language, parser, annotator, and completion contributor. That should live in this module instead of in `core`, so IDE behavior never leaks into runtime APIs.
+Parser-level validation, completion, and inspections should stay in this module so IDE behavior never leaks into runtime APIs.

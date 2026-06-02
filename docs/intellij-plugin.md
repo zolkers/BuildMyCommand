@@ -4,22 +4,33 @@
 
 ## Current Slice
 
-The module declares an IntelliJ plugin descriptor, IntelliLang injection configuration, a TextMate grammar, and light/dark color schemes. The injection configuration marks BuildMyCommand DSL strings in:
+The module declares an IntelliJ plugin descriptor, IntelliLang injection configuration, a lightweight BuildMyCommand route language, a syntax highlighter, a TextMate grammar, and light/dark color schemes. The injection configuration marks BuildMyCommand DSL strings in:
 
 - `@dev.riege.buildmycommand.annotation.Command`
+- `@dev.riege.buildmycommand.annotation.Route`
+- `@dev.riege.buildmycommand.annotation.Subcommand`
 - `dev.riege.buildmycommand.api.CommandRegistry#route(String)`
 
-The TextMate bundle describes literals, required arguments, optional arguments, greedy arguments, flags, options, aliases, and built-in route types. The color schemes map those TextMate scopes to readable light and Darcula colors.
+Injected strings use the `BuildMyCommandRoute` language so annotations and route builder calls receive syntax highlighting directly in Java string literals. The TextMate bundle still describes the same DSL for bundled grammar support: literals, required arguments, optional arguments, greedy arguments, flags, options, aliases, and built-in route types. The color schemes map both the custom highlighter keys and TextMate scopes to readable light and Darcula colors.
+
+## Project Setup
+
+Run `.\gradlew.bat setupIntellijPlugin` from the repository root. The task builds the local IntelliJ plugin ZIP and refreshes `.idea/externalDependencies.xml` so IntelliJ marks `dev.riege.buildmycommand.intellij` as a required project plugin.
+
+For a pure script run, use `.\scripts\setup-intellij-plugin.ps1`. By default it also runs `:intellij-plugin:buildPlugin`; pass `-SkipBuild` if Gradle already built the plugin.
+
+On Unix-like shells, use `./scripts/setup-intellij-plugin.sh`. It has the same behavior; pass `--skip-build` if Gradle already built the plugin.
+
+IntelliJ reads `.idea/externalDependencies.xml` when the project opens and notifies if the required plugin is missing, disabled, or too old. The generated plugin ZIP is under `modules/intellij-plugin/build/distributions/` and can be installed with `Settings > Plugins > gear > Install Plugin from Disk...`.
 
 ## Next Slice
 
-The next plugin increment should add a BuildMyCommand route language implementation:
+The next plugin increment should deepen the language implementation:
 
-1. Adopt the IntelliJ Platform Gradle plugin.
-2. Add a `TextMateBundleProvider` for automatic bundle registration.
-3. Add a PSI parser and annotator for invalid route shapes.
-4. Add completion for built-in route types and annotation attributes.
-5. Add tests using the IntelliJ Platform test framework.
+1. Add a PSI parser and annotator for invalid route shapes.
+2. Add completion for built-in route types and annotation attributes.
+3. Add inspections that compare `@Route` parameters with method bindings.
+4. Add IntelliJ Platform fixture tests for highlighting, injection, and completion.
 
 ## References
 

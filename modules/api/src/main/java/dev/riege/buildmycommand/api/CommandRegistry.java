@@ -34,6 +34,8 @@ public interface CommandRegistry {
 
         <T> CommandBuilder greedyArgument(String name, Class<T> type);
 
+        <T> CommandBuilder optionalGreedyArgument(String name, Class<T> type);
+
         CommandBuilder flag(String name);
 
         CommandBuilder flag(String name, String alias);

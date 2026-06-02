@@ -90,6 +90,56 @@ class AnnotationCommandScannerTest {
         assertEquals("permission must not be blank", permission.getMessage());
     }
 
+    @Test
+    void registersAnnotatedRouteDslWithArgumentsFlagAndValuedOption() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new InventoryCommands());
+
+        CommandResult result = framework.dispatch(source(), "inventory give Ada diamond -a 3 --silent");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Ada gets 3 diamond silently=true"), result.reply());
+        assertEquals("""
+            Usage: inventory give <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]
+            Description: Give an item""", framework.help("inventory give"));
+    }
+
+    @Test
+    void rejectsMethodAnnotatedAsBothLiteralCommandAndRouteDsl() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MixedRouteCommands()));
+
+        assertEquals("annotated command method cannot use both @Command and @Route: mixed", exception.getMessage());
+    }
+
+    @Test
+    void registersAliasOptionalGreedyAndDefaultParameterAnnotations() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new MessagingCommands());
+
+        CommandResult defaulted = framework.dispatch(source(), "msg Ada");
+        CommandResult explicit = framework.dispatch(source(), "message Ada hello there");
+
+        assertEquals(Optional.of("Ada:No message"), defaulted.reply());
+        assertEquals(Optional.of("Ada:hello there"), explicit.reply());
+        assertEquals("Usage: msg <target:String> [message:String...]", framework.help("msg"));
+    }
+
+    @Test
+    void registersClassCommandWithMethodSubcommand() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new UserCommands());
+
+        CommandResult result = framework.dispatch(source(), "user rank set Ada admin");
+
+        assertEquals(Optional.of("Ada=admin"), result.reply());
+    }
+
     private static CommandSource source() {
         return new CommandSource() {
         };
@@ -111,7 +161,7 @@ class AnnotationCommandScannerTest {
 
     static final class InvalidCommands {
         @Command("bad")
-        CommandResult bad(@Arg("reason") Double reason) {
+        CommandResult bad(@Arg("reason") Float reason) {
             return Results.success(String.valueOf(reason));
         }
     }
@@ -150,6 +200,46 @@ class AnnotationCommandScannerTest {
         @Permission(" ")
         CommandResult bad() {
             return Results.silent();
+        }
+    }
+
+    static final class InventoryCommands {
+        @Route("inventory give <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]")
+        @Description("Give an item")
+        CommandResult give(
+            @Arg("target") String target,
+            @Arg("item") String item,
+            @Option("amount") Integer amount,
+            @Flag("silent") boolean silent
+        ) {
+            return Results.success(target + " gets " + amount + " " + item + " silently=" + silent);
+        }
+    }
+
+    static final class MixedRouteCommands {
+        @Command("mixed")
+        @Route("mixed <target:String>")
+        CommandResult mixed(@Arg("target") String target) {
+            return Results.success(target);
+        }
+    }
+
+    static final class MessagingCommands {
+        @Command("msg")
+        @Alias("message")
+        CommandResult msg(
+            @Arg("target") String target,
+            @Arg("message") @OptionalArg @Greedy @Default("No message") String message
+        ) {
+            return Results.success(target + ":" + message);
+        }
+    }
+
+    @Command("user")
+    static final class UserCommands {
+        @Subcommand("rank set <target:String> <rank:String>")
+        CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
+            return Results.success(target + "=" + rank);
         }
     }
 }

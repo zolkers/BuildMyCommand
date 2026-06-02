@@ -5,7 +5,10 @@ import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.ArgumentSpec;
 import dev.riege.buildmycommand.api.CommandNode;
+import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.FlagSpec;
+
+import java.util.Optional;
 
 public final class ManualCommandImporter {
     private ManualCommandImporter() {
@@ -19,6 +22,26 @@ public final class ManualCommandImporter {
             throw new IllegalArgumentException("invalid command tree", exception);
         }
         return builder.node();
+    }
+
+    public static CommandNode exportNode(RegistryCommandNode node) {
+        CommandNode.Builder builder = Commands.literal(node.literal());
+        node.descriptionOptional().ifPresent(builder::description);
+        node.permissionOptional().ifPresent(builder::permission);
+        builder.aliases(node.aliases().toArray(String[]::new));
+        for (RegistryArgumentSpec argument : node.arguments()) {
+            builder.argument(exportArgument(argument));
+        }
+        for (RegistryOptionSpec option : node.options()) {
+            builder.flag(exportOption(option));
+        }
+        for (RegistryCommandNode child : node.uniqueChildren()) {
+            builder.child(exportNode(child));
+        }
+        if (node.isExecutable()) {
+            builder.handler(node.executor());
+        }
+        return builder.build();
     }
 
     private static void configure(SimpleCommandBuilder builder, CommandNode node) {
@@ -54,5 +77,23 @@ public final class ManualCommandImporter {
             case FLAG -> builder.flag(flag.name(), alias);
             case VALUE -> builder.option(flag.name(), flag.type(), alias);
         }
+    }
+
+    private static ArgumentSpec<?> exportArgument(RegistryArgumentSpec argument) {
+        return switch (argument.kind()) {
+            case REQUIRED -> new ArgumentSpec<>(argument.name(), argument.type(), ArgumentSpec.Kind.REQUIRED);
+            case OPTIONAL -> new ArgumentSpec<>(argument.name(), argument.type(), ArgumentSpec.Kind.OPTIONAL);
+            case GREEDY -> new ArgumentSpec<>(argument.name(), argument.type(), ArgumentSpec.Kind.GREEDY);
+            case OPTIONAL_GREEDY -> new ArgumentSpec<>(argument.name(), argument.type(), ArgumentSpec.Kind.OPTIONAL_GREEDY);
+        };
+    }
+
+    private static FlagSpec<?> exportOption(RegistryOptionSpec option) {
+        FlagSpec<?> spec = switch (option.kind()) {
+            case FLAG -> new FlagSpec<>(option.name(), Boolean.class, null, FlagSpec.Kind.FLAG);
+            case VALUE -> new FlagSpec<>(option.name(), option.type(), null, FlagSpec.Kind.VALUE);
+        };
+        Optional<String> alias = option.aliasOptional();
+        return alias.isPresent() ? spec.alias(alias.get()) : spec;
     }
 }

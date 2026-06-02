@@ -3,6 +3,8 @@ package dev.riege.buildmycommand.intellij;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -19,9 +21,14 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("org.jetbrains.plugins.textmate"));
         assertTrue(pluginXml.contains("buildmycommandInjections.xml"));
         assertTrue(pluginXml.contains("textmate.bundleProvider"));
+        assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
+        assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Route"));
+        assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Subcommand"));
         assertTrue(injections.contains("dev.riege.buildmycommand.api.CommandRegistry"));
+        assertTrue(injections.contains("language=\"BuildMyCommandRoute\""));
         assertTrue(injections.contains("route"));
     }
 
@@ -66,6 +73,24 @@ class IntellijPluginResourcesTest {
 
         assertTrue(bundles.stream().anyMatch(bundle -> bundle.getName().equals("BuildMyCommand Route DSL")));
         assertTrue(bundles.stream().anyMatch(bundle -> bundle.getPath().toString().contains("buildmycommand-route")));
+    }
+
+    @Test
+    void projectCanDeclareAndGenerateRequiredIntelliJPlugin() throws IOException {
+        Path root = Path.of("").toAbsolutePath().getParent().getParent();
+        String externalDependencies = Files.readString(root.resolve(".idea/externalDependencies.xml"));
+        String powerShellScript = Files.readString(root.resolve("scripts/setup-intellij-plugin.ps1"));
+        String shellScript = Files.readString(root.resolve("scripts/setup-intellij-plugin.sh"));
+        String buildScript = Files.readString(root.resolve("build.gradle.kts"));
+
+        assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
+        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.intellij\" min-version=\"0.1.0\" />"));
+        assertTrue(powerShellScript.contains("dev.riege.buildmycommand.intellij"));
+        assertTrue(powerShellScript.contains(":intellij-plugin:buildPlugin"));
+        assertTrue(shellScript.contains("dev.riege.buildmycommand.intellij"));
+        assertTrue(shellScript.contains(":intellij-plugin:buildPlugin"));
+        assertTrue(shellScript.contains("skip-build"));
+        assertTrue(buildScript.contains("setupIntellijPlugin"));
     }
 
     private static String resource(String path) throws IOException {

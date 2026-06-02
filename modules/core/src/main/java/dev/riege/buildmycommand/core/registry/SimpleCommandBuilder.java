@@ -90,7 +90,8 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         return this;
     }
 
-    public CommandRegistry.CommandBuilder optionalGreedyArgument(String name, Class<?> type) {
+    @Override
+    public <T> CommandRegistry.CommandBuilder optionalGreedyArgument(String name, Class<T> type) {
         validateCanAdd(name, RegistryArgumentKind.OPTIONAL_GREEDY);
         arguments.add(new RegistryArgumentSpec(name, type, RegistryArgumentKind.OPTIONAL_GREEDY));
         return this;

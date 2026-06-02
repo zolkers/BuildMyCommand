@@ -1,4 +1,40 @@
 <attributes>
+    <option name="ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="A9B7C6"/>
+        </value>
+    </option>
+    <option name="VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="9876AA"/>
+        </value>
+    </option>
+    <option name="STORAGE_TYPE_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="CC7832"/>
+            <option name="FONT_TYPE" value="2"/>
+        </value>
+    </option>
+    <option name="ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="6A8759"/>
+        </value>
+    </option>
+    <option name="ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="6A8759"/>
+        </value>
+    </option>
+    <option name="KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="FFC66D"/>
+        </value>
+    </option>
+    <option name="PUNCTUATION_DEFINITION_BUILDMYCOMMAND_ROUTE">
+        <value>
+            <option name="FOREGROUND" value="808080"/>
+        </value>
+    </option>
     <option name="TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE">
         <value>
             <option name="FOREGROUND" value="A9B7C6"/>

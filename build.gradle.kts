@@ -6,6 +6,15 @@ plugins {
 group = "dev.riege.buildmycommand"
 version = "0.1.0-SNAPSHOT"
 
+tasks.register<Exec>("setupIntellijPlugin") {
+    group = "ide"
+    description = "Declares the BuildMyCommand IntelliJ plugin as required for this project and builds the local plugin ZIP."
+    dependsOn(":intellij-plugin:buildPlugin")
+
+    val script = layout.projectDirectory.file("scripts/setup-intellij-plugin.ps1")
+    commandLine("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.asFile.absolutePath, "-SkipBuild")
+}
+
 subprojects {
     apply(plugin = "java")
     apply(plugin = "jacoco")

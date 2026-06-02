@@ -16,6 +16,8 @@
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
+        <lang.syntaxHighlighterFactory language="BuildMyCommandRoute"
+                                       implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
         <additionalTextAttributes scheme="Default" file="colorSchemes/BuildMyCommandRoute.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/BuildMyCommandRouteDarcula.xml"/>

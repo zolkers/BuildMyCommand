@@ -2,6 +2,10 @@ package dev.riege.buildmycommand.core;
 
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
+import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.api.Arguments;
 import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.Flags;
@@ -28,6 +32,49 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("Pong"), result.reply());
+    }
+
+    @Test
+    void dispatchesUniversalCommandInputWithPrefixAndPlatform() {
+        CommandFramework framework = CommandFramework.create();
+        CommandPlatform platform = new CommandPlatform("test", "Test", false, true, true);
+        CommandSource source = new CommandSource() {
+        };
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+
+        CommandResult result = framework.dispatch(new CommandInput(source, "/ping", 5, "/", platform));
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Pong"), result.reply());
+    }
+
+    @Test
+    void returnsRichSuggestionsWithReplacementRanges() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+
+        List<Suggestion> suggestions = framework.suggestRich(
+            new CommandInput(new CommandSource() {
+            }, "p", 1, "", CommandPlatform.test()));
+
+        assertEquals(List.of(new Suggestion("ping", Optional.empty(), 0, 1, SuggestionType.COMMAND, 0)), suggestions);
+    }
+
+    @Test
+    void exposesPublicCommandGraphSnapshotForAdapters() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank set <target:String> [--silent|-s]")
+            .description("Set rank")
+            .executes(ctx -> Results.silent());
+
+        assertEquals("user", framework.graph().roots().get(0).literal());
+        assertEquals("rank", framework.graph().roots().get(0).children().get(0).literal());
+        assertEquals("set", framework.graph().roots().get(0).children().get(0).children().get(0).literal());
+        assertEquals("target", framework.graph().roots().get(0).children().get(0).children().get(0).arguments().get(0).name());
     }
 
     @Test

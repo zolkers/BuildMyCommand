@@ -9,6 +9,7 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         mavenCentral()
+        maven("https://libraries.minecraft.net")
         maven("https://www.jetbrains.com/intellij-repository/releases")
         maven("https://cache-redirector.jetbrains.com/intellij-dependencies")
     }
