@@ -115,6 +115,21 @@ class IntellijPluginResourcesTest {
     }
 
     @Test
+    void routeInspectionDocumentsRouteCtxContract() throws IOException {
+        Path root = Path.of("").toAbsolutePath().getParent().getParent();
+        String inspection = Files.readString(root.resolve(
+            "modules/intellij-plugin/src/main/java/dev/riege/buildmycommand/intellij/BuildMyCommandRouteInspection.java"
+        ));
+
+        assertTrue(inspection.contains("RouteCtx"));
+        assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
+        assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN));
+        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Arg"));
+        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Option"));
+        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Flag"));
+    }
+
+    @Test
     void routeDslCompletionSuggestsTypesAndOptionAliases() {
         assertTrue(BuildMyCommandRouteDsl.completionsFor("give <target:", 13).contains("String"));
         assertTrue(BuildMyCommandRouteDsl.completionsFor("give [--amount:Integer|-", 24).contains("a"));

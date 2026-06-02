@@ -26,7 +26,8 @@ CommandResult result = framework.dispatch(new CommandSource() {}, "give Ada diam
 Attach an adapter when a platform owns input and output:
 
 ```java
-TerminalAdapter terminal = TerminalAdapter.attach(framework);
+dev.riege.buildmycommand.adapters.terminal.TerminalAdapter terminal =
+    dev.riege.buildmycommand.adapters.terminal.TerminalAdapter.attach(framework);
 terminal.runLoop();
 ```
 
