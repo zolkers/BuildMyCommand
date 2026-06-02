@@ -5,7 +5,9 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfil
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
+import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
+import org.bukkit.command.CommandSender;
 
 public final class SpigotMinecraftAdapter {
     private SpigotMinecraftAdapter() {
@@ -24,5 +26,23 @@ public final class SpigotMinecraftAdapter {
         MinecraftSourceMapper<S> sourceMapper
     ) {
         return new MinecraftNativeCommandAdapter<>(framework, sourceMapper);
+    }
+
+    public static CommandSource commandSource(CommandSender sender) {
+        return new SpigotCommandSource(sender);
+    }
+
+    public static SpigotNativeCommand nativeCommand(
+        String label,
+        MinecraftNativeCommandAdapter<CommandSender> adapter
+    ) {
+        return new SpigotNativeCommand(label, adapter);
+    }
+
+    public static SpigotCommandRegistration registration(
+        String fallbackPrefix,
+        MinecraftNativeCommandAdapter<CommandSender> adapter
+    ) {
+        return new SpigotCommandRegistration(fallbackPrefix, adapter);
     }
 }
