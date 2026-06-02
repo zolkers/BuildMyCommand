@@ -4,6 +4,7 @@ package dev.riege.buildmycommand.core.registry;
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
+import dev.riege.buildmycommand.api.CommandLifecycleListener;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.Results;
@@ -22,13 +23,19 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
     private final Map<String, RegistryCommandNode> commands = new LinkedHashMap<>();
     private final CommandMatchingPolicy matchingPolicy;
+    private final List<CommandLifecycleListener> lifecycleListeners;
 
     public SimpleCommandRegistry() {
         this(CommandMatchingPolicy.strict());
     }
 
     public SimpleCommandRegistry(CommandMatchingPolicy matchingPolicy) {
+        this(matchingPolicy, List.of());
+    }
+
+    public SimpleCommandRegistry(CommandMatchingPolicy matchingPolicy, List<CommandLifecycleListener> lifecycleListeners) {
         this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
+        this.lifecycleListeners = List.copyOf(Objects.requireNonNull(lifecycleListeners, "lifecycleListeners"));
     }
 
     @Override
@@ -51,6 +58,8 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         configure.accept(builder);
         RegistryCommandNode node = builder.node();
         RegistryNodeMerger.registerAll(commands, node.literals(), node, "command already registered: ", matchingPolicy);
+        notifyRegistered(node, List.of(node.literal()));
+        notifyRegistryRebuilt();
     }
 
     @Override
@@ -58,6 +67,8 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         Objects.requireNonNull(node, "node");
         RegistryCommandNode internal = ManualCommandImporter.importNode(node, matchingPolicy);
         RegistryNodeMerger.registerAll(commands, internal.literals(), internal, "command already registered: ", matchingPolicy);
+        notifyRegistered(internal, List.of(internal.literal()));
+        notifyRegistryRebuilt();
     }
 
     @Override
@@ -103,6 +114,42 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             }
         }
         return roots;
+    }
+
+    private void notifyRegistered(RegistryCommandNode command, List<String> path) {
+        if (lifecycleListeners.isEmpty()) {
+            return;
+        }
+        CommandNode snapshot = ManualCommandImporter.exportNode(command);
+        List<String> immutablePath = List.copyOf(path);
+        lifecycleListeners.forEach(listener -> listener.commandRegistered(snapshot, immutablePath));
+    }
+
+    private void notifyUpdated(RegistryCommandNode command, List<String> path) {
+        if (lifecycleListeners.isEmpty()) {
+            return;
+        }
+        CommandNode snapshot = ManualCommandImporter.exportNode(command);
+        List<String> immutablePath = List.copyOf(path);
+        lifecycleListeners.forEach(listener -> listener.commandUpdated(snapshot, immutablePath));
+    }
+
+    private void notifyRegistryRebuilt() {
+        if (lifecycleListeners.isEmpty()) {
+            return;
+        }
+        List<CommandNode> roots = roots().stream()
+            .map(ManualCommandImporter::exportNode)
+            .toList();
+        lifecycleListeners.forEach(listener -> listener.registryRebuilt(roots));
+    }
+
+    private RegistryCommandNode findEventNode(List<String> path, RegistryCommandNode fallback) {
+        RegistryCommandPath commandPath = findPath(path);
+        if (commandPath == null || commandPath.nodes().isEmpty()) {
+            return fallback;
+        }
+        return commandPath.nodes().get(commandPath.nodes().size() - 1);
     }
 
     private final class SimpleRouteBuilder implements RouteBuilder {
@@ -201,7 +248,16 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral(), matchingPolicy);
             builder.aliases(route.rootAliases().toArray(String[]::new));
             configureRoute(builder, 0, route.steps(), executor);
+            boolean updatesExistingRoot = commands.containsKey(matchingPolicy.literalKey(route.rootLiteral()));
             RegistryNodeMerger.mergeRoot(commands, builder.node(), matchingPolicy);
+            List<String> path = commandPath(route);
+            RegistryCommandNode eventNode = findEventNode(path, builder.node());
+            if (updatesExistingRoot) {
+                notifyUpdated(eventNode, path);
+            } else {
+                notifyRegistered(eventNode, path);
+            }
+            notifyRegistryRebuilt();
             return builder;
         }
 
@@ -263,6 +319,17 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
         private static String providerName(SuggestionProvider provider) {
             return provider instanceof NamedSuggestionProvider named ? named.name() : null;
+        }
+
+        private static List<String> commandPath(RoutePattern route) {
+            List<String> path = new ArrayList<>();
+            path.add(route.rootLiteral());
+            for (RouteStep step : route.steps()) {
+                if (step instanceof LiteralRouteStep literal) {
+                    path.add(literal.value());
+                }
+            }
+            return List.copyOf(path);
         }
     }
 

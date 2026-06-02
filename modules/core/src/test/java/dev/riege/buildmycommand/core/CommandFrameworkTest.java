@@ -12,7 +12,11 @@ import dev.riege.buildmycommand.api.MessageLevel;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.api.Arguments;
+import dev.riege.buildmycommand.api.CommandErrorHandler;
 import dev.riege.buildmycommand.api.Commands;
+import dev.riege.buildmycommand.api.CommandLifecycleListener;
+import dev.riege.buildmycommand.api.CommandMiddleware;
+import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
 import org.junit.jupiter.api.Test;
@@ -20,14 +24,19 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1670,6 +1679,157 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void globalMiddlewareCanBlockCommandExecution() {
+        AtomicInteger executions = new AtomicInteger();
+        CommandFramework framework = CommandFramework.builder()
+            .middleware((context, command, path, next) -> Results.failure("blocked"))
+            .build();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> {
+            executions.incrementAndGet();
+            return Results.success("Pong");
+        }));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ping");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("blocked"), result.reply());
+        assertEquals(0, executions.get());
+    }
+
+    @Test
+    void globalMiddlewareWrapsExecutionInRegistrationOrder() {
+        List<String> events = new ArrayList<>();
+        CommandMiddleware first = (context, command, path, next) -> {
+            events.add("first-before");
+            CommandResult result = next.proceed(context);
+            events.add("first-after");
+            return result;
+        };
+        CommandMiddleware second = (context, command, path, next) -> {
+            events.add("second-before");
+            CommandResult result = next.proceed(context);
+            events.add("second-after");
+            return result;
+        };
+        CommandFramework framework = CommandFramework.builder()
+            .middleware(first)
+            .middleware(second)
+            .build();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> {
+            events.add("executor");
+            return Results.success("Pong");
+        }));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ping");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(List.of("first-before", "second-before", "executor", "second-after", "first-after"), events);
+    }
+
+    @Test
+    void cooldownDenyRepeatedCommandForSameSourceAndCommandPath() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-02T10:00:00Z"));
+        AtomicInteger executions = new AtomicInteger();
+        CommandFramework framework = CommandFramework.builder()
+            .cooldownClock(clock)
+            .build();
+        CommandSource ada = sourceWithId("ada");
+        CommandSource bob = sourceWithId("bob");
+
+        framework.registry()
+            .route("ping|p")
+            .cooldown(Duration.ofSeconds(5))
+            .executes(ctx -> {
+                executions.incrementAndGet();
+                return Results.success("Pong");
+            });
+
+        CommandResult first = framework.dispatch(ada, "p");
+        CommandResult repeated = framework.dispatch(ada, "ping");
+        CommandResult otherSource = framework.dispatch(bob, "ping");
+        clock.advance(Duration.ofSeconds(5));
+        CommandResult afterCooldown = framework.dispatch(ada, "ping");
+
+        assertEquals(CommandResult.Status.SUCCESS, first.status());
+        assertEquals(CommandResult.Status.FAILURE, repeated.status());
+        assertEquals(Optional.of("Command is on cooldown for PT5S"), repeated.reply());
+        assertEquals(CommandResult.Status.SUCCESS, otherSource.status());
+        assertEquals(CommandResult.Status.SUCCESS, afterCooldown.status());
+        assertEquals(3, executions.get());
+    }
+
+    @Test
+    void customErrorHandlerMapsExecutorAndMiddlewareExceptionsToFailureResults() {
+        CommandErrorHandler handler = (context, command, path, error) ->
+            Results.failure(String.join("/", path) + ": " + error.getMessage());
+        CommandFramework executorFailure = CommandFramework.builder()
+            .errorHandler(handler)
+            .build();
+        CommandFramework middlewareFailure = CommandFramework.builder()
+            .middleware((context, command, path, next) -> {
+                throw new IllegalStateException("middleware exploded");
+            })
+            .errorHandler(handler)
+            .build();
+
+        executorFailure.registry().command("boom", command -> command.executes(ctx -> {
+            throw new IllegalArgumentException("executor exploded");
+        }));
+        middlewareFailure.registry().command("boom", command -> command.executes(ctx -> Results.success("unreachable")));
+
+        CommandResult executorResult = executorFailure.dispatch(new CommandSource() {
+        }, "boom");
+        CommandResult middlewareResult = middlewareFailure.dispatch(new CommandSource() {
+        }, "boom");
+
+        assertEquals(CommandResult.Status.FAILURE, executorResult.status());
+        assertEquals(Optional.of("boom: executor exploded"), executorResult.reply());
+        assertEquals(CommandResult.Status.FAILURE, middlewareResult.status());
+        assertEquals(Optional.of("boom: middleware exploded"), middlewareResult.reply());
+    }
+
+    @Test
+    void lifecycleListenerObservesRegistrationsUpdatesAndRegistryRebuilds() {
+        List<String> events = new ArrayList<>();
+        CommandLifecycleListener listener = new CommandLifecycleListener() {
+            @Override
+            public void commandRegistered(CommandNode command, List<String> path) {
+                events.add("registered:" + String.join("/", path));
+            }
+
+            @Override
+            public void commandUpdated(CommandNode command, List<String> path) {
+                events.add("updated:" + String.join("/", path));
+            }
+
+            @Override
+            public void registryRebuilt(List<CommandNode> roots) {
+                events.add("rebuilt:" + roots.stream().map(CommandNode::literal).toList());
+            }
+        };
+        CommandFramework framework = CommandFramework.builder()
+            .lifecycleListener(listener)
+            .build();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.silent()));
+        framework.registry().route("admin reload").executes(ctx -> Results.silent());
+        framework.registry().route("admin status").executes(ctx -> Results.silent());
+
+        assertEquals(List.of(
+            "registered:ping",
+            "rebuilt:[ping]",
+            "registered:admin/reload",
+            "rebuilt:[ping, admin]",
+            "updated:admin/status",
+            "rebuilt:[ping, admin]"
+        ), events);
+    }
+
+    @Test
     void schemaIncludesBuilderManualAndRouteMetadata() {
         CommandFramework framework = CommandFramework.create();
 
@@ -1718,6 +1878,42 @@ class CommandFrameworkTest {
                 return true;
             }
         };
+    }
+
+    private static CommandSource sourceWithId(String id) {
+        return new CommandSource() {
+            @Override
+            public Optional<String> id() {
+                return Optional.of(id);
+            }
+        };
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
     }
 
     private enum Mode {

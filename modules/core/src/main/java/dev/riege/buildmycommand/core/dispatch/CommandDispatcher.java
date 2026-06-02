@@ -2,9 +2,12 @@ package dev.riege.buildmycommand.core.dispatch;
 
 
 import dev.riege.buildmycommand.core.parse.*;
+import dev.riege.buildmycommand.core.middleware.MiddlewareChain;
 import dev.riege.buildmycommand.core.registry.*;
+import dev.riege.buildmycommand.api.CommandErrorHandler;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
@@ -23,19 +26,25 @@ public final class CommandDispatcher {
     private final OptionParser optionParser;
     private final ArgumentResolver argumentResolver;
     private final CommandMatchingPolicy matchingPolicy;
+    private final MiddlewareChain middlewareChain;
+    private final CommandErrorHandler errorHandler;
 
     public CommandDispatcher(
         SimpleCommandRegistry registry,
         CommandTokenizer tokenizer,
         OptionParser optionParser,
         ArgumentResolver argumentResolver,
-        CommandMatchingPolicy matchingPolicy
+        CommandMatchingPolicy matchingPolicy,
+        MiddlewareChain middlewareChain,
+        CommandErrorHandler errorHandler
     ) {
         this.registry = registry;
         this.tokenizer = tokenizer;
         this.optionParser = optionParser;
         this.argumentResolver = argumentResolver;
         this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
+        this.middlewareChain = Objects.requireNonNull(middlewareChain, "middlewareChain");
+        this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler");
     }
 
     public CommandResult dispatch(CommandSource source, String input) {
@@ -91,7 +100,23 @@ public final class CommandDispatcher {
         values.putAll(arguments.values());
         values.putAll(options.values());
         CommandContext context = new CommandContext(source, input, values);
-        return Objects.requireNonNull(match.command().executor().execute(context), "command result");
+        CommandNode commandSnapshot = ManualCommandImporter.exportNode(match.command());
+        List<String> commandPath = match.matchedNodes().stream()
+            .map(RegistryCommandNode::literal)
+            .toList();
+        try {
+            return middlewareChain.execute(
+                context,
+                commandSnapshot,
+                commandPath,
+                nextContext -> match.command().executor().execute(nextContext)
+            );
+        } catch (Throwable error) {
+            return Objects.requireNonNull(
+                errorHandler.handle(context, commandSnapshot, commandPath, error),
+                "command result"
+            );
+        }
     }
 
     private MatchResult matchCommandPath(
