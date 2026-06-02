@@ -84,9 +84,10 @@ class IntellijPluginResourcesTest {
         BuildMyCommandRouteSyntaxHighlighter highlighter = new BuildMyCommandRouteSyntaxHighlighter();
         Lexer lexer = highlighter.getHighlightingLexer();
 
-        lexer.start("give <target:String> <reason:String...> [--duration:Integer|-d]");
+        lexer.start("give|grant <target:String> <reason:String...> [--duration:Integer|-d]");
 
         assertHighlights(lexer, highlighter, "give", "ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "grant", "ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "target", "VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "String", "STORAGE_TYPE_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "...", "KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE");

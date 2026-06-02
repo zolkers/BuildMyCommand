@@ -66,7 +66,12 @@ public final class AnnotationCommandScanner {
         makeAccessible(target, method);
 
         if (subcommand != null && ownerCommand != null) {
-            registerRouteMethod(registry, target, method, ownerCommand.value() + " " + subcommand.value(), bindings);
+            registerRouteMethod(registry, target, method,
+                aliasedSubcommandRoute(
+                    ownerCommand.value() + " " + subcommand.value(),
+                    target.getClass().getAnnotation(Alias.class),
+                    method.getAnnotation(Alias.class)),
+                bindings);
         } else if (route != null) {
             registerRouteMethod(registry, target, method, route, bindings);
         } else {
@@ -115,7 +120,8 @@ public final class AnnotationCommandScanner {
         Route route,
         List<ParameterBinding> bindings
     ) {
-        registerRouteMethod(registry, target, method, route.value(), bindings);
+        registerRouteMethod(registry, target, method,
+            aliasedRoute(route.value(), method.getAnnotation(Alias.class)), bindings);
     }
 
     private static void registerRouteMethod(
@@ -125,7 +131,7 @@ public final class AnnotationCommandScanner {
         String route,
         List<ParameterBinding> bindings
     ) {
-        CommandRegistry.RouteBuilder builder = registry.route(route);
+        CommandRegistry.RouteBuilder builder = registry.route(aliasedParameterRoute(route, method));
         Description description = method.getAnnotation(Description.class);
         if (description != null) {
             builder.description(description.value());
@@ -213,15 +219,15 @@ public final class AnnotationCommandScanner {
             );
         }
         if (flag != null && (type == boolean.class || type == Boolean.class)) {
-            return ParameterBinding.flag(flag.value());
+            return ParameterBinding.flag(flag.value(), aliasValue(parameter));
         }
         if (option != null && isSupportedArgumentType(type)) {
-            return ParameterBinding.option(option.value(), type);
+            return ParameterBinding.option(option.value(), type, aliasValue(parameter));
         }
         if (option != null && type == Optional.class) {
             Class<?> valueType = optionalValueType(parameter);
             if (valueType != null && isSupportedArgumentType(valueType)) {
-                return ParameterBinding.optionalOption(option.value(), valueType);
+                return ParameterBinding.optionalOption(option.value(), valueType, aliasValue(parameter));
             }
         }
 
@@ -231,6 +237,106 @@ public final class AnnotationCommandScanner {
     private static String defaultValue(Parameter parameter) {
         Default defaultAnnotation = parameter.getAnnotation(Default.class);
         return defaultAnnotation == null ? null : defaultAnnotation.value();
+    }
+
+    private static String aliasValue(Parameter parameter) {
+        Alias alias = parameter.getAnnotation(Alias.class);
+        if (alias == null || alias.value().length == 0) {
+            return null;
+        }
+        if (alias.value().length > 1) {
+            throw new IllegalArgumentException("parameter alias must contain exactly one value: " + bindingName(parameter));
+        }
+        return alias.value()[0];
+    }
+
+    private static String aliasedRoute(String route, Alias... aliases) {
+        String aliased = route;
+        for (Alias alias : aliases) {
+            if (alias == null) {
+                continue;
+            }
+            for (String value : alias.value()) {
+                aliased = applyRouteAlias(aliased, value, 0);
+            }
+        }
+        return aliased;
+    }
+
+    private static String aliasedSubcommandRoute(String route, Alias ownerAlias, Alias methodAlias) {
+        String aliased = route;
+        if (ownerAlias != null) {
+            for (String value : ownerAlias.value()) {
+                aliased = applyRouteAlias(aliased, value, 0);
+            }
+        }
+        if (methodAlias != null) {
+            for (String value : methodAlias.value()) {
+                aliased = applyRouteAlias(aliased, value, 1);
+            }
+        }
+        return aliased;
+    }
+
+    private static String applyRouteAlias(String route, String alias, int offset) {
+        String[] routeTokens = route.trim().split("\\s+");
+        String[] aliasTokens = alias.trim().split("\\s+");
+        if (routeTokens.length == 0 || aliasTokens.length == 0 || alias.isBlank()) {
+            throw new IllegalArgumentException("route alias must not be blank");
+        }
+        if (offset + aliasTokens.length > routeTokens.length) {
+            throw new IllegalArgumentException("route alias is longer than route: " + alias);
+        }
+
+        String[] updated = routeTokens.clone();
+        for (int index = 0; index < aliasTokens.length; index++) {
+            int routeIndex = offset + index;
+            if (routeTokens[routeIndex].startsWith("<") || routeTokens[routeIndex].startsWith("[")
+                || routeTokens[routeIndex].endsWith(">") || routeTokens[routeIndex].endsWith("]")) {
+                throw new IllegalArgumentException("route alias can only target literal tokens: " + alias);
+            }
+            updated[routeIndex] = routeTokens[routeIndex] + "|" + aliasTokens[index];
+        }
+        return String.join(" ", updated);
+    }
+
+    private static String aliasedParameterRoute(String route, Method method) {
+        String aliased = route;
+        for (Parameter parameter : method.getParameters()) {
+            Alias alias = parameter.getAnnotation(Alias.class);
+            if (alias == null) {
+                continue;
+            }
+            Flag flag = parameter.getAnnotation(Flag.class);
+            Option option = parameter.getAnnotation(Option.class);
+            if (flag != null) {
+                aliased = applyOptionAlias(aliased, flag.value(), aliasValue(parameter));
+            } else if (option != null) {
+                aliased = applyOptionAlias(aliased, option.value(), aliasValue(parameter));
+            }
+        }
+        return aliased;
+    }
+
+    private static String applyOptionAlias(String route, String optionName, String alias) {
+        if (alias == null) {
+            return route;
+        }
+
+        String[] tokens = route.split("\\s+");
+        for (int index = 0; index < tokens.length; index++) {
+            String token = tokens[index];
+            if (!token.startsWith("[--") || !token.endsWith("]") || token.contains("|")) {
+                continue;
+            }
+            String body = token.substring(1, token.length() - 1);
+            int separator = body.indexOf(':');
+            String longName = separator < 0 ? body.substring(2) : body.substring(2, separator);
+            if (longName.equals(optionName)) {
+                tokens[index] = token.substring(0, token.length() - 1) + "|-" + alias + "]";
+            }
+        }
+        return String.join(" ", tokens);
     }
 
     private static int annotationCount(Arg arg, Flag flag, Option option) {
@@ -313,25 +419,33 @@ public final class AnnotationCommandScanner {
         }
     }
 
-    private record ParameterBinding(String name, Class<?> type, Kind kind, boolean optional, boolean greedy, String defaultValue) {
+    private record ParameterBinding(
+        String name,
+        Class<?> type,
+        Kind kind,
+        boolean optional,
+        boolean greedy,
+        String defaultValue,
+        String alias
+    ) {
         static ParameterBinding context() {
-            return new ParameterBinding(null, CommandContext.class, Kind.CONTEXT, false, false, null);
+            return new ParameterBinding(null, CommandContext.class, Kind.CONTEXT, false, false, null, null);
         }
 
         static ParameterBinding argument(String name, Class<?> type, boolean optional, boolean greedy, String defaultValue) {
-            return new ParameterBinding(name, type, Kind.ARGUMENT, optional, greedy, defaultValue);
+            return new ParameterBinding(name, type, Kind.ARGUMENT, optional, greedy, defaultValue, null);
         }
 
-        static ParameterBinding flag(String name) {
-            return new ParameterBinding(name, Boolean.class, Kind.FLAG, false, false, null);
+        static ParameterBinding flag(String name, String alias) {
+            return new ParameterBinding(name, Boolean.class, Kind.FLAG, false, false, null, alias);
         }
 
-        static ParameterBinding option(String name, Class<?> type) {
-            return new ParameterBinding(name, type, Kind.OPTION, false, false, null);
+        static ParameterBinding option(String name, Class<?> type, String alias) {
+            return new ParameterBinding(name, type, Kind.OPTION, false, false, null, alias);
         }
 
-        static ParameterBinding optionalOption(String name, Class<?> type) {
-            return new ParameterBinding(name, type, Kind.OPTIONAL_OPTION, false, false, null);
+        static ParameterBinding optionalOption(String name, Class<?> type, String alias) {
+            return new ParameterBinding(name, type, Kind.OPTIONAL_OPTION, false, false, null, alias);
         }
 
         void apply(CommandRegistry.CommandBuilder builder) {
@@ -346,9 +460,9 @@ public final class AnnotationCommandScanner {
                     builder.argument(name, type);
                 }
             } else if (kind == Kind.FLAG) {
-                builder.flag(name);
+                builder.flag(name, alias);
             } else if (kind == Kind.OPTION || kind == Kind.OPTIONAL_OPTION) {
-                builder.option(name, type);
+                builder.option(name, type, alias);
             }
         }
 

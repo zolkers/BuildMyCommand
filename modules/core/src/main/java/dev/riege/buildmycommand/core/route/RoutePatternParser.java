@@ -19,7 +19,7 @@ public final class RoutePatternParser {
         }
 
         String[] tokens = pattern.trim().split("\\s+");
-        String rootLiteral = null;
+        LiteralToken rootLiteral = null;
         List<RouteStep> steps = new ArrayList<>();
         boolean seenOption = false;
 
@@ -29,11 +29,11 @@ public final class RoutePatternParser {
                 if (seenOption) {
                     throw new IllegalArgumentException("route options must appear after literals: " + token);
                 }
-                String literal = Validators.literal(token, "route literal");
+                LiteralToken literal = parseLiteralToken(token);
                 if (rootLiteral == null) {
                     rootLiteral = literal;
                 } else {
-                    steps.add(new LiteralRouteStep(literal));
+                    steps.add(new LiteralRouteStep(literal.value(), literal.aliases()));
                 }
                 continue;
             }
@@ -50,7 +50,21 @@ public final class RoutePatternParser {
         if (rootLiteral == null) {
             throw new IllegalArgumentException("route pattern must start with a literal");
         }
-        return new RoutePattern(rootLiteral, steps);
+        return new RoutePattern(rootLiteral.value(), rootLiteral.aliases(), steps);
+    }
+
+    private static LiteralToken parseLiteralToken(String token) {
+        String[] parts = token.split("\\|", -1);
+        if (parts.length == 0) {
+            throw new IllegalArgumentException("invalid route literal: " + token);
+        }
+
+        String literal = Validators.literal(parts[0], "route literal");
+        List<String> aliases = new ArrayList<>();
+        for (int index = 1; index < parts.length; index++) {
+            aliases.add(Validators.literal(parts[index], "route literal alias"));
+        }
+        return new LiteralToken(literal, aliases);
     }
 
     private static RouteElement parseElement(String token) {
@@ -158,5 +172,11 @@ public final class RoutePatternParser {
             return type;
         }
         throw new IllegalArgumentException("unknown route type: " + typeName);
+    }
+
+    private record LiteralToken(String value, List<String> aliases) {
+        private LiteralToken {
+            aliases = List.copyOf(aliases);
+        }
     }
 }

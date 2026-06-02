@@ -107,6 +107,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             Objects.requireNonNull(executor, "executor");
 
             SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral());
+            builder.aliases(route.rootAliases().toArray(String[]::new));
             configureRoute(builder, 0, route.steps(), executor);
             RegistryNodeMerger.mergeRoot(commands, builder.node());
             return builder;
@@ -128,7 +129,10 @@ public final class SimpleCommandRegistry implements CommandRegistry {
                 RouteStep step = steps.get(stepIndex);
                 if (step instanceof LiteralRouteStep literal) {
                     builder.subcommand(literal.value(),
-                        child -> configureRoute(child, stepIndex + 1, steps, executor));
+                        child -> {
+                            child.aliases(literal.aliases().toArray(String[]::new));
+                            configureRoute(child, stepIndex + 1, steps, executor);
+                        });
                     return;
                 }
 

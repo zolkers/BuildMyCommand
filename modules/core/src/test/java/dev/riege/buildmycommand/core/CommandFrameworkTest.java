@@ -770,6 +770,42 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void routeDslDispatchesRootLiteralAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban|block <target:String>")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
+
+        CommandResult canonical = framework.dispatch(new CommandSource() {
+        }, "ban Steve");
+        CommandResult alias = framework.dispatch(new CommandSource() {
+        }, "block Alex");
+
+        assertEquals(Optional.of("Steve"), canonical.reply());
+        assertEquals(Optional.of("Alex"), alias.reply());
+        assertEquals("Usage: ban <target:String>", framework.help("block"));
+    }
+
+    @Test
+    void routeDslDispatchesNestedLiteralAlias() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("user rank|roles set|put <target:String>")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
+
+        CommandResult canonical = framework.dispatch(new CommandSource() {
+        }, "user rank set Ada");
+        CommandResult alias = framework.dispatch(new CommandSource() {
+        }, "user roles put Grace");
+
+        assertEquals(Optional.of("Ada"), canonical.reply());
+        assertEquals(Optional.of("Grace"), alias.reply());
+        assertEquals("Usage: user rank set <target:String>", framework.help("user roles put"));
+    }
+
+    @Test
     void manualApiRegistersCommandTree() {
         CommandFramework framework = CommandFramework.create();
 

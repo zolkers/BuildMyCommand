@@ -106,6 +106,19 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void registersAnnotatedRouteCommandAliasAndParameterAliases() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new RouteAliasCommands());
+
+        CommandResult result = framework.dispatch(source(), "block Ada -d 30 -s");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Ada:30:true"), result.reply());
+        assertEquals("Usage: ban <target:String> [--duration:Integer|-d] [--silent|-s]", framework.help("block"));
+    }
+
+    @Test
     void rejectsMethodAnnotatedAsBothLiteralCommandAndRouteDsl() {
         CommandFramework framework = CommandFramework.create();
 
@@ -138,6 +151,18 @@ class AnnotationCommandScannerTest {
         CommandResult result = framework.dispatch(source(), "user rank set Ada admin");
 
         assertEquals(Optional.of("Ada=admin"), result.reply());
+    }
+
+    @Test
+    void registersClassCommandAndSubcommandAliases() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new AliasedUserCommands());
+
+        CommandResult result = framework.dispatch(source(), "u roles put Ada admin");
+
+        assertEquals(Optional.of("Ada=admin"), result.reply());
+        assertEquals("Usage: user rank set <target:String> <rank:String>", framework.help("u roles put"));
     }
 
     private static CommandSource source() {
@@ -216,6 +241,18 @@ class AnnotationCommandScannerTest {
         }
     }
 
+    static final class RouteAliasCommands {
+        @Route("ban <target:String> [--duration:Integer] [--silent]")
+        @Alias("block")
+        CommandResult ban(
+            @Arg("target") String target,
+            @Option("duration") @Alias("d") Integer duration,
+            @Flag("silent") @Alias("s") boolean silent
+        ) {
+            return Results.success(target + ":" + duration + ":" + silent);
+        }
+    }
+
     static final class MixedRouteCommands {
         @Command("mixed")
         @Route("mixed <target:String>")
@@ -238,6 +275,16 @@ class AnnotationCommandScannerTest {
     @Command("user")
     static final class UserCommands {
         @Subcommand("rank set <target:String> <rank:String>")
+        CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
+            return Results.success(target + "=" + rank);
+        }
+    }
+
+    @Command("user")
+    @Alias("u")
+    static final class AliasedUserCommands {
+        @Subcommand("rank set <target:String> <rank:String>")
+        @Alias({"roles put"})
         CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
             return Results.success(target + "=" + rank);
         }
