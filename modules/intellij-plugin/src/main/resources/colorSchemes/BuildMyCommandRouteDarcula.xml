@@ -17,12 +17,12 @@
     </option>
     <option name="ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE">
         <value>
-            <option name="FOREGROUND" value="6A8759"/>
+            <option name="FOREGROUND" value="6897BB"/>
         </value>
     </option>
     <option name="ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE">
         <value>
-            <option name="FOREGROUND" value="6A8759"/>
+            <option name="FOREGROUND" value="6897BB"/>
         </value>
     </option>
     <option name="KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE">
@@ -53,12 +53,12 @@
     </option>
     <option name="TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE">
         <value>
-            <option name="FOREGROUND" value="6A8759"/>
+            <option name="FOREGROUND" value="6897BB"/>
         </value>
     </option>
     <option name="TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE">
         <value>
-            <option name="FOREGROUND" value="6A8759"/>
+            <option name="FOREGROUND" value="6897BB"/>
         </value>
     </option>
     <option name="TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE">

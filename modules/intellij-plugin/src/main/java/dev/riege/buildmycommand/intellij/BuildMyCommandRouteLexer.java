@@ -146,7 +146,7 @@ final class BuildMyCommandRouteLexer extends LexerBase {
     }
 
     private static boolean isWord(char value) {
-        return Character.isLetterOrDigit(value) || value == '_' || value == '.';
+        return Character.isLetterOrDigit(value) || value == '_';
     }
 
     @FunctionalInterface

@@ -1,5 +1,7 @@
 package dev.riege.buildmycommand.intellij;
 
+import com.intellij.lexer.Lexer;
+import com.intellij.openapi.editor.colors.TextAttributesKey;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -23,6 +25,7 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("textmate.bundleProvider"));
         assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Route"));
@@ -76,6 +79,22 @@ class IntellijPluginResourcesTest {
     }
 
     @Test
+    void routeLexerHighlightsArgumentsTypesOptionsAndGreedyMarkers() {
+        BuildMyCommandRouteSyntaxHighlighter highlighter = new BuildMyCommandRouteSyntaxHighlighter();
+        Lexer lexer = highlighter.getHighlightingLexer();
+
+        lexer.start("give <target:String> <reason:String...> [--duration:Integer|-d]");
+
+        assertHighlights(lexer, highlighter, "give", "ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "target", "VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "String", "STORAGE_TYPE_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "...", "KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "--duration", "ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "Integer", "STORAGE_TYPE_BUILDMYCOMMAND_ROUTE");
+        assertHighlights(lexer, highlighter, "-d", "ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE");
+    }
+
+    @Test
     void projectCanDeclareAndGenerateRequiredIntelliJPlugin() throws IOException {
         Path root = Path.of("").toAbsolutePath().getParent().getParent();
         String externalDependencies = Files.readString(root.resolve(".idea/externalDependencies.xml"));
@@ -106,5 +125,27 @@ class IntellijPluginResourcesTest {
         var stream = IntellijPluginResourcesTest.class.getClassLoader().getResourceAsStream(path);
         assertNotNull(stream, path);
         return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+    }
+
+    private static void assertHighlights(
+        Lexer lexer,
+        BuildMyCommandRouteSyntaxHighlighter highlighter,
+        String text,
+        String key
+    ) {
+        while (lexer.getTokenType() != null) {
+            String tokenText = lexer.getBufferSequence().subSequence(lexer.getTokenStart(), lexer.getTokenEnd()).toString();
+            if (tokenText.equals(text)) {
+                TextAttributesKey[] highlights = highlighter.getTokenHighlights(lexer.getTokenType());
+                assertTrue(
+                    java.util.Arrays.stream(highlights).anyMatch(highlight -> highlight.getExternalName().equals(key)),
+                    "Expected " + text + " to use " + key
+                );
+                lexer.advance();
+                return;
+            }
+            lexer.advance();
+        }
+        assertTrue(false, "Missing token: " + text);
     }
 }

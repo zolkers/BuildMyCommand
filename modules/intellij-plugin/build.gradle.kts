@@ -10,7 +10,7 @@ repositories {
 intellij {
     version.set("2024.1")
     type.set("IC")
-    plugins.set(listOf("org.intellij.intelliLang", "org.jetbrains.plugins.textmate"))
+    plugins.set(listOf("java", "org.intellij.intelliLang", "org.jetbrains.plugins.textmate"))
 }
 
 tasks.withType<JavaCompile>().configureEach {

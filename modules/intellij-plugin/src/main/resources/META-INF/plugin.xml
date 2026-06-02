@@ -8,6 +8,7 @@
     </description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
     <depends>org.intellij.intelliLang</depends>
     <depends>org.jetbrains.plugins.textmate</depends>
 
@@ -16,6 +17,7 @@
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
+        <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRoute"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
