@@ -1,6 +1,8 @@
 package dev.riege.buildmycommand.annotation;
 
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandNode;
+import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
@@ -12,8 +14,10 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
@@ -253,6 +257,44 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void registryDefaultsRejectApplicativeMetadataInsteadOfIgnoringSecurity() {
+        UnsupportedOperationException exception = assertThrows(UnsupportedOperationException.class,
+            () -> AnnotationCommandScanner.register(new UnsupportedMetadataRegistry(), new RequireOnlyCommands()));
+
+        assertEquals("command requirements are not supported by this registry", exception.getMessage());
+    }
+
+    @Test
+    void rejectsAmbiguousNamedSuggestionProviderMethods() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new AmbiguousSuggestCommands()));
+
+        assertEquals("ambiguous suggestion provider: players", exception.getMessage());
+    }
+
+    @Test
+    void rejectsNullSuggestionProviderElementsWithIndex() {
+        CommandFramework framework = CommandFramework.create();
+        AnnotationCommandScanner.register(framework.registry(), new NullSuggestionCommands());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(source(), "nulls ")));
+
+        assertEquals("suggestion provider players returned null at index 1", exception.getMessage());
+    }
+
+    @Test
+    void rejectsMixedSuggestionProviderElementTypesWithIndex() {
+        CommandFramework framework = CommandFramework.create();
+        AnnotationCommandScanner.register(framework.registry(), new MixedSuggestionCommands());
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(source(), "mixed ")));
+
+        assertEquals("suggestion provider players returned mixed element at index 1", exception.getMessage());
+    }
+
+    @Test
     void rejectsRouteArgumentWithoutMatchingMethodParameterBeforeRegistryMutation() {
         CommandFramework framework = CommandFramework.create();
 
@@ -327,6 +369,28 @@ class AnnotationCommandScannerTest {
             () -> AnnotationCommandScanner.register(framework.registry(), new RouteOptionBoundAsFlagCommands()));
 
         assertEquals("@Flag(\"duration\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsInlineEnumRouteTypesWithClearAnnotationValidationError() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new InlineEnumRouteCommands()));
+
+        assertEquals("route argument mode uses analysis-only type enum(a,b)", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsConstrainedRouteTypesWithClearAnnotationValidationError() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new ConstrainedRouteCommands()));
+
+        assertEquals("route argument amount uses analysis-only type Integer{1..5}", exception.getMessage());
         assertEquals("", framework.schema());
     }
 
@@ -526,6 +590,51 @@ class AnnotationCommandScannerTest {
         }
     }
 
+    static final class RequireOnlyCommands {
+        @Command("secure")
+        @Require("perm.secure")
+        CommandResult secure() {
+            return Results.success("secure");
+        }
+    }
+
+    static final class AmbiguousSuggestCommands {
+        @Command("amb")
+        CommandResult amb(@Arg("target") @Suggest("players") String target) {
+            return Results.success(target);
+        }
+
+        List<String> players() {
+            return List.of("Ada");
+        }
+
+        List<String> players(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+            return List.of(context.rawToken());
+        }
+    }
+
+    static final class NullSuggestionCommands {
+        @Command("nulls")
+        CommandResult nulls(@Arg("target") @Suggest("players") String target) {
+            return Results.success(target);
+        }
+
+        List<String> players() {
+            return Arrays.asList("Ada", null);
+        }
+    }
+
+    static final class MixedSuggestionCommands {
+        @Command("mixed")
+        CommandResult mixed(@Arg("target") @Suggest("players") String target) {
+            return Results.success(target);
+        }
+
+        List<Object> players() {
+            return List.of("Ada", new Suggestion("Bob", Optional.empty(), 0, 0, SuggestionType.ARGUMENT, 0));
+        }
+    }
+
     static final class MissingRouteArgumentCommands {
         @Route("ban <target:String>")
         CommandResult ban() {
@@ -575,10 +684,115 @@ class AnnotationCommandScannerTest {
         }
     }
 
+    static final class InlineEnumRouteCommands {
+        @Route("choose <mode:enum(a,b)>")
+        CommandResult choose(@Arg("mode") String mode) {
+            return Results.success(mode);
+        }
+    }
+
+    static final class ConstrainedRouteCommands {
+        @Route("ban <amount:Integer{1..5}>")
+        CommandResult ban(@Arg("amount") Integer amount) {
+            return Results.success(String.valueOf(amount));
+        }
+    }
+
     static final class InferredParameterCommands {
         @Command("ban")
         CommandResult ban(String target, @Greedy String reason) {
             return Results.success(target + ":" + reason);
+        }
+    }
+
+    private static final class UnsupportedMetadataRegistry implements CommandRegistry {
+        @Override
+        public void command(String literal, Consumer<CommandBuilder> configure) {
+            configure.accept(new UnsupportedMetadataBuilder());
+        }
+
+        @Override
+        public void register(CommandNode node) {
+        }
+
+        @Override
+        public RouteBuilder route(String pattern) {
+            throw new UnsupportedOperationException("routes are not supported");
+        }
+    }
+
+    private static final class UnsupportedMetadataBuilder implements CommandRegistry.CommandBuilder {
+        @Override
+        public CommandRegistry.CommandBuilder description(String description) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder permission(String permission) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder alias(String alias) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder aliases(String... aliases) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder subcommand(
+            String literal,
+            Consumer<CommandRegistry.CommandBuilder> configure
+        ) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder argument(String name, Class<T> type) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder optionalArgument(String name, Class<T> type) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder greedyArgument(String name, Class<T> type) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder optionalGreedyArgument(String name, Class<T> type) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder flag(String name) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder flag(String name, String alias) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder option(String name, Class<T> type) {
+            return this;
+        }
+
+        @Override
+        public <T> CommandRegistry.CommandBuilder option(String name, Class<T> type, String alias) {
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder executes(CommandRegistry.CommandExecutor executor) {
+            return this;
         }
     }
 }

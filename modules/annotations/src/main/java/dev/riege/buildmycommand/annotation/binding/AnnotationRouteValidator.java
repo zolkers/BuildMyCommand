@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.dsl.RouteOptionKind;
 import dev.riege.buildmycommand.dsl.RouteParser;
 import dev.riege.buildmycommand.dsl.RoutePattern;
 import dev.riege.buildmycommand.dsl.RouteStep;
+import dev.riege.buildmycommand.dsl.RouteType;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
@@ -170,9 +171,15 @@ public final class AnnotationRouteValidator {
         Map<String, OptionDescriptor> flags = new LinkedHashMap<>();
         for (RouteStep step : pattern.steps()) {
             if (step instanceof ArgumentRouteStep argument) {
-                arguments.put(argument.name(), new ArgumentDescriptor(argument.type().runtimeType(), argument.kind()));
+                arguments.put(argument.name(), new ArgumentDescriptor(
+                    runtimeType("route argument", argument.name(), argument.type()),
+                    argument.kind()
+                ));
             } else if (step instanceof OptionRouteStep option) {
-                OptionDescriptor descriptor = new OptionDescriptor(option.type().runtimeType(), option.kind());
+                OptionDescriptor descriptor = new OptionDescriptor(
+                    runtimeType("route option", option.name(), option.type()),
+                    option.kind()
+                );
                 if (option.kind() == RouteOptionKind.FLAG) {
                     flags.put(option.name(), descriptor);
                 } else {
@@ -181,6 +188,14 @@ public final class AnnotationRouteValidator {
             }
         }
         return new RouteNames(pattern.rootLiteral(), arguments, valueOptions, flags);
+    }
+
+    private static Class<?> runtimeType(String label, String name, RouteType type) {
+        if (type.inlineEnum() || type.constrained()) {
+            throw new IllegalArgumentException(label + " " + name + " uses analysis-only type "
+                + type.displayName());
+        }
+        return type.runtimeType();
     }
 
     private record RouteNames(

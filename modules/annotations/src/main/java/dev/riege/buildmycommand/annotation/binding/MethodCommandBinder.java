@@ -208,6 +208,7 @@ public final class MethodCommandBinder {
     }
 
     private static Method providerMethod(Class<?> owner, String providerName) {
+        List<Method> matches = new ArrayList<>();
         for (Method method : owner.getDeclaredMethods()) {
             if (!method.getName().equals(providerName)) {
                 continue;
@@ -215,9 +216,15 @@ public final class MethodCommandBinder {
             if (method.getParameterCount() == 0
                 || (method.getParameterCount() == 1 && method.getParameterTypes()[0] == ArgumentParseContext.class)) {
                 if (List.class.isAssignableFrom(method.getReturnType())) {
-                    return method;
+                    matches.add(method);
                 }
             }
+        }
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException("ambiguous suggestion provider: " + providerName);
+        }
+        if (matches.size() == 1) {
+            return matches.get(0);
         }
         throw new IllegalArgumentException("suggestion provider not found: " + providerName);
     }
@@ -233,24 +240,30 @@ public final class MethodCommandBinder {
             if (list.isEmpty()) {
                 return List.of();
             }
-            Object first = list.get(0);
-            if (first instanceof Suggestion) {
-                return list.stream()
-                    .map(Suggestion.class::cast)
-                    .toList();
+            Object first = validateSuggestionElement(method.getName(), list.get(0), 0);
+            if (first instanceof Suggestion firstSuggestion) {
+                List<Suggestion> suggestions = new ArrayList<>();
+                suggestions.add(firstSuggestion);
+                for (int index = 1; index < list.size(); index++) {
+                    Object element = validateSuggestionElement(method.getName(), list.get(index), index);
+                    if (!(element instanceof Suggestion suggestion)) {
+                        throw mixedSuggestionElement(method.getName(), index);
+                    }
+                    suggestions.add(suggestion);
+                }
+                return List.copyOf(suggestions);
             }
-            if (first instanceof String) {
-                return list.stream()
-                    .map(String.class::cast)
-                    .map(suggestion -> new Suggestion(
-                        suggestion,
-                        Optional.empty(),
-                        context.replacementStart(),
-                        context.replacementEnd(),
-                        context.suggestionType(),
-                        0
-                    ))
-                    .toList();
+            if (first instanceof String firstString) {
+                List<Suggestion> suggestions = new ArrayList<>();
+                suggestions.add(stringSuggestion(firstString, context));
+                for (int index = 1; index < list.size(); index++) {
+                    Object element = validateSuggestionElement(method.getName(), list.get(index), index);
+                    if (!(element instanceof String suggestion)) {
+                        throw mixedSuggestionElement(method.getName(), index);
+                    }
+                    suggestions.add(stringSuggestion(suggestion, context));
+                }
+                return List.copyOf(suggestions);
             }
             throw new IllegalStateException("suggestion provider must return List<String> or List<Suggestion>: "
                 + method.getName());
@@ -266,6 +279,30 @@ public final class MethodCommandBinder {
             }
             throw new IllegalStateException("suggestion provider failed: " + method.getName(), cause);
         }
+    }
+
+    private static Object validateSuggestionElement(String providerName, Object element, int index) {
+        if (element == null) {
+            throw new IllegalStateException("suggestion provider " + providerName
+                + " returned null at index " + index);
+        }
+        return element;
+    }
+
+    private static IllegalStateException mixedSuggestionElement(String providerName, int index) {
+        return new IllegalStateException("suggestion provider " + providerName
+            + " returned mixed element at index " + index);
+    }
+
+    private static Suggestion stringSuggestion(String suggestion, ArgumentParseContext context) {
+        return new Suggestion(
+            suggestion,
+            Optional.empty(),
+            context.replacementStart(),
+            context.replacementEnd(),
+            context.suggestionType(),
+            0
+        );
     }
 
     private static boolean isSupportedArgumentType(Class<?> type) {

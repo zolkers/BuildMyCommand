@@ -24,31 +24,31 @@ public interface CommandRegistry {
         RouteBuilder permission(String permission);
 
         default RouteBuilder hidden() {
-            return this;
+            throw new UnsupportedOperationException("hidden command metadata is not supported by this registry");
         }
 
         default RouteBuilder usage(String usage) {
-            return this;
+            throw new UnsupportedOperationException("command usage metadata is not supported by this registry");
         }
 
         default RouteBuilder example(String example) {
-            return this;
+            throw new UnsupportedOperationException("command example metadata is not supported by this registry");
         }
 
         default RouteBuilder cooldown(Duration cooldown) {
-            return this;
+            throw new UnsupportedOperationException("command cooldown metadata is not supported by this registry");
         }
 
         default RouteBuilder requirement(String requirement) {
-            return this;
+            throw new UnsupportedOperationException("command requirements are not supported by this registry");
         }
 
         default RouteBuilder group(String group) {
-            return this;
+            throw new UnsupportedOperationException("command group metadata is not supported by this registry");
         }
 
         default RouteBuilder argumentSuggestions(String name, SuggestionProvider provider) {
-            return this;
+            throw new UnsupportedOperationException("argument suggestions are not supported by this registry");
         }
 
         default RouteBuilder argumentSuggestions(String name, String providerName, SuggestionProvider provider) {
@@ -56,7 +56,7 @@ public interface CommandRegistry {
         }
 
         default RouteBuilder optionSuggestions(String name, SuggestionProvider provider) {
-            return this;
+            throw new UnsupportedOperationException("option suggestions are not supported by this registry");
         }
 
         default RouteBuilder optionSuggestions(String name, String providerName, SuggestionProvider provider) {
@@ -72,27 +72,27 @@ public interface CommandRegistry {
         CommandBuilder permission(String permission);
 
         default CommandBuilder hidden() {
-            return this;
+            throw new UnsupportedOperationException("hidden command metadata is not supported by this registry");
         }
 
         default CommandBuilder usage(String usage) {
-            return this;
+            throw new UnsupportedOperationException("command usage metadata is not supported by this registry");
         }
 
         default CommandBuilder example(String example) {
-            return this;
+            throw new UnsupportedOperationException("command example metadata is not supported by this registry");
         }
 
         default CommandBuilder cooldown(Duration cooldown) {
-            return this;
+            throw new UnsupportedOperationException("command cooldown metadata is not supported by this registry");
         }
 
         default CommandBuilder requirement(String requirement) {
-            return this;
+            throw new UnsupportedOperationException("command requirements are not supported by this registry");
         }
 
         default CommandBuilder group(String group) {
-            return this;
+            throw new UnsupportedOperationException("command group metadata is not supported by this registry");
         }
 
         CommandBuilder alias(String alias);
@@ -118,7 +118,7 @@ public interface CommandRegistry {
         <T> CommandBuilder option(String name, Class<T> type, String alias);
 
         default CommandBuilder argumentSuggestions(String name, SuggestionProvider provider) {
-            return this;
+            throw new UnsupportedOperationException("argument suggestions are not supported by this registry");
         }
 
         default CommandBuilder argumentSuggestions(String name, String providerName, SuggestionProvider provider) {
@@ -126,7 +126,7 @@ public interface CommandRegistry {
         }
 
         default CommandBuilder optionSuggestions(String name, SuggestionProvider provider) {
-            return this;
+            throw new UnsupportedOperationException("option suggestions are not supported by this registry");
         }
 
         default CommandBuilder optionSuggestions(String name, String providerName, SuggestionProvider provider) {
