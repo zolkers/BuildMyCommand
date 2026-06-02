@@ -27,7 +27,20 @@ public record MinecraftCommandRegistrationPlan(
         Objects.requireNonNull(bridge, "bridge");
         return new MinecraftCommandRegistrationPlan(
             backend,
-            bridge.rootLiterals(),
+            bridge.rootLabels(),
+            GENERATIONS.incrementAndGet(),
+            backend.reloadSafe()
+        );
+    }
+
+    public static MinecraftCommandRegistrationPlan fromNativeAdapter(
+        MinecraftBackendProfile backend,
+        MinecraftNativeCommandAdapter<?> adapter
+    ) {
+        Objects.requireNonNull(adapter, "adapter");
+        return new MinecraftCommandRegistrationPlan(
+            backend,
+            adapter.registrationLabels(),
             GENERATIONS.incrementAndGet(),
             backend.reloadSafe()
         );

@@ -19,6 +19,18 @@ public final class MinecraftCommandBridge<S> {
         return framework.rootLiterals();
     }
 
+    public List<String> rootLabels() {
+        return framework.rootLabels();
+    }
+
+    public boolean caseInsensitiveLiterals() {
+        return framework.caseInsensitiveLiterals();
+    }
+
+    public boolean caseInsensitiveOptions() {
+        return framework.caseInsensitiveOptions();
+    }
+
     public CommandResult dispatch(S source, String commandLine) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(commandLine, "commandLine");

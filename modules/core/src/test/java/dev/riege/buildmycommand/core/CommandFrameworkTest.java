@@ -78,6 +78,18 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void exposesRootLabelsIncludingAliasesForPlatformRegistration() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban|block <target:String>")
+            .executes(ctx -> Results.silent());
+
+        assertEquals(List.of("ban"), framework.rootLiterals());
+        assertEquals(List.of("ban", "block"), framework.rootLabels());
+    }
+
+    @Test
     void returnsFailureForUnknownCommand() {
         CommandFramework framework = CommandFramework.create();
 

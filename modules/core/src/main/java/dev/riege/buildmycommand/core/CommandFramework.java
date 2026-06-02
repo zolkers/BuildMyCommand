@@ -28,6 +28,7 @@ public final class CommandFramework {
     private final SuggestionEngine suggestions;
     private final HelpGenerator help;
     private final SchemaExporter schema;
+    private final CommandMatchingPolicy matchingPolicy;
 
     private CommandFramework(SimpleCommandRegistry registry, CommandMatchingPolicy matchingPolicy) {
         CommandTokenizer tokenizer = new CommandTokenizer();
@@ -36,6 +37,7 @@ public final class CommandFramework {
         OptionParser optionParser = new OptionParser(parsers, matchingPolicy);
 
         this.registry = registry;
+        this.matchingPolicy = matchingPolicy;
         this.dispatcher = new CommandDispatcher(registry, tokenizer, optionParser, argumentResolver, matchingPolicy);
         this.suggestions = new SuggestionEngine(registry, tokenizer, matchingPolicy);
         this.help = new HelpGenerator(registry, tokenizer);
@@ -58,6 +60,26 @@ public final class CommandFramework {
         return registry.roots().stream()
             .map(command -> command.literal())
             .toList();
+    }
+
+    public List<String> rootLabels() {
+        return registry.roots().stream()
+            .flatMap(command -> {
+                List<String> labels = new java.util.ArrayList<>();
+                labels.add(command.literal());
+                labels.addAll(command.aliases());
+                return labels.stream();
+            })
+            .distinct()
+            .toList();
+    }
+
+    public boolean caseInsensitiveLiterals() {
+        return matchingPolicy.caseInsensitiveLiterals();
+    }
+
+    public boolean caseInsensitiveOptions() {
+        return matchingPolicy.caseInsensitiveOptions();
     }
 
     public String help(String path) {

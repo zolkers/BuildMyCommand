@@ -38,6 +38,59 @@ class MinecraftCommandBridgeTest {
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("Alex"), result.reply());
         assertEquals(List.of("heal"), bridge.rootLiterals());
+        assertEquals(List.of("heal"), bridge.rootLabels());
+    }
+
+    @Test
+    void nativeAdapterRegistersRootAliasesAndHonorsFrameworkCasePolicy() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .caseInsensitiveOptions()
+            .build();
+        framework.registry()
+            .route("ban|block <target:String> [--duration:Integer|-d] [--silent|-s]")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)
+                + ":"
+                + ctx.option("duration", Integer.class).orElse(0)
+                + ":"
+                + ctx.flag("silent")));
+
+        MinecraftNativeCommandAdapter<FakeSender> adapter = new MinecraftNativeCommandAdapter<>(
+            framework,
+            sender -> new CommandSource() {
+            }
+        );
+
+        MinecraftRenderedResult result = adapter.execute(
+            new FakeSender(Set.of()),
+            MinecraftInvocation.labelAndArgs("BLOCK", new String[] {"Ada", "--Duration", "5", "-S"}, 3)
+        );
+
+        assertEquals(MinecraftAdapterMode.NATIVE_COMMAND, adapter.mode());
+        assertEquals(List.of("ban", "block"), adapter.registrationLabels());
+        assertTrue(adapter.honorsCaseInsensitiveLiterals());
+        assertTrue(adapter.honorsCaseInsensitiveOptions());
+        assertEquals(1, result.numericResult());
+        assertEquals(Optional.of("Ada:5:true"), result.message());
+    }
+
+    @Test
+    void registrationPlanForNativeAdapterUsesAllPlatformLabels() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("kick|boot <target:String>").executes(ctx -> Results.silent());
+
+        MinecraftNativeCommandAdapter<FakeSender> adapter = new MinecraftNativeCommandAdapter<>(
+            framework,
+            sender -> new CommandSource() {
+            }
+        );
+
+        MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlan.fromNativeAdapter(
+            MinecraftBackendProfiles.spigot(),
+            adapter
+        );
+
+        assertEquals(List.of("kick", "boot"), plan.rootLiterals());
     }
 
     @Test
