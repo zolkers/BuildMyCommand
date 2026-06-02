@@ -95,7 +95,7 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
     @Override
     public CommandSource mapSource(S nativeSource) {
         Objects.requireNonNull(nativeSource, "nativeSource");
-        return sourceMapper.map(nativeSource);
+        return Objects.requireNonNull(sourceMapper.map(nativeSource), "mapped source");
     }
 
     @Override

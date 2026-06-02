@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinecraftCommandBridgeTest {
@@ -167,6 +168,19 @@ class MinecraftCommandBridgeTest {
             List.of("msg", "tell")
         ), adapter.registrationLabels());
         assertEquals(Optional.of("minecraft"), rendered.reply());
+    }
+
+    @Test
+    void commandBridgeRejectsNullMappedSource() {
+        MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(
+            CommandFramework.create(),
+            sender -> null
+        );
+
+        NullPointerException exception = assertThrows(NullPointerException.class,
+            () -> bridge.mapSource(new FakeSender(Set.of())));
+
+        assertEquals("mapped source", exception.getMessage());
     }
 
     @Test

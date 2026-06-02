@@ -226,7 +226,7 @@ public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, Stri
     @Override
     public CommandSource mapSource(N nativeSource) {
         Objects.requireNonNull(nativeSource, "nativeSource");
-        return sourceMapper.apply(nativeSource);
+        return Objects.requireNonNull(sourceMapper.apply(nativeSource), "mapped source");
     }
 
     @Override

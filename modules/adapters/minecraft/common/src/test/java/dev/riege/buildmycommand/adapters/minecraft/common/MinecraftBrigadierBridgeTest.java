@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinecraftBrigadierBridgeTest {
@@ -75,6 +76,19 @@ class MinecraftBrigadierBridgeTest {
         assertEquals("/ping", input.rawInput());
         assertEquals("ping", input.normalizedInput());
         assertEquals(1, adapter.execute(new NativeSource(), "/ping"));
+    }
+
+    @Test
+    void rejectsNullMappedSource() {
+        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(
+            CommandFramework.create(),
+            source -> null
+        );
+
+        NullPointerException exception = assertThrows(NullPointerException.class,
+            () -> bridge.mapSource(new NativeSource()));
+
+        assertEquals("mapped source", exception.getMessage());
     }
 
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {
