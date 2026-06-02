@@ -74,6 +74,45 @@ class TerminalAdapterTest {
     }
 
     @Test
+    void runLoopReadsUntilExitCommandAndHistoryIsDisabledByDefault() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        TerminalAdapter adapter = TerminalAdapter.attach(framework)
+            .input(input("ping\nping\nexit\nping\n"))
+            .output(output(captured));
+
+        adapter.runLoop(source());
+
+        assertEquals(line("Pong") + line("Pong"), text(captured));
+        assertEquals(java.util.List.of(), adapter.history());
+    }
+
+    @Test
+    void runLoopCanRecordHistoryWhenEnabled() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("quiet", command -> command.executes(ctx -> Results.silent()));
+        TerminalAdapter adapter = TerminalAdapter.attach(framework)
+            .input(input("quiet\nquit\n"))
+            .historyEnabled(true)
+            .exitCommand("quit");
+
+        adapter.runLoop(source());
+
+        assertEquals(java.util.List.of("quiet"), adapter.history());
+    }
+
+    @Test
+    void completeDelegatesToFrameworkSuggestions() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.silent()));
+        framework.registry().command("pong", command -> command.executes(ctx -> Results.silent()));
+        TerminalAdapter adapter = TerminalAdapter.attach(framework);
+
+        assertEquals(java.util.List.of("ping"), adapter.complete(source(), "pi", 2));
+    }
+
+    @Test
     void noArgRunOnceUsesTerminalCommandSource() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().command("reply", command -> command.executes(ctx -> {

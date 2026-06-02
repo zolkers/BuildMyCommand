@@ -17,6 +17,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public final class TerminalAdapter implements CommandAdapter<CommandSource, String, Void> {
@@ -25,6 +27,9 @@ public final class TerminalAdapter implements CommandAdapter<CommandSource, Stri
     private InputStream input;
     private PrintStream output;
     private BufferedReader reader;
+    private boolean historyEnabled;
+    private String exitCommand = "exit";
+    private final List<String> history = new ArrayList<>();
 
     private TerminalAdapter(CommandFramework framework) {
         CommandPlatform platform = CommandPlatform.terminal();
@@ -53,6 +58,24 @@ public final class TerminalAdapter implements CommandAdapter<CommandSource, Stri
         return this;
     }
 
+    public TerminalAdapter historyEnabled(boolean historyEnabled) {
+        this.historyEnabled = historyEnabled;
+        return this;
+    }
+
+    public TerminalAdapter exitCommand(String exitCommand) {
+        Objects.requireNonNull(exitCommand, "exitCommand");
+        if (exitCommand.isBlank()) {
+            throw new IllegalArgumentException("exitCommand must not be blank");
+        }
+        this.exitCommand = exitCommand;
+        return this;
+    }
+
+    public List<String> history() {
+        return List.copyOf(history);
+    }
+
     public void runOnce() {
         runOnce(new TerminalCommandSource(output));
     }
@@ -65,7 +88,28 @@ public final class TerminalAdapter implements CommandAdapter<CommandSource, Stri
             return;
         }
 
-        execute(source, line);
+        executeLine(source, line);
+    }
+
+    public void runLoop() {
+        runLoop(new TerminalCommandSource(output));
+    }
+
+    public void runLoop(CommandSource source) {
+        Objects.requireNonNull(source, "source");
+        while (true) {
+            String line = readLine();
+            if (line == null || isExit(line)) {
+                return;
+            }
+            executeLine(source, line);
+        }
+    }
+
+    public List<String> complete(CommandSource source, String input, int cursor) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(input, "input");
+        return runtime.framework().suggest(source, input, cursor);
     }
 
     @Override
@@ -109,6 +153,17 @@ public final class TerminalAdapter implements CommandAdapter<CommandSource, Stri
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to read terminal input", exception);
         }
+    }
+
+    private void executeLine(CommandSource source, String line) {
+        if (historyEnabled && !line.isBlank()) {
+            history.add(line);
+        }
+        execute(source, line);
+    }
+
+    private boolean isExit(String line) {
+        return exitCommand.equals(line.trim());
     }
 
     private BufferedReader reader() {
