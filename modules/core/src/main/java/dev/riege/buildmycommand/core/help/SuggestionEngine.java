@@ -102,14 +102,24 @@ public final class SuggestionEngine {
         }
         command = state.command();
         matchedNodes = state.matchedNodes();
+        boolean canAccessMatchedPath = CommandPermissions.canAccess(source, matchedNodes);
 
-        RegistryOptionSpec valueOption = valueOptionBeforeCurrent(command.options(), tokens, state.tokenIndex(), completeTokenCount);
+        RegistryOptionSpec valueOption = valueOptionBeforeCurrent(
+            command.options(),
+            tokens,
+            state.tokenIndex(),
+            completeTokenCount,
+            matchingPolicy
+        );
         if (valueOption != null) {
+            if (!canAccessMatchedPath) {
+                return List.of();
+            }
             return parsers.suggestions(valueOption.type(), context(input, valueOption, current, replacementStart, replacementEnd));
         }
 
         if (current.startsWith("-")) {
-            if (!CommandPermissions.canAccess(source, matchedNodes)) {
+            if (!canAccessMatchedPath) {
                 return List.of();
             }
             return command.options().stream()
@@ -120,8 +130,17 @@ public final class SuggestionEngine {
                 .toList();
         }
 
-        RegistryArgumentSpec nextArgument = nextArgument(command, tokens, state.tokenIndex(), completeTokenCount);
+        RegistryArgumentSpec nextArgument = nextArgument(
+            command,
+            tokens,
+            state.tokenIndex(),
+            completeTokenCount,
+            matchingPolicy
+        );
         if (nextArgument != null) {
+            if (!canAccessMatchedPath) {
+                return List.of();
+            }
             List<Suggestion> suggestions = parsers.suggestions(
                 nextArgument.type(),
                 context(input, nextArgument, current, replacementStart, replacementEnd)
@@ -187,13 +206,14 @@ public final class SuggestionEngine {
         RegistryCommandNode command,
         List<String> tokens,
         int tokenIndex,
-        int completeTokenCount
+        int completeTokenCount,
+        CommandMatchingPolicy matchingPolicy
     ) {
         int positionals = 0;
         int index = tokenIndex;
         while (index < completeTokenCount) {
             String token = tokens.get(index);
-            RegistryOptionSpec option = findOption(command.options(), token);
+            RegistryOptionSpec option = findOption(command.options(), token, matchingPolicy);
             if (option == null) {
                 if (isOptionLike(token)) {
                     return null;
@@ -214,22 +234,27 @@ public final class SuggestionEngine {
         List<RegistryOptionSpec> options,
         List<String> tokens,
         int tokenIndex,
-        int completeTokenCount
+        int completeTokenCount,
+        CommandMatchingPolicy matchingPolicy
     ) {
         if (completeTokenCount <= tokenIndex) {
             return null;
         }
-        RegistryOptionSpec previous = findOption(options, tokens.get(completeTokenCount - 1));
+        RegistryOptionSpec previous = findOption(options, tokens.get(completeTokenCount - 1), matchingPolicy);
         if (previous != null && previous.kind() == RegistryOptionKind.VALUE) {
             return previous;
         }
         return null;
     }
 
-    private static RegistryOptionSpec findOption(List<RegistryOptionSpec> options, String token) {
+    private static RegistryOptionSpec findOption(
+        List<RegistryOptionSpec> options,
+        String token,
+        CommandMatchingPolicy matchingPolicy
+    ) {
         for (RegistryOptionSpec option : options) {
-            if (token.equals("--" + option.name())
-                || option.aliasOptional().map(alias -> token.equals("-" + alias)).orElse(false)) {
+            if (matchingPolicy.optionEquals(token, "--" + option.name())
+                || option.aliasOptional().map(alias -> matchingPolicy.optionEquals(token, "-" + alias)).orElse(false)) {
                 return option;
             }
         }

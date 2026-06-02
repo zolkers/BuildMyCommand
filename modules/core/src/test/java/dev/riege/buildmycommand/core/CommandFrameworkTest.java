@@ -663,6 +663,53 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void parserArgumentSuggestionsRequireCommandPermission() {
+        CommandFramework framework = CommandFramework.builder()
+            .suggestionProvider(Rank.class, context -> List.of("admin", "mod", "helper"))
+            .build();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .argument("rank", Rank.class)
+            .executes(ctx -> Results.silent()));
+
+        assertEquals(List.of(), framework.suggest(deniedSource(), "secure ", 7));
+    }
+
+    @Test
+    void parserOptionValueSuggestionsRequireCommandPermission() {
+        CommandFramework framework = CommandFramework.builder()
+            .suggestionProvider(Rank.class, context -> List.of("admin", "mod", "helper"))
+            .build();
+
+        framework.registry().command("secure", command -> command
+            .permission("admin.secure")
+            .option("rank", Rank.class)
+            .executes(ctx -> Results.silent()));
+
+        assertEquals(List.of(), framework.suggest(deniedSource(), "secure --rank ", 14));
+    }
+
+    @Test
+    void caseInsensitiveOptionsSuggestRichOptionValuesAfterUppercaseOptionName() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveOptions()
+            .suggestionProvider(Rank.class, context -> List.of("admin", "mod", "helper"))
+            .build();
+
+        framework.registry().command("rank", command -> command
+            .option("value", Rank.class, "v")
+            .executes(ctx -> Results.silent()));
+
+        assertEquals(List.of(
+            new Suggestion("admin", Optional.empty(), 13, 13, SuggestionType.OPTION_VALUE, 0),
+            new Suggestion("mod", Optional.empty(), 13, 13, SuggestionType.OPTION_VALUE, 0),
+            new Suggestion("helper", Optional.empty(), 13, 13, SuggestionType.OPTION_VALUE, 0)
+        ), framework.suggestRich(CommandInput.normalized(new CommandSource() {
+        }, "rank --VALUE ")));
+    }
+
+    @Test
     void parsesNewBuiltInArgumentAndOptionTypesWithStableFailures() throws Exception {
         CommandFramework framework = CommandFramework.create();
         URL url = URI.create("https://example.com/docs").toURL();
