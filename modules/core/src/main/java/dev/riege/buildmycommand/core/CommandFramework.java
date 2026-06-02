@@ -105,7 +105,7 @@ public final class CommandFramework {
 
     public CommandResult dispatch(CommandInput input) {
         Objects.requireNonNull(input, "input");
-        return dispatch(input.source(), input.normalizedInput());
+        return dispatcher.dispatch(input);
     }
 
     public CommandResult dispatch(CommandSource source, String input) {

@@ -3,7 +3,9 @@ package dev.riege.buildmycommand.core;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandMessage;
 import dev.riege.buildmycommand.api.CommandPlatform;
+import dev.riege.buildmycommand.api.MessageLevel;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.api.Arguments;
@@ -13,8 +15,11 @@ import dev.riege.buildmycommand.api.Results;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -47,6 +52,91 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("Pong"), result.reply());
+    }
+
+    @Test
+    void dispatchPreservesUniversalCommandInputInContext() {
+        CommandFramework framework = CommandFramework.create();
+        CommandPlatform platform = new CommandPlatform("minecraft", "Minecraft", true, true, true);
+        CommandSource source = new CommandSource() {
+        };
+        AtomicReference<CommandInput> seenInput = new AtomicReference<>();
+
+        framework.registry()
+            .route("ping <target:String>")
+            .executes(ctx -> {
+                seenInput.set(ctx.input());
+                return Results.success(ctx.arg("target", String.class));
+            });
+
+        CommandInput input = new CommandInput(source, "/ping Alex", "ping Alex", 7, "/", platform);
+        CommandResult result = framework.dispatch(input);
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Alex"), result.reply());
+        assertEquals(input, seenInput.get());
+        assertEquals(source, seenInput.get().source());
+        assertEquals("/ping Alex", seenInput.get().rawInput());
+        assertEquals("ping Alex", seenInput.get().normalizedInput());
+        assertEquals(7, seenInput.get().cursor());
+        assertEquals("/", seenInput.get().prefix());
+        assertEquals(platform, seenInput.get().platform());
+    }
+
+    @Test
+    void dispatchSourceStringBuildsCompatibleCommandInputContext() {
+        CommandFramework framework = CommandFramework.create();
+        CommandSource source = new CommandSource() {
+        };
+        AtomicReference<CommandInput> seenInput = new AtomicReference<>();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> {
+            seenInput.set(ctx.input());
+            return Results.success(ctx.input().normalizedInput());
+        }));
+
+        CommandResult result = framework.dispatch(source, "ping");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("ping"), result.reply());
+        assertEquals(source, seenInput.get().source());
+        assertEquals("ping", seenInput.get().rawInput());
+        assertEquals("ping", seenInput.get().normalizedInput());
+        assertEquals(4, seenInput.get().cursor());
+        assertEquals("", seenInput.get().prefix());
+        assertEquals(CommandPlatform.test(), seenInput.get().platform());
+    }
+
+    @Test
+    void commandResultCarriesMessageWhileKeepingStringReplyCompatibility() {
+        CommandResult success = Results.success("ok");
+        CommandResult failure = Results.failure("bad");
+        CommandResult silent = Results.silent();
+
+        assertEquals(CommandResult.Status.SUCCESS, success.status());
+        assertEquals(Optional.of("ok"), success.reply());
+        assertEquals(Optional.of(CommandMessage.success("ok")), success.message());
+        assertEquals(CommandResult.Status.FAILURE, failure.status());
+        assertEquals(Optional.of("bad"), failure.reply());
+        assertEquals(Optional.of(CommandMessage.error("bad")), failure.message());
+        assertEquals(CommandResult.Status.SILENT, silent.status());
+        assertEquals(Optional.empty(), silent.reply());
+        assertEquals(Optional.empty(), silent.message());
+    }
+
+    @Test
+    void commandSourceDefaultsExposeIdentityMetadataAndMessageReply() {
+        CommandSource source = new CommandSource() {
+        };
+        CommandMessage message = new CommandMessage("hello", MessageLevel.INFO, Map.of("audience", "test"));
+
+        source.reply(message);
+
+        assertEquals(Optional.empty(), source.id());
+        assertEquals(Optional.empty(), source.name());
+        assertEquals(Locale.ROOT, source.locale());
+        assertEquals(Optional.empty(), source.unwrap(String.class));
+        assertEquals(Optional.empty(), source.metadata("missing"));
     }
 
     @Test

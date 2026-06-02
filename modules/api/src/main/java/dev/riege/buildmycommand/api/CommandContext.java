@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-public record CommandContext(CommandSource source, String input, Map<String, Object> arguments) {
+public record CommandContext(CommandSource source, CommandInput input, Map<String, Object> arguments) {
     public CommandContext {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(input, "input");
@@ -13,6 +13,10 @@ public record CommandContext(CommandSource source, String input, Map<String, Obj
 
     public CommandContext(CommandSource source, String input) {
         this(source, input, Map.of());
+    }
+
+    public CommandContext(CommandSource source, String input, Map<String, Object> arguments) {
+        this(source, CommandInput.raw(source, input), arguments);
     }
 
     public <T> T arg(String name, Class<T> type) {

@@ -1,5 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.common;
 
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.core.CommandFramework;
 
@@ -7,6 +9,9 @@ import java.util.List;
 import java.util.Objects;
 
 public final class MinecraftCommandBridge<S> {
+    private static final CommandPlatform MINECRAFT_PLATFORM =
+        new CommandPlatform("minecraft", "Minecraft", false, true, true);
+
     private final CommandFramework framework;
     private final MinecraftSourceMapper<S> sourceMapper;
 
@@ -34,33 +39,48 @@ public final class MinecraftCommandBridge<S> {
     public CommandResult dispatch(S source, String commandLine) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(commandLine, "commandLine");
-        return framework.dispatch(sourceMapper.map(source), stripLeadingSlash(commandLine));
+        return framework.dispatch(input(source, commandLine, commandLine.length()));
     }
 
     public CommandResult dispatch(S source, MinecraftInvocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        return framework.dispatch(sourceMapper.map(Objects.requireNonNull(source, "source")), invocation.normalizedInput());
+        Objects.requireNonNull(source, "source");
+        return framework.dispatch(input(source, invocation));
     }
 
     public List<String> suggest(S source, String commandLine, int cursor) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(commandLine, "commandLine");
 
-        String normalized = stripLeadingSlash(commandLine);
-        int normalizedCursor = commandLine.startsWith("/") ? Math.max(0, cursor - 1) : cursor;
-        return framework.suggest(sourceMapper.map(source), normalized, normalizedCursor);
+        return framework.suggestRich(input(source, commandLine, cursor)).stream()
+            .map(dev.riege.buildmycommand.api.Suggestion::value)
+            .toList();
     }
 
     public List<String> suggest(S source, MinecraftInvocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        return framework.suggest(
-            sourceMapper.map(Objects.requireNonNull(source, "source")),
-            invocation.normalizedInput(),
-            invocation.cursor()
-        );
+        Objects.requireNonNull(source, "source");
+        return framework.suggestRich(input(source, invocation)).stream()
+            .map(dev.riege.buildmycommand.api.Suggestion::value)
+            .toList();
     }
 
-    private static String stripLeadingSlash(String commandLine) {
-        return commandLine.startsWith("/") ? commandLine.substring(1) : commandLine;
+    private CommandInput input(S source, String commandLine, int cursor) {
+        String prefix = commandLine.startsWith("/") ? "/" : "";
+        String normalized = commandLine.startsWith("/") ? commandLine.substring(1) : commandLine;
+        return new CommandInput(sourceMapper.map(source), commandLine, normalized, cursor, prefix, MINECRAFT_PLATFORM);
+    }
+
+    private CommandInput input(S source, MinecraftInvocation invocation) {
+        String prefix = invocation.rawInput().startsWith("/") ? "/" : "";
+        int cursor = prefix.isEmpty() ? invocation.cursor() : invocation.cursor() + prefix.length();
+        return new CommandInput(
+            sourceMapper.map(source),
+            invocation.rawInput(),
+            invocation.normalizedInput(),
+            cursor,
+            prefix,
+            MINECRAFT_PLATFORM
+        );
     }
 }

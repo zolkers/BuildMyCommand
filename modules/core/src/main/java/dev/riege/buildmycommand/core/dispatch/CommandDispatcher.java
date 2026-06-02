@@ -4,6 +4,7 @@ package dev.riege.buildmycommand.core.dispatch;
 import dev.riege.buildmycommand.core.parse.*;
 import dev.riege.buildmycommand.core.registry.*;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
@@ -38,14 +39,23 @@ public final class CommandDispatcher {
     }
 
     public CommandResult dispatch(CommandSource source, String input) {
-        TokenizeResult tokenizeResult = tokenizer.tokenize(input);
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(input, "input");
+        return dispatch(CommandInput.raw(source, input));
+    }
+
+    public CommandResult dispatch(CommandInput input) {
+        Objects.requireNonNull(input, "input");
+        CommandSource source = input.source();
+        String normalizedInput = input.normalizedInput();
+        TokenizeResult tokenizeResult = tokenizer.tokenize(normalizedInput);
         if (tokenizeResult.failure().isPresent()) {
             return Results.failure(tokenizeResult.failure().get());
         }
 
         List<String> tokens = tokenizeResult.tokens();
         if (tokens.isEmpty()) {
-            return Results.failure("Unknown command: " + input);
+            return Results.failure("Unknown command: " + normalizedInput);
         }
 
         RegistryCommandNode command = registry.find(tokens.get(0));

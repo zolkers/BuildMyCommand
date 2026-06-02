@@ -3,10 +3,14 @@ package dev.riege.buildmycommand.api;
 import java.util.Objects;
 import java.util.Optional;
 
-public record CommandResult(Status status, Optional<String> reply) {
+public record CommandResult(Status status, Optional<CommandMessage> message) {
     public CommandResult {
         Objects.requireNonNull(status, "status");
-        reply = Objects.requireNonNull(reply, "reply");
+        message = Objects.requireNonNull(message, "message");
+    }
+
+    public Optional<String> reply() {
+        return message.map(CommandMessage::text);
     }
 
     public enum Status {

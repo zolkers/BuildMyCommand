@@ -118,7 +118,7 @@ public final class MinecraftBrigadierBridge<N> {
         );
         builder.suggests((context, suggestionsBuilder) -> {
             CommandSource source = sourceMapper.apply(context.getSource());
-            CommandInput input = new CommandInput(source, normalize(context.getInput()), context.getInput().length(), "", platform);
+            CommandInput input = input(source, context.getInput(), context.getInput().length());
             for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
                 suggestionsBuilder.suggest(suggestion.value(),
                     suggestion.tooltip().map(LiteralMessage::new).orElse(null));
@@ -143,7 +143,7 @@ public final class MinecraftBrigadierBridge<N> {
                 RequiredArgumentBuilder.argument(FLAG_TUNNEL, StringArgumentType.greedyString());
             tunnel.suggests((context, suggestionsBuilder) -> {
                 CommandSource source = sourceMapper.apply(context.getSource());
-                CommandInput input = new CommandInput(source, normalize(context.getInput()), context.getInput().length(), "", platform);
+                CommandInput input = input(source, context.getInput(), context.getInput().length());
                 for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
                     if (suggestion.value().startsWith("-")) {
                         suggestionsBuilder.suggest(suggestion.value());
@@ -159,7 +159,7 @@ public final class MinecraftBrigadierBridge<N> {
     private void attachExecutor(ArgumentBuilder<N, ?> builder) {
         builder.executes(context -> {
             CommandSource source = sourceMapper.apply(context.getSource());
-            CommandResult result = framework.dispatch(source, normalize(context.getInput()));
+            CommandResult result = framework.dispatch(input(source, context.getInput(), context.getInput().length()));
             return result.status() == CommandResult.Status.SUCCESS ? Command.SINGLE_SUCCESS : 0;
         });
     }
@@ -195,5 +195,10 @@ public final class MinecraftBrigadierBridge<N> {
             input = input.substring(1);
         }
         return input;
+    }
+
+    private CommandInput input(CommandSource source, String rawInput, int cursor) {
+        String prefix = rawInput.startsWith("/") ? "/" : "";
+        return new CommandInput(source, rawInput, normalize(rawInput), cursor, prefix, platform);
     }
 }
