@@ -1,5 +1,6 @@
 package dev.riege.buildmycommand.adapters.brigadier;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
@@ -106,6 +107,20 @@ class BrigadierCommandAdapterTest {
 
         assertEquals("minecraft-brigadier", bridge.config().adapterId());
         assertEquals("minecraft", bridge.runtime().platform().id());
+    }
+
+    @Test
+    void registersProjectedRootsIntoAnyBrigadierDispatcher() {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry().command("ping", command -> command.alias("p").executes(ctx -> Results.success("pong")));
+
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        assertEquals(java.util.Set.of("ping", "p"), bridge.registration().register(dispatcher));
+        assertNotNull(dispatcher.getRoot().getChild("ping"));
+        assertNotNull(dispatcher.getRoot().getChild("p"));
+        assertEquals("ping", dispatcher.getRoot().getChild("p").getRedirect().getName());
     }
 
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {

@@ -99,6 +99,10 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         return framework.graph().roots().stream().map(CommandNode::literal).toList();
     }
 
+    public BrigadierRegistration<N> registration() {
+        return new BrigadierRegistration<>(this);
+    }
+
     private LiteralArgumentBuilder<N> convertRoot(CommandNode node) {
         LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal())
             .requires(nativeSource -> canAccess(nativeSource, node));

@@ -1,13 +1,11 @@
 package dev.riege.buildmycommand.adapters.minecraft.neoforge;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -29,17 +27,11 @@ public final class NeoForgeCommandRegistration<N> {
     }
 
     public List<String> labels() {
-        return bridge.roots().stream().map(LiteralCommandNode::getLiteral).toList();
+        return bridge.registration().labels();
     }
 
     public Set<String> register(CommandDispatcher<N> dispatcher) {
-        Objects.requireNonNull(dispatcher, "dispatcher");
-        Set<String> registered = new LinkedHashSet<>();
-        for (LiteralCommandNode<N> root : bridge.roots()) {
-            dispatcher.getRoot().addChild(root);
-            registered.add(root.getLiteral());
-        }
-        return java.util.Collections.unmodifiableSet(registered);
+        return bridge.registration().register(dispatcher);
     }
 
     public Set<String> register(NeoForgeRegisterCommandsEventView<N> event) {

@@ -6,6 +6,10 @@ The SDK lives in `modules/adapters/core`. First-party adapters live next to it a
 `modules/adapters/brigadier`, `modules/adapters/terminal`, `modules/adapters/discord`, and
 `modules/adapters/minecraft/*`.
 
+`modules/adapters/brigadier` is the direct adapter for any platform exposing a Mojang
+`CommandDispatcher<S>`. Use `BrigadierCommandAdapter.create(framework, sourceMapper)` and
+`adapter.registration().register(dispatcher)` when the host already owns Brigadier registration.
+
 Implement `CommandAdapter<S, I, R>`:
 
 - `S`: native source, such as a sender, player, terminal session, or Discord user.
