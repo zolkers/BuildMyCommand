@@ -3,6 +3,7 @@ package dev.riege.buildmycommand.adapters.minecraft.paper;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierRoot;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -45,14 +46,20 @@ public final class PaperBrigadierRegistration {
     }
 
     public List<String> labels() {
+        return bridge.projectedRoots().stream()
+            .flatMap(root -> root.registrationLabels().stream())
+            .toList();
+    }
+
+    public List<String> rootLiterals() {
         return plan().rootLiterals();
     }
 
     public Set<String> register(Commands commands) {
         Objects.requireNonNull(commands, "commands");
         Set<String> registered = new LinkedHashSet<>();
-        for (LiteralCommandNode<CommandSourceStack> root : roots()) {
-            registered.addAll(commands.register(root));
+        for (MinecraftBrigadierRoot<CommandSourceStack> root : bridge.projectedRoots()) {
+            registered.addAll(commands.register(root.root(), root.aliases()));
         }
         return Collections.unmodifiableSet(registered);
     }

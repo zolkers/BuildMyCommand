@@ -67,16 +67,25 @@ public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, Stri
 
     public List<LiteralCommandNode<N>> roots() {
         List<LiteralCommandNode<N>> roots = new ArrayList<>();
+        for (MinecraftBrigadierRoot<N> root : projectedRoots()) {
+            roots.add(root.root());
+            roots.addAll(root.aliasRoots());
+        }
+        return List.copyOf(roots);
+    }
+
+    public List<MinecraftBrigadierRoot<N>> projectedRoots() {
+        List<MinecraftBrigadierRoot<N>> roots = new ArrayList<>();
         for (CommandNode root : framework.graph().roots()) {
             LiteralCommandNode<N> rootNode = convertRoot(root).build();
-            roots.add(rootNode);
-            for (String alias : root.aliases()) {
-                roots.add(LiteralArgumentBuilder.<N>literal(alias)
+            List<LiteralCommandNode<N>> aliasRoots = root.aliases().stream()
+                .map(alias -> LiteralArgumentBuilder.<N>literal(alias)
                     .requires(rootNode.getRequirement())
                     .executes(rootNode.getCommand())
                     .redirect(rootNode)
-                    .build());
-            }
+                    .build())
+                .toList();
+            roots.add(new MinecraftBrigadierRoot<>(rootNode, root.aliases(), aliasRoots));
         }
         return List.copyOf(roots);
     }

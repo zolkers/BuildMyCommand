@@ -98,7 +98,8 @@ class PaperMinecraftAdapterTest {
         MinecraftCommandRegistrationPlan plan = registration.plan();
 
         assertEquals(PaperCommandRegistrationMode.BRIGADIER_PROJECTION, registration.mode());
-        assertEquals(List.of("warp"), registration.labels());
+        assertEquals(List.of("warp", "w"), registration.labels());
+        assertEquals(List.of("warp"), registration.rootLiterals());
         assertEquals(List.of("warp"), plan.rootLiterals());
         assertTrue(plan.reloadSafe());
         assertTrue(registration.exactLiteralMatching());
@@ -121,7 +122,7 @@ class PaperMinecraftAdapterTest {
         Commands commands = recordingCommands(registered);
 
         assertEquals(new LinkedHashSet<>(List.of("warp", "w")), registration.register(commands));
-        assertEquals(List.of("warp", "w"), registered);
+        assertEquals(List.of("warp aliases=[w]"), registered);
     }
 
     @Test
@@ -137,7 +138,7 @@ class PaperMinecraftAdapterTest {
 
         registration.registrationHandler().run(commandsEvent(recordingCommands(registered)));
 
-        assertEquals(List.of("warp", "w"), registered);
+        assertEquals(List.of("warp aliases=[w]"), registered);
     }
 
     private static Commands recordingCommands(List<String> registered) {
@@ -150,7 +151,14 @@ class PaperMinecraftAdapterTest {
                     && args.length > 0
                     && args[0] instanceof com.mojang.brigadier.tree.LiteralCommandNode<?> node
                 ) {
-                    registered.add(node.getLiteral());
+                    if (args.length == 2 && args[1] instanceof java.util.Collection<?> aliases) {
+                        registered.add(node.getLiteral() + " aliases=" + aliases);
+                        LinkedHashSet<String> labels = new LinkedHashSet<>();
+                        labels.add(node.getLiteral());
+                        aliases.forEach(alias -> labels.add((String) alias));
+                        return labels;
+                    }
+                    registered.add(node.getLiteral() + " aliases=[]");
                     return Set.of(node.getLiteral());
                 }
                 if ("toString".equals(method.getName())) {
