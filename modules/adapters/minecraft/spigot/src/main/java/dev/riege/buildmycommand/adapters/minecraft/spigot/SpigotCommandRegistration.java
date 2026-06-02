@@ -63,17 +63,17 @@ public final class SpigotCommandRegistration {
         List<Map.Entry<String, SpigotNativeCommand>> entries = new ArrayList<>(registered.entrySet());
         for (Map.Entry<String, SpigotNativeCommand> entry : entries) {
             entry.getValue().unregister(commandMap);
-            removeKnownCommand(commandMap, entry.getKey(), entry.getValue());
+            removeKnownCommand(commandMap, fallbackPrefix, entry.getKey(), entry.getValue());
         }
         registered.clear();
         return this;
     }
 
-    private static void removeKnownCommand(CommandMap commandMap, String label, Command command) {
+    private static void removeKnownCommand(CommandMap commandMap, String fallbackPrefix, String label, Command command) {
         for (Class<?> type = commandMap.getClass(); type != null; type = type.getSuperclass()) {
             Field field = findCommandMapField(type);
             if (field != null) {
-                removeFromField(commandMap, field, label, command);
+                removeFromField(commandMap, field, fallbackPrefix, label, command);
                 return;
             }
         }
@@ -93,16 +93,25 @@ public final class SpigotCommandRegistration {
         return null;
     }
 
-    private static void removeFromField(CommandMap commandMap, Field field, String label, Command command) {
+    private static void removeFromField(
+        CommandMap commandMap,
+        Field field,
+        String fallbackPrefix,
+        String label,
+        Command command
+    ) {
         try {
             field.setAccessible(true);
             Object value = field.get(commandMap);
             if (value instanceof Map<?, ?> knownCommands) {
                 @SuppressWarnings("unchecked")
                 Map<String, Command> commands = (Map<String, Command>) knownCommands;
+                String fallbackLabel = fallbackPrefix + ":" + label;
                 commands.remove(label, command);
+                commands.remove(fallbackLabel, command);
                 commands.remove(command.getName(), command);
                 commands.remove(command.getName().toLowerCase(java.util.Locale.ROOT), command);
+                commands.remove(fallbackLabel.toLowerCase(java.util.Locale.ROOT), command);
             }
         } catch (IllegalAccessException ignored) {
             // Bukkit does not expose removal on CommandMap; best effort keeps this facade server-friendly.

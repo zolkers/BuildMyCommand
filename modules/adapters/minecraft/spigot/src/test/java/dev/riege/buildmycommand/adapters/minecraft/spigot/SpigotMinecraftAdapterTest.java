@@ -93,6 +93,76 @@ class SpigotMinecraftAdapterTest {
     }
 
     @Test
+    void nativeCommandTabCompletePathDelegatesSuggestions() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban|block <target:String> appeal|reason")
+            .executes(ctx -> Results.silent());
+        RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
+
+        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+            "ban",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        assertEquals(List.of("appeal"), command.tabComplete(
+            sender.proxy(),
+            "block",
+            new String[] {"Alex", "a"}
+        ));
+    }
+
+    @Test
+    void fallbackPrefixedCommandLabelsDispatchAsUnprefixedLabels() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban|block <target:String>")
+            .executes(ctx -> Results.success("Blocked " + ctx.arg("target", String.class)));
+        RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
+
+        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+            "block",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        assertTrue(command.execute(sender.proxy(), "buildmycommand:block", new String[] {"Alex"}));
+        assertEquals(List.of("Blocked Alex"), sender.messages());
+    }
+
+    @Test
+    void fallbackPrefixedTabCompleteLabelsSuggestAsUnprefixedLabels() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban|block <target:String> appeal|reason")
+            .executes(ctx -> Results.silent());
+        RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
+
+        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+            "block",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        assertEquals(List.of("appeal"), command.tabComplete(
+            sender.proxy(),
+            "buildmycommand:block",
+            new String[] {"Alex", "a"}
+        ));
+    }
+
+    @Test
+    void nativeCommandReturnsTrueAfterRenderingFrameworkFailure() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban <target:String>")
+            .executes(ctx -> Results.failure("Cannot ban " + ctx.arg("target", String.class)));
+        RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
+
+        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+            "ban",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        assertTrue(command.execute(sender.proxy(), "ban", new String[] {"Alex"}));
+        assertEquals(List.of("Cannot ban Alex"), sender.messages());
+    }
+
+    @Test
     void registrationFacadeExposesAliasLabelsAndRegistersNativeCommands() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("ban|block <target:String>").executes(ctx -> Results.silent());
@@ -105,7 +175,12 @@ class SpigotMinecraftAdapterTest {
 
         assertEquals(List.of("ban", "block"), registration.labels());
         assertEquals(List.of("ban", "block"), registration.register(commandMap));
-        assertEquals(List.of("ban", "block"), new ArrayList<>(commandMap.commands().keySet()));
+        assertEquals(List.of(
+            "ban",
+            "buildmycommand:ban",
+            "block",
+            "buildmycommand:block"
+        ), new ArrayList<>(commandMap.commands().keySet()));
         assertSame(registration.adapter(), registration.unregister(commandMap).adapter());
         assertTrue(commandMap.commands().isEmpty());
     }
@@ -163,6 +238,7 @@ class SpigotMinecraftAdapterTest {
         @Override
         public boolean register(String label, String fallbackPrefix, Command command) {
             commands.put(label, command);
+            commands.put(fallbackPrefix + ":" + label, command);
             return true;
         }
 

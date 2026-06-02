@@ -33,10 +33,10 @@ public final class SpigotNativeCommand extends Command implements CommandExecuto
         Objects.requireNonNull(command, "command");
         MinecraftRenderedResult result = adapter.execute(
             Objects.requireNonNull(sender, "sender"),
-            SpigotMinecraftAdapter.commandExecutorInput(label, Objects.requireNonNull(args, "args"))
+            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(label), Objects.requireNonNull(args, "args"))
         );
         result.message().ifPresent(sender::sendMessage);
-        return result.numericResult() > 0;
+        return true;
     }
 
     @Override
@@ -44,8 +44,22 @@ public final class SpigotNativeCommand extends Command implements CommandExecuto
         Objects.requireNonNull(command, "command");
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
-            SpigotMinecraftAdapter.commandExecutorInput(alias, Objects.requireNonNull(args, "args"))
+            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(alias), Objects.requireNonNull(args, "args"))
         );
+    }
+
+    @Override
+    public List<String> tabComplete(CommandSender sender, String alias, String[] args) throws IllegalArgumentException {
+        return onTabComplete(sender, this, alias, args);
+    }
+
+    private static String normalizeLabel(String label) {
+        String validLabel = requireLabel(label);
+        int namespace = validLabel.indexOf(':');
+        if (namespace < 0 || namespace == validLabel.length() - 1) {
+            return validLabel;
+        }
+        return validLabel.substring(namespace + 1);
     }
 
     private static String requireLabel(String label) {
