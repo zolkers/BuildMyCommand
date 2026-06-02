@@ -15,6 +15,15 @@ tasks.register<Exec>("setupIntellijPlugin") {
     commandLine("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.asFile.absolutePath, "-SkipBuild")
 }
 
+tasks.register<Exec>("installIntellijPluginLocal") {
+    group = "ide"
+    description = "Builds and installs the BuildMyCommand IntelliJ plugin into the latest local IntelliJ IDEA config directory."
+    dependsOn(":intellij-plugin:buildPlugin")
+
+    val script = layout.projectDirectory.file("scripts/setup-intellij-plugin.ps1")
+    commandLine("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.asFile.absolutePath, "-SkipBuild", "-Install")
+}
+
 subprojects {
     apply(plugin = "java")
     apply(plugin = "jacoco")

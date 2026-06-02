@@ -17,9 +17,11 @@ Injected strings use the `BuildMyCommandRoute` language so annotations and route
 
 Run `.\gradlew.bat setupIntellijPlugin` from the repository root. The task builds the local IntelliJ plugin ZIP and refreshes `.idea/externalDependencies.xml` so IntelliJ marks `dev.riege.buildmycommand.intellij` as a required project plugin.
 
-For a pure script run, use `.\scripts\setup-intellij-plugin.ps1`. By default it also runs `:intellij-plugin:buildPlugin`; pass `-SkipBuild` if Gradle already built the plugin.
+For local development on Windows, run `.\gradlew.bat installIntellijPluginLocal`. It builds the plugin, installs it into the latest local IntelliJ IDEA config directory, and requires an IDE restart before the plugin is loaded.
 
-On Unix-like shells, use `./scripts/setup-intellij-plugin.sh`. It has the same behavior; pass `--skip-build` if Gradle already built the plugin.
+For a pure script run, use `.\scripts\setup-intellij-plugin.ps1`. By default it also runs `:intellij-plugin:buildPlugin`; pass `-SkipBuild` if Gradle already built the plugin. Add `-Install` to install the built ZIP into IntelliJ's local plugins directory.
+
+On Unix-like shells, use `./scripts/setup-intellij-plugin.sh`. It has the same behavior; pass `--skip-build` if Gradle already built the plugin and `--install` to install it into the local IntelliJ plugins directory.
 
 IntelliJ reads `.idea/externalDependencies.xml` when the project opens and notifies if the required plugin is missing, disabled, or too old. The generated plugin ZIP is under `modules/intellij-plugin/build/distributions/` and can be installed with `Settings > Plugins > gear > Install Plugin from Disk...`.
 

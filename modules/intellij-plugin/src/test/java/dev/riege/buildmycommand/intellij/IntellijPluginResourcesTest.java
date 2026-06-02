@@ -87,10 +87,15 @@ class IntellijPluginResourcesTest {
         assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.intellij\" min-version=\"0.1.0\" />"));
         assertTrue(powerShellScript.contains("dev.riege.buildmycommand.intellij"));
         assertTrue(powerShellScript.contains(":intellij-plugin:buildPlugin"));
+        assertTrue(powerShellScript.contains("$Install"));
+        assertTrue(powerShellScript.contains("Expand-Archive"));
         assertTrue(shellScript.contains("dev.riege.buildmycommand.intellij"));
         assertTrue(shellScript.contains(":intellij-plugin:buildPlugin"));
         assertTrue(shellScript.contains("skip-build"));
+        assertTrue(shellScript.contains("--install"));
+        assertTrue(shellScript.contains("unzip -q"));
         assertTrue(buildScript.contains("setupIntellijPlugin"));
+        assertTrue(buildScript.contains("installIntellijPluginLocal"));
     }
 
     private static String resource(String path) throws IOException {
