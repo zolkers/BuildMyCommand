@@ -82,6 +82,7 @@ class IntellijPluginResourcesTest {
         String powerShellScript = Files.readString(root.resolve("scripts/setup-intellij-plugin.ps1"));
         String shellScript = Files.readString(root.resolve("scripts/setup-intellij-plugin.sh"));
         String buildScript = Files.readString(root.resolve("build.gradle.kts"));
+        String intellijBuildScript = Files.readString(root.resolve("modules/intellij-plugin/build.gradle.kts"));
 
         assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
         assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.intellij\" min-version=\"0.1.0\" />"));
@@ -96,6 +97,9 @@ class IntellijPluginResourcesTest {
         assertTrue(shellScript.contains("unzip -q"));
         assertTrue(buildScript.contains("setupIntellijPlugin"));
         assertTrue(buildScript.contains("installIntellijPluginLocal"));
+        assertTrue(intellijBuildScript.contains("tasks.patchPluginXml"));
+        assertTrue(intellijBuildScript.contains("sinceBuild.set(\"241\")"));
+        assertTrue(intellijBuildScript.contains("untilBuild.set(\"\")"));
     }
 
     private static String resource(String path) throws IOException {

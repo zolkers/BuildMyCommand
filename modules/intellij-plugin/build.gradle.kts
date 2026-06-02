@@ -16,3 +16,8 @@ intellij {
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
 }
+
+tasks.patchPluginXml {
+    sinceBuild.set("241")
+    untilBuild.set("")
+}
