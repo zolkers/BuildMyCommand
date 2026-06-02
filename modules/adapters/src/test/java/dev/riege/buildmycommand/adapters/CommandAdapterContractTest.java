@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CommandAdapterContractTest {
     @Test
@@ -58,6 +59,53 @@ class CommandAdapterContractTest {
             java.util.List.of("ban"),
             java.util.List.of("ban", "block")
         ), adapter.registrationLabels());
+    }
+
+    @Test
+    void simpleAdapterBuilderLetsUsersCreateCustomAdaptersWithLambdas() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("echo", command -> command.executes(ctx -> Results.success(
+            ctx.source().name().orElseThrow() + ":" + ctx.commandInput().normalizedInput()
+        )));
+        CommandPlatform platform = new CommandPlatform("chat", "Chat", true, true, true);
+
+        SimpleCommandAdapter<NativeSource, NativeInput, RenderedResult> adapter =
+            SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform)
+                .sourceMapper(source -> new CommandSource() {
+                    @Override
+                    public Optional<String> name() {
+                        return Optional.of(source.name());
+                    }
+                })
+                .inputMapper((source, input, runtime, mapper) -> new CommandInput(
+                    mapper.map(source),
+                    input.rawInput(),
+                    input.rawInput().substring(1),
+                    input.cursor(),
+                    "!",
+                    runtime.platform()
+                ))
+                .renderer(result -> new RenderedResult(
+                    result.status() == CommandResult.Status.SUCCESS ? 200 : 500,
+                    result.reply()
+                ))
+                .build();
+
+        RenderedResult rendered = adapter.execute(new NativeSource("1", "Ada"), new NativeInput("!echo", 5));
+
+        assertEquals(new RenderedResult(200, Optional.of("Ada:echo")), rendered);
+        assertEquals("chat", adapter.config().adapterId());
+    }
+
+    @Test
+    void simpleAdapterBuilderFailsFastWhenRequiredPiecesAreMissing() {
+        CommandFramework framework = CommandFramework.create();
+        CommandPlatform platform = new CommandPlatform("chat", "Chat", true, true, true);
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform).build());
+
+        assertEquals("renderer must be configured", exception.getMessage());
     }
 
     private static final class ContractAdapter implements CommandAdapter<NativeSource, NativeInput, RenderedResult> {
