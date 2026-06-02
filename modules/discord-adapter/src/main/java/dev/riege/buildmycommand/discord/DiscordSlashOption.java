@@ -1,0 +1,22 @@
+package dev.riege.buildmycommand.discord;
+
+import java.util.Objects;
+
+public record DiscordSlashOption(
+    String name,
+    DiscordSlashOptionType type,
+    boolean required,
+    String description
+) {
+    public DiscordSlashOption {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(description, "description");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
+        }
+        if (description.isBlank()) {
+            throw new IllegalArgumentException("description must not be blank");
+        }
+    }
+}
