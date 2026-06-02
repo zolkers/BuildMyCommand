@@ -134,6 +134,8 @@ subprojects {
         "testImplementation"("org.junit.jupiter:junit-jupiter")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
+
+    apply(from = rootProject.file("gradle/publishing.gradle.kts"))
 }
 
 fun coverageMinimumFor(path: String): BigDecimal = when {
