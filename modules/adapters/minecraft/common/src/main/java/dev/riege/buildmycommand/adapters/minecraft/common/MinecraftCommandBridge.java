@@ -6,12 +6,14 @@ import dev.riege.buildmycommand.adapters.AdapterRenderer;
 import dev.riege.buildmycommand.adapters.AdapterRuntime;
 import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public final class MinecraftCommandBridge<S> implements CommandAdapter<S, MinecraftInvocation, CommandResult> {
@@ -46,6 +48,18 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
 
     public boolean caseInsensitiveOptions() {
         return runtime.framework().caseInsensitiveOptions();
+    }
+
+    public boolean canUseRootLabel(S source, String label) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(label, "label");
+        CommandSource mapped = mapSource(source);
+        for (CommandNode root : runtime.framework().graph().roots()) {
+            if (matchesLabel(root, label)) {
+                return canAccessNode(mapped, root);
+            }
+        }
+        return true;
     }
 
     public CommandResult dispatch(S source, String commandLine) {
@@ -122,5 +136,39 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
             prefix,
             MINECRAFT_PLATFORM
         );
+    }
+
+    private boolean matchesLabel(CommandNode root, String label) {
+        if (matches(root.literal(), label)) {
+            return true;
+        }
+        for (String alias : root.aliases()) {
+            if (matches(alias, label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matches(String expected, String actual) {
+        if (caseInsensitiveLiterals()) {
+            return expected.toLowerCase(Locale.ROOT).equals(actual.toLowerCase(Locale.ROOT));
+        }
+        return expected.equals(actual);
+    }
+
+    private static boolean canAccessNode(CommandSource source, CommandNode node) {
+        if (node.permission().isPresent() && !source.hasPermission(node.permission().get())) {
+            return false;
+        }
+        if (node.executor().isPresent()) {
+            return true;
+        }
+        for (CommandNode child : node.children()) {
+            if (canAccessNode(source, child)) {
+                return true;
+            }
+        }
+        return node.children().isEmpty();
     }
 }

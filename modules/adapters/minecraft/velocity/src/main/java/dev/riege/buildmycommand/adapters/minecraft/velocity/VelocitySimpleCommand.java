@@ -49,6 +49,6 @@ public final class VelocitySimpleCommand implements SimpleCommand {
     @Override
     public boolean hasPermission(Invocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        return true;
+        return adapter.canUseRootLabel(invocation.source(), invocation.alias());
     }
 }

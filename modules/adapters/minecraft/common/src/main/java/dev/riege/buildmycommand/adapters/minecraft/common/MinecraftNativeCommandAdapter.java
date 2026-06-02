@@ -87,6 +87,10 @@ public final class MinecraftNativeCommandAdapter<S> {
         return bridge.suggest(source, invocation);
     }
 
+    public boolean canUseRootLabel(S source, String label) {
+        return bridge.canUseRootLabel(source, label);
+    }
+
     public boolean honorsCaseInsensitiveLiterals() {
         return bridge.caseInsensitiveLiterals();
     }

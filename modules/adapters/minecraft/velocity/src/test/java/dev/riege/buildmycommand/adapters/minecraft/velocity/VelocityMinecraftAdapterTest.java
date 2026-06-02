@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,6 +74,20 @@ class VelocityMinecraftAdapterTest {
         assertEquals(List.of("Proxy reloaded"), source.messages());
         assertEquals(List.of("status"), command.suggest(invocation(source.proxy(), "proxy", "s")));
         assertEquals(List.of("status"), command.suggestAsync(invocation(source.proxy(), "proxy", "s")).join());
+    }
+
+    @Test
+    void simpleCommandHasPermissionDelegatesToRoutePermissionForAliases() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("proxy|px reload")
+            .permission("proxy.reload")
+            .executes(ctx -> Results.silent());
+        VelocitySimpleCommand command = VelocityMinecraftAdapter.simpleCommand(
+            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+        );
+
+        assertTrue(command.hasPermission(invocation(new RecordingVelocitySource("proxy.reload").proxy(), "px")));
+        assertFalse(command.hasPermission(invocation(new RecordingVelocitySource().proxy(), "px")));
     }
 
     @Test
