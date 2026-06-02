@@ -1,18 +1,21 @@
 # BuildMyCommand
 
-BuildMyCommand is a universal, platform-neutral Java command framework.
+BuildMyCommand is a modular Java command framework for applications, CLIs, Minecraft servers, Discord bots, and IDE-aware command DSLs.
 
-The project follows a simple rule: every public declaration style eventually compiles to the same internal command model. The first implementation slice focuses on the core runtime:
+Every declaration style compiles to the same public command model:
 
-- `api` for public contracts
-- `core` for registration, routing, dispatch, parsing, and suggestions
-- `adapters` for platform integrations, including the Minecraft adapter family
-- `intellij-plugin` for IDE support around annotations and route DSL strings
-- `testkit` for platform-free command tests
+- `modules/api`: stable command contracts, sources, results, metadata, suggestions, middleware, and manual command nodes.
+- `modules/core`: registration, dispatch, parsing, matching policy, help, schema, lifecycle, and middleware execution.
+- `modules/dsl`: route DSL parsing, canonicalization, validation, aliases, options, and conflict analysis.
+- `modules/annotations`: annotation scanner/compiler for route and method-based command declarations.
+- `modules/adapters`: generic adapter SDK plus Minecraft platform modules.
+- `modules/terminal-adapter` and `modules/discord-adapter`: non-Minecraft adapters proving platform independence.
+- `modules/intellij-plugin`: route DSL injection, highlighting, completion, inspections, theme resources, and install scripts.
+- `modules/testkit`: fluent command testing helpers.
 
-The long-form architecture plan is tracked in `java_command_framework_master_plan (1).md`.
+Start with [Getting Started](docs/getting-started.md), then use the focused guides under `docs/`.
 
-## Annotation DSL Example
+## Quick Example
 
 ```java
 @Route("moderation punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
@@ -26,19 +29,6 @@ CommandResult punish(
 ) {
     int minutes = duration == null ? 60 : duration;
     return Results.success(target + " punished for " + minutes + "m: " + reason);
-}
-```
-
-Annotation commands can also use the non-DSL style when that is clearer:
-
-```java
-@Command("msg")
-@Alias("message")
-CommandResult msg(
-    @Arg("target") String target,
-    @Arg("message") @OptionalArg @Greedy @Default("No message") String message
-) {
-    return Results.success(target + ": " + message);
 }
 ```
 
@@ -73,19 +63,23 @@ final class ModerationCommands {
 .\gradlew.bat test
 ```
 
-## Current Scope
+Useful verification commands:
 
-The repository is being built incrementally from a minimal command dispatcher toward the full roadmap:
+```powershell
+.\gradlew.bat clean check
+.\gradlew.bat :intellij-plugin:buildPlugin
+```
 
-1. literal command dispatch: implemented
-2. typed arguments: implemented
-3. subcommands and aliases: implemented
-4. flags and options: in progress
-5. suggestions and help: suggestions in progress, help later
-6. DSL, annotations, adapters, and studio modules: in progress
+## Documentation
 
-## Architecture Notes
-
-- Core runtime internals are grouped by responsibility under packages such as `registry`, `parse`, `dispatch`, `route`, and `help`.
-- Minecraft support lives under `modules/adapters/minecraft`, with a `common` bridge, a Brigadier projection layer, and backend modules for Paper, Spigot, BungeeCord, Velocity, Fabric, Forge, and NeoForge.
-- IntelliJ support includes a lightweight BuildMyCommand route language, IntelliLang injection for `@Command`, `@Route`, and `CommandRegistry#route(String)`, a syntax highlighter, a TextMate grammar, and light/dark color schemes. Rich validation and completion should be added inside `modules/intellij-plugin`, not in runtime modules.
+- [Core Concepts](docs/core-concepts.md)
+- [Route DSL](docs/route-dsl.md)
+- [Annotations](docs/annotations.md)
+- [Builder API](docs/builder-api.md)
+- [Manual API](docs/manual-api.md)
+- [Suggestions](docs/suggestions.md)
+- [Errors And Middleware](docs/errors-and-middleware.md)
+- [Adapter SDK](docs/adapter-sdk.md)
+- [Testing](docs/testing.md)
+- [IntelliJ Plugin](docs/intellij-plugin.md)
+- [Minecraft Adapter](docs/minecraft-adapter.md)
