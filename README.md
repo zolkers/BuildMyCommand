@@ -8,9 +8,10 @@ Every declaration style compiles to the same public command model:
 - `modules/core`: registration, dispatch, parsing, matching policy, help, schema, lifecycle, and middleware execution.
 - `modules/dsl`: route DSL parsing, canonicalization, validation, aliases, options, and conflict analysis.
 - `modules/annotations`: annotation scanner/compiler for route and method-based command declarations.
-- `modules/adapters`: generic adapter SDK plus Minecraft platform modules.
-- `modules/adapters`: generic adapter SDK plus built-in terminal adapter and Minecraft platform modules.
-- `modules/discord-adapter`: non-Minecraft adapter proving platform independence.
+- `modules/adapters/core`: generic adapter SDK for first-party and custom adapters.
+- `modules/adapters/terminal`: terminal adapter and legacy terminal package shim.
+- `modules/adapters/discord`: non-Minecraft adapter proving platform independence.
+- `modules/adapters/minecraft`: Minecraft adapter family and platform modules.
 - `modules/intellij-plugin`: route DSL injection, highlighting, completion, inspections, theme resources, and install scripts.
 - `modules/testkit`: fluent command testing helpers.
 
@@ -23,12 +24,11 @@ Start with [Getting Started](docs/getting-started.md), then use the focused guid
 @Description("Punish a user")
 @Permission("mod.punish")
 CommandResult punish(
-    @Arg("target") String target,
-    @Arg("reason") String reason,
-    @Option("duration") Integer duration,
-    @Flag("silent") boolean silent
+    @RouteCtx CommandContext route
 ) {
-    int minutes = duration == null ? 60 : duration;
+    String target = route.arg("target", String.class);
+    String reason = route.arg("reason", String.class);
+    int minutes = route.option("duration", Integer.class).orElse(60);
     return Results.success(target + " punished for " + minutes + "m: " + reason);
 }
 ```
@@ -52,7 +52,9 @@ Annotation-first command sets can opt in from the declaration side:
 @CaseInsensitive
 final class ModerationCommands {
     @Route("ban <target:String> [--silent|-s]")
-    CommandResult ban(@Arg("target") String target, @Flag("silent") boolean silent) {
+    CommandResult ban(@RouteCtx CommandContext route) {
+        String target = route.arg("target", String.class);
+        boolean silent = route.flag("silent");
         return Results.success(target + ":" + silent);
     }
 }

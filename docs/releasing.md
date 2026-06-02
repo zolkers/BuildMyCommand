@@ -22,7 +22,9 @@ The `examples` module is intentionally not published. `intellij-plugin` is built
 Artifact ids are derived from Gradle paths:
 
 - `:core` -> `core`
+- `:adapters:core` -> `adapters-core`
+- `:adapters:discord` -> `adapters-discord`
+- `:adapters:terminal` -> `adapters-terminal`
 - `:adapters:minecraft:paper` -> `adapters-minecraft-paper`
-- `:discord-adapter` -> `discord-adapter`
 
 Remote publishing should be added as a separate credentialed workflow when the target repository is chosen. The current config supports Maven Local and a per-module build-directory Maven repository.

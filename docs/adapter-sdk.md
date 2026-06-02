@@ -2,6 +2,9 @@
 
 Adapters convert native platform concepts into framework primitives.
 
+The SDK lives in `modules/adapters/core`. First-party adapters live next to it as sibling modules:
+`modules/adapters/terminal`, `modules/adapters/discord`, and `modules/adapters/minecraft/*`.
+
 Implement `CommandAdapter<S, I, R>`:
 
 - `S`: native source, such as a sender, player, terminal session, or Discord user.

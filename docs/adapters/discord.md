@@ -1,6 +1,6 @@
 # Discord Adapter
 
-`modules/discord-adapter` proves commands are not Minecraft-specific.
+`modules/adapters/discord` proves commands are not Minecraft-specific.
 
 The module intentionally avoids a hard dependency on JDA or Discord4J. It provides neutral boundary types:
 

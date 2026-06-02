@@ -82,7 +82,13 @@ tasks.register<Exec>("installIntellijPluginLocal") {
     commandLine("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.asFile.absolutePath, "-SkipBuild", "-Install")
 }
 
+val adapterAggregatorProjects = setOf(":adapters", ":adapters:minecraft")
+
 subprojects {
+    if (path in adapterAggregatorProjects) {
+        return@subprojects
+    }
+
     apply(plugin = "java")
     apply(plugin = "jacoco")
 
@@ -141,11 +147,11 @@ subprojects {
 fun coverageMinimumFor(path: String): BigDecimal = when {
     path == ":core" -> "0.80".toBigDecimal()
     path == ":annotations" -> "0.75".toBigDecimal()
-    path == ":adapters" -> "0.80".toBigDecimal()
+    path == ":adapters:core" -> "0.80".toBigDecimal()
+    path == ":adapters:terminal" -> "0.80".toBigDecimal()
+    path == ":adapters:discord" -> "0.70".toBigDecimal()
     path == ":adapters:minecraft:common" -> "0.75".toBigDecimal()
     path.startsWith(":adapters:minecraft") -> "0.55".toBigDecimal()
-    path == ":discord-adapter" -> "0.70".toBigDecimal()
-    path == ":terminal-adapter" -> "0.80".toBigDecimal()
     path == ":schema" -> "0.80".toBigDecimal()
     path == ":testkit" -> "0.75".toBigDecimal()
     path == ":dsl" -> "0.60".toBigDecimal()
