@@ -31,6 +31,10 @@ public record CommandInput(
         return new CommandInput(source, normalizedInput, normalizedInput, normalizedInput.length(), "", CommandPlatform.test());
     }
 
+    public String raw() {
+        return rawInput;
+    }
+
     public int normalizedCursor() {
         if (!prefix.isEmpty() && rawInput.startsWith(prefix)) {
             return Math.max(0, Math.min(cursor - prefix.length(), normalizedInput.length()));

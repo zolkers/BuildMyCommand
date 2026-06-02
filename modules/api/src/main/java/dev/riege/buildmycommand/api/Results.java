@@ -10,13 +10,11 @@ public final class Results {
     }
 
     public static CommandResult success(String reply) {
-        return new CommandResult(CommandResult.Status.SUCCESS,
-            Optional.of(CommandMessage.success(Objects.requireNonNull(reply, "reply"))));
+        return new CommandResult(CommandResult.Status.SUCCESS, Optional.of(Objects.requireNonNull(reply, "reply")));
     }
 
     public static CommandResult failure(String reply) {
-        return new CommandResult(CommandResult.Status.FAILURE,
-            Optional.of(CommandMessage.error(Objects.requireNonNull(reply, "reply"))));
+        return new CommandResult(CommandResult.Status.FAILURE, Optional.of(Objects.requireNonNull(reply, "reply")));
     }
 
     public static CommandResult silent() {

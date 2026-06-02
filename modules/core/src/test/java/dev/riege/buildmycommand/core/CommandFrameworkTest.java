@@ -65,7 +65,7 @@ class CommandFrameworkTest {
         framework.registry()
             .route("ping <target:String>")
             .executes(ctx -> {
-                seenInput.set(ctx.input());
+                seenInput.set(ctx.commandInput());
                 return Results.success(ctx.arg("target", String.class));
             });
 
@@ -74,9 +74,11 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("Alex"), result.reply());
+        assertEquals("ping Alex", seenInput.get().normalizedInput());
         assertEquals(input, seenInput.get());
         assertEquals(source, seenInput.get().source());
         assertEquals("/ping Alex", seenInput.get().rawInput());
+        assertEquals("/ping Alex", seenInput.get().raw());
         assertEquals("ping Alex", seenInput.get().normalizedInput());
         assertEquals(7, seenInput.get().cursor());
         assertEquals("/", seenInput.get().prefix());
@@ -91,8 +93,8 @@ class CommandFrameworkTest {
         AtomicReference<CommandInput> seenInput = new AtomicReference<>();
 
         framework.registry().command("ping", command -> command.executes(ctx -> {
-            seenInput.set(ctx.input());
-            return Results.success(ctx.input().normalizedInput());
+            seenInput.set(ctx.commandInput());
+            return Results.success(ctx.input());
         }));
 
         CommandResult result = framework.dispatch(source, "ping");
@@ -100,6 +102,7 @@ class CommandFrameworkTest {
         assertEquals(CommandResult.Status.SUCCESS, result.status());
         assertEquals(Optional.of("ping"), result.reply());
         assertEquals(source, seenInput.get().source());
+        assertEquals("ping", seenInput.get().raw());
         assertEquals("ping", seenInput.get().rawInput());
         assertEquals("ping", seenInput.get().normalizedInput());
         assertEquals(4, seenInput.get().cursor());
@@ -112,6 +115,7 @@ class CommandFrameworkTest {
         CommandResult success = Results.success("ok");
         CommandResult failure = Results.failure("bad");
         CommandResult silent = Results.silent();
+        CommandResult legacy = new CommandResult(CommandResult.Status.SUCCESS, Optional.of("legacy"));
 
         assertEquals(CommandResult.Status.SUCCESS, success.status());
         assertEquals(Optional.of("ok"), success.reply());
@@ -122,6 +126,9 @@ class CommandFrameworkTest {
         assertEquals(CommandResult.Status.SILENT, silent.status());
         assertEquals(Optional.empty(), silent.reply());
         assertEquals(Optional.empty(), silent.message());
+        assertEquals(CommandResult.Status.SUCCESS, legacy.status());
+        assertEquals(Optional.of("legacy"), legacy.reply());
+        assertEquals(Optional.of(CommandMessage.success("legacy")), legacy.message());
     }
 
     @Test
