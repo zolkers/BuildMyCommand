@@ -165,6 +165,18 @@ class AnnotationCommandScannerTest {
         assertEquals("Usage: user rank set <target:String> <rank:String>", framework.help("u roles put"));
     }
 
+    @Test
+    void caseInsensitiveAnnotationEnablesLiteralAndOptionMatching() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new CaseInsensitiveCommands());
+
+        CommandResult result = framework.dispatch(source(), "BAN Ada -S --Duration 5");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Ada:5:true"), result.reply());
+    }
+
     private static CommandSource source() {
         return new CommandSource() {
         };
@@ -287,6 +299,18 @@ class AnnotationCommandScannerTest {
         @Alias({"roles put"})
         CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
             return Results.success(target + "=" + rank);
+        }
+    }
+
+    @CaseInsensitive
+    static final class CaseInsensitiveCommands {
+        @Route("ban <target:String> [--duration:Integer|-d] [--silent|-s]")
+        CommandResult ban(
+            @Arg("target") String target,
+            @Option("duration") Integer duration,
+            @Flag("silent") boolean silent
+        ) {
+            return Results.success(target + ":" + duration + ":" + silent);
         }
     }
 }

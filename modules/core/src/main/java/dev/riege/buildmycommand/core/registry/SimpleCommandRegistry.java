@@ -30,6 +30,18 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     }
 
     @Override
+    public CommandRegistry caseInsensitiveLiterals() {
+        matchingPolicy.enableCaseInsensitiveLiterals();
+        return this;
+    }
+
+    @Override
+    public CommandRegistry caseInsensitiveOptions() {
+        matchingPolicy.enableCaseInsensitiveOptions();
+        return this;
+    }
+
+    @Override
     public void command(String literal, Consumer<CommandBuilder> configure) {
         Objects.requireNonNull(configure, "configure");
 

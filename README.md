@@ -55,6 +55,18 @@ CommandFramework framework = CommandFramework.builder()
 
 Literal matching covers command names, subcommands, and aliases. Option matching covers long and short options. Argument values are never case-normalized.
 
+Annotation-first command sets can opt in from the declaration side:
+
+```java
+@CaseInsensitive
+final class ModerationCommands {
+    @Route("ban <target:String> [--silent|-s]")
+    CommandResult ban(@Arg("target") String target, @Flag("silent") boolean silent) {
+        return Results.success(target + ":" + silent);
+    }
+}
+```
+
 ## Build
 
 ```powershell

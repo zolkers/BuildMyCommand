@@ -25,6 +25,7 @@ public final class AnnotationCommandScanner {
     public static void register(CommandRegistry registry, Object commands) {
         Objects.requireNonNull(registry, "registry");
         Objects.requireNonNull(commands, "commands");
+        applyCasePolicy(registry, commands.getClass().getAnnotation(CaseInsensitive.class));
 
         Arrays.stream(commands.getClass().getDeclaredMethods())
             .filter(method -> isAnnotatedCommandMethod(commands.getClass(), method))
@@ -53,6 +54,7 @@ public final class AnnotationCommandScanner {
     }
 
     private static void registerMethod(CommandRegistry registry, Object target, Method method) {
+        applyCasePolicy(registry, method.getAnnotation(CaseInsensitive.class));
         Command command = method.getAnnotation(Command.class);
         Route route = method.getAnnotation(Route.class);
         Subcommand subcommand = method.getAnnotation(Subcommand.class);
@@ -76,6 +78,18 @@ public final class AnnotationCommandScanner {
             registerRouteMethod(registry, target, method, route, bindings);
         } else {
             registerCommandMethod(registry, target, method, command, bindings);
+        }
+    }
+
+    private static void applyCasePolicy(CommandRegistry registry, CaseInsensitive caseInsensitive) {
+        if (caseInsensitive == null) {
+            return;
+        }
+        if (caseInsensitive.literals()) {
+            registry.caseInsensitiveLiterals();
+        }
+        if (caseInsensitive.options()) {
+            registry.caseInsensitiveOptions();
         }
     }
 

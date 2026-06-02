@@ -3,6 +3,14 @@ package dev.riege.buildmycommand.api;
 import java.util.function.Consumer;
 
 public interface CommandRegistry {
+    default CommandRegistry caseInsensitiveLiterals() {
+        throw new UnsupportedOperationException("case-insensitive literals are not supported by this registry");
+    }
+
+    default CommandRegistry caseInsensitiveOptions() {
+        throw new UnsupportedOperationException("case-insensitive options are not supported by this registry");
+    }
+
     void command(String literal, Consumer<CommandBuilder> configure);
 
     void register(CommandNode node);

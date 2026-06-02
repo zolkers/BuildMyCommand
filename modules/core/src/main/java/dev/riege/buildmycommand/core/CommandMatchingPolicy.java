@@ -4,8 +4,8 @@ import java.util.Locale;
 import java.util.Objects;
 
 public final class CommandMatchingPolicy {
-    private final boolean caseInsensitiveLiterals;
-    private final boolean caseInsensitiveOptions;
+    private boolean caseInsensitiveLiterals;
+    private boolean caseInsensitiveOptions;
 
     public CommandMatchingPolicy(boolean caseInsensitiveLiterals, boolean caseInsensitiveOptions) {
         this.caseInsensitiveLiterals = caseInsensitiveLiterals;
@@ -22,6 +22,14 @@ public final class CommandMatchingPolicy {
 
     public boolean caseInsensitiveOptions() {
         return caseInsensitiveOptions;
+    }
+
+    public void enableCaseInsensitiveLiterals() {
+        caseInsensitiveLiterals = true;
+    }
+
+    public void enableCaseInsensitiveOptions() {
+        caseInsensitiveOptions = true;
     }
 
     public String literalKey(String literal) {
