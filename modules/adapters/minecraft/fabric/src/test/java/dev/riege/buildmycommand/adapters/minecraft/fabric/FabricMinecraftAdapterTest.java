@@ -51,6 +51,20 @@ class FabricMinecraftAdapterTest {
         );
     }
 
+    @Test
+    void exposesFabricCallbackCompatibleHandler() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("fabric|fb reload").executes(ctx -> Results.silent());
+        FabricCommandRegistration<NativeSource> registration =
+            FabricMinecraftAdapter.commandRegistration(framework, NativeSource::source);
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        registration.callback().register(dispatcher, new Object(), new Object());
+
+        assertNotNull(dispatcher.getRoot().getChild("fabric"));
+        assertNotNull(dispatcher.getRoot().getChild("fb"));
+    }
+
     private record NativeSource() {
         CommandSource source() {
             return new CommandSource() {

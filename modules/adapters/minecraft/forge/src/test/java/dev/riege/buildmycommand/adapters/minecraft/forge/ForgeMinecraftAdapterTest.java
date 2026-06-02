@@ -50,6 +50,19 @@ class ForgeMinecraftAdapterTest {
         );
     }
 
+    @Test
+    void exposesForgeRegisterCommandsEventCompatibleHandler() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("forge|fg reload").executes(ctx -> Results.silent());
+        ForgeCommandRegistration<NativeSource> registration =
+            ForgeMinecraftAdapter.commandRegistration(framework, NativeSource::source);
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        assertEquals(List.of("forge", "fg"), registration.register(() -> dispatcher).stream().toList());
+        assertNotNull(dispatcher.getRoot().getChild("forge"));
+        assertNotNull(dispatcher.getRoot().getChild("fg"));
+    }
+
     private record NativeSource() {
         CommandSource source() {
             return new CommandSource() {

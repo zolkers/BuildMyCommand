@@ -50,6 +50,19 @@ class NeoForgeMinecraftAdapterTest {
         );
     }
 
+    @Test
+    void exposesNeoForgeRegisterCommandsEventCompatibleHandler() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("neoforge|nfg reload").executes(ctx -> Results.silent());
+        NeoForgeCommandRegistration<NativeSource> registration =
+            NeoForgeMinecraftAdapter.commandRegistration(framework, NativeSource::source);
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        assertEquals(List.of("neoforge", "nfg"), registration.register(() -> dispatcher).stream().toList());
+        assertNotNull(dispatcher.getRoot().getChild("neoforge"));
+        assertNotNull(dispatcher.getRoot().getChild("nfg"));
+    }
+
     private record NativeSource() {
         CommandSource source() {
             return new CommandSource() {

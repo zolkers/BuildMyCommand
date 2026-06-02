@@ -41,6 +41,10 @@ public final class ForgeCommandRegistration<N> {
         return java.util.Collections.unmodifiableSet(registered);
     }
 
+    public Set<String> register(ForgeRegisterCommandsEventView<N> event) {
+        return register(Objects.requireNonNull(event, "event").dispatcher());
+    }
+
     public MinecraftCommandRegistrationPlan plan() {
         return bridge.registrationPlan(profile);
     }

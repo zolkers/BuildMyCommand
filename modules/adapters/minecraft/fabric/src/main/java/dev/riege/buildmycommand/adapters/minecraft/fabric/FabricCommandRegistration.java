@@ -41,6 +41,18 @@ public final class FabricCommandRegistration<N> {
         return java.util.Collections.unmodifiableSet(registered);
     }
 
+    public FabricCommandRegistrationCallback<N> callback() {
+        return (dispatcher, registryAccess, environment) -> register(dispatcher);
+    }
+
+    public void registerFromCallback(
+        CommandDispatcher<N> dispatcher,
+        Object registryAccess,
+        Object environment
+    ) {
+        callback().register(dispatcher, registryAccess, environment);
+    }
+
     public MinecraftCommandRegistrationPlan plan() {
         return bridge.registrationPlan(profile);
     }
