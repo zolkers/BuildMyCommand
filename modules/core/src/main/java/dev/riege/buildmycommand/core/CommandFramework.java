@@ -29,21 +29,25 @@ public final class CommandFramework {
     private final HelpGenerator help;
     private final SchemaExporter schema;
 
-    private CommandFramework(SimpleCommandRegistry registry) {
+    private CommandFramework(SimpleCommandRegistry registry, CommandMatchingPolicy matchingPolicy) {
         CommandTokenizer tokenizer = new CommandTokenizer();
         ArgumentParserRegistry parsers = new ArgumentParserRegistry();
         ArgumentResolver argumentResolver = new ArgumentResolver(parsers);
-        OptionParser optionParser = new OptionParser(parsers);
+        OptionParser optionParser = new OptionParser(parsers, matchingPolicy);
 
         this.registry = registry;
-        this.dispatcher = new CommandDispatcher(registry, tokenizer, optionParser, argumentResolver);
-        this.suggestions = new SuggestionEngine(registry, tokenizer);
+        this.dispatcher = new CommandDispatcher(registry, tokenizer, optionParser, argumentResolver, matchingPolicy);
+        this.suggestions = new SuggestionEngine(registry, tokenizer, matchingPolicy);
         this.help = new HelpGenerator(registry, tokenizer);
         this.schema = new SchemaExporter();
     }
 
     public static CommandFramework create() {
-        return new CommandFramework(new SimpleCommandRegistry());
+        return builder().build();
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     public CommandRegistry registry() {
@@ -97,5 +101,29 @@ public final class CommandFramework {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(input, "input");
         return suggestions.suggest(source, input, cursor);
+    }
+
+    public static final class Builder {
+        private boolean caseInsensitiveLiterals;
+        private boolean caseInsensitiveOptions;
+
+        private Builder() {
+        }
+
+        public Builder caseInsensitiveLiterals() {
+            caseInsensitiveLiterals = true;
+            return this;
+        }
+
+        public Builder caseInsensitiveOptions() {
+            caseInsensitiveOptions = true;
+            return this;
+        }
+
+        public CommandFramework build() {
+            CommandMatchingPolicy matchingPolicy =
+                new CommandMatchingPolicy(caseInsensitiveLiterals, caseInsensitiveOptions);
+            return new CommandFramework(new SimpleCommandRegistry(matchingPolicy), matchingPolicy);
+        }
     }
 }

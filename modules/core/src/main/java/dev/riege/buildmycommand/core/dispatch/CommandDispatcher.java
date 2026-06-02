@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,17 +21,20 @@ public final class CommandDispatcher {
     private final CommandTokenizer tokenizer;
     private final OptionParser optionParser;
     private final ArgumentResolver argumentResolver;
+    private final CommandMatchingPolicy matchingPolicy;
 
     public CommandDispatcher(
         SimpleCommandRegistry registry,
         CommandTokenizer tokenizer,
         OptionParser optionParser,
-        ArgumentResolver argumentResolver
+        ArgumentResolver argumentResolver,
+        CommandMatchingPolicy matchingPolicy
     ) {
         this.registry = registry;
         this.tokenizer = tokenizer;
         this.optionParser = optionParser;
         this.argumentResolver = argumentResolver;
+        this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
     }
 
     public CommandResult dispatch(CommandSource source, String input) {
@@ -91,7 +95,7 @@ public final class CommandDispatcher {
         matchedNodes.add(command);
 
         while (tokenIndex < tokens.size()) {
-            RegistryCommandNode child = command.children().get(tokens.get(tokenIndex));
+            RegistryCommandNode child = command.children().get(matchingPolicy.literalKey(tokens.get(tokenIndex)));
             if (child == null) {
                 List<RegistryCommandNode> possiblePath = CommandPermissions.literalDescendantPath(
                     command,

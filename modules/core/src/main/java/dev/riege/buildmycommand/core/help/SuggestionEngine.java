@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,10 +16,16 @@ import java.util.Optional;
 public final class SuggestionEngine {
     private final SimpleCommandRegistry registry;
     private final CommandTokenizer tokenizer;
+    private final CommandMatchingPolicy matchingPolicy;
 
     public SuggestionEngine(SimpleCommandRegistry registry, CommandTokenizer tokenizer) {
+        this(registry, tokenizer, CommandMatchingPolicy.strict());
+    }
+
+    public SuggestionEngine(SimpleCommandRegistry registry, CommandTokenizer tokenizer, CommandMatchingPolicy matchingPolicy) {
         this.registry = registry;
         this.tokenizer = tokenizer;
+        this.matchingPolicy = matchingPolicy;
     }
 
     public List<String> suggest(CommandSource source, String input, int cursor) {
@@ -53,7 +60,7 @@ public final class SuggestionEngine {
             return registry.roots().stream()
                 .filter(command -> CommandPermissions.canDiscover(source, List.of(command), command))
                 .map(RegistryCommandNode::literal)
-                .filter(literal -> literal.startsWith(current))
+                .filter(literal -> startsWith(literal, current))
                 .toList();
         }
 
@@ -66,7 +73,7 @@ public final class SuggestionEngine {
         List<RegistryCommandNode> matchedNodes = new ArrayList<>();
         matchedNodes.add(command);
         while (tokenIndex < tokens.size()) {
-            RegistryCommandNode child = command.children().get(tokens.get(tokenIndex));
+            RegistryCommandNode child = command.children().get(matchingPolicy.literalKey(tokens.get(tokenIndex)));
             if (child == null) {
                 break;
             }
@@ -89,7 +96,7 @@ public final class SuggestionEngine {
             }
             return command.options().stream()
                 .map(option -> "--" + option.name())
-                .filter(name -> name.startsWith(current))
+                .filter(name -> optionStartsWith(name, current))
                 .toList();
         }
         List<RegistryCommandNode> suggestionPath = matchedNodes;
@@ -97,8 +104,20 @@ public final class SuggestionEngine {
             .distinct()
             .filter(child -> CommandPermissions.canDiscover(source, CommandPermissions.append(suggestionPath, child), child))
             .map(RegistryCommandNode::literal)
-            .filter(literal -> literal.startsWith(current))
+            .filter(literal -> startsWith(literal, current))
             .toList();
+    }
+
+    private boolean startsWith(String literal, String current) {
+        return matchingPolicy.caseInsensitiveLiterals()
+            ? literal.regionMatches(true, 0, current, 0, current.length())
+            : literal.startsWith(current);
+    }
+
+    private boolean optionStartsWith(String option, String current) {
+        return matchingPolicy.caseInsensitiveOptions()
+            ? option.regionMatches(true, 0, current, 0, current.length())
+            : option.startsWith(current);
     }
 
     private static int replacementStart(String input) {

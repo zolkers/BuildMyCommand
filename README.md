@@ -42,6 +42,19 @@ CommandResult msg(
 }
 ```
 
+## Matching Policy
+
+Matching is strict by default. Platforms that need friendlier casing can opt in explicitly:
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .caseInsensitiveLiterals()
+    .caseInsensitiveOptions()
+    .build();
+```
+
+Literal matching covers command names, subcommands, and aliases. Option matching covers long and short options. Argument values are never case-normalized.
+
 ## Build
 
 ```powershell

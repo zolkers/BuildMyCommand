@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.ArgumentSpec;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.FlagSpec;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.Optional;
 
@@ -15,7 +16,11 @@ public final class ManualCommandImporter {
     }
 
     static RegistryCommandNode importNode(CommandNode node) {
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(node.literal());
+        return importNode(node, CommandMatchingPolicy.strict());
+    }
+
+    static RegistryCommandNode importNode(CommandNode node, CommandMatchingPolicy matchingPolicy) {
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(node.literal(), matchingPolicy);
         try {
             configure(builder, node);
         } catch (IllegalStateException exception) {

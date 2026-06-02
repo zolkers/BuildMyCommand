@@ -1,9 +1,8 @@
 package dev.riege.buildmycommand.core.registry;
 
 
-import dev.riege.buildmycommand.core.route.*;
-import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,31 +17,41 @@ public final class RegistryNodeMerger {
         Map<String, RegistryCommandNode> nodes,
         List<String> literals,
         RegistryCommandNode node,
-        String duplicateMessage
+        String duplicateMessage,
+        CommandMatchingPolicy matchingPolicy
     ) {
         for (String literal : literals) {
-            if (nodes.containsKey(literal)) {
+            String key = matchingPolicy.literalKey(literal);
+            if (nodes.containsKey(key)) {
                 throw new IllegalArgumentException(duplicateMessage + literal);
             }
         }
         for (String literal : literals) {
-            nodes.put(literal, node);
+            nodes.put(matchingPolicy.literalKey(literal), node);
         }
     }
 
-    static void mergeRoot(Map<String, RegistryCommandNode> commands, RegistryCommandNode node) {
-        RegistryCommandNode existing = commands.get(node.literal());
+    static void mergeRoot(
+        Map<String, RegistryCommandNode> commands,
+        RegistryCommandNode node,
+        CommandMatchingPolicy matchingPolicy
+    ) {
+        RegistryCommandNode existing = commands.get(matchingPolicy.literalKey(node.literal()));
         if (existing == null) {
-            registerAll(commands, node.literals(), node, "command already registered: ");
+            registerAll(commands, node.literals(), node, "command already registered: ", matchingPolicy);
             return;
         }
 
-        RegistryCommandNode merged = mergeNodes(existing, node);
+        RegistryCommandNode merged = mergeNodes(existing, node, matchingPolicy);
         replaceNode(commands, existing, merged);
     }
 
-    private static RegistryCommandNode mergeNodes(RegistryCommandNode existing, RegistryCommandNode incoming) {
-        if (!existing.literal().equals(incoming.literal())) {
+    private static RegistryCommandNode mergeNodes(
+        RegistryCommandNode existing,
+        RegistryCommandNode incoming,
+        CommandMatchingPolicy matchingPolicy
+    ) {
+        if (!matchingPolicy.literalKey(existing.literal()).equals(matchingPolicy.literalKey(incoming.literal()))) {
             throw new IllegalArgumentException("cannot merge different literals: " + incoming.literal());
         }
 
@@ -50,13 +59,13 @@ public final class RegistryNodeMerger {
         List<RegistryOptionSpec> options = mergeSpecs(existing.options(), incoming.options());
         Map<String, RegistryCommandNode> children = new LinkedHashMap<>(existing.children());
         for (RegistryCommandNode incomingChild : incoming.uniqueChildren()) {
-            RegistryCommandNode existingChild = children.get(incomingChild.literal());
+            RegistryCommandNode existingChild = children.get(matchingPolicy.literalKey(incomingChild.literal()));
             if (existingChild == null) {
-                registerAll(children, incomingChild.literals(), incomingChild, "subcommand already registered: ");
+                registerAll(children, incomingChild.literals(), incomingChild, "subcommand already registered: ", matchingPolicy);
                 continue;
             }
 
-            RegistryCommandNode mergedChild = mergeNodes(existingChild, incomingChild);
+            RegistryCommandNode mergedChild = mergeNodes(existingChild, incomingChild, matchingPolicy);
             replaceNode(children, existingChild, mergedChild);
         }
 

@@ -34,6 +34,8 @@ The platform modules intentionally depend only on `common` today. Native Paper, 
 
 Fabric, Forge, and NeoForge expose `brigadierBridge(framework, sourceMapper)` factories. Their native registration hooks should consume this bridge instead of duplicating parsing, permission checks, suggestions, or dispatch behavior.
 
+`CommandFramework.builder().caseInsensitiveLiterals()` and `caseInsensitiveOptions()` make the core dispatcher tolerant once input reaches BuildMyCommand. Native Brigadier literal nodes remain strict, so a backend that needs truly case-insensitive Brigadier parsing must use a dedicated fallback registration strategy instead of plain `literal(...)` nodes.
+
 ## Backend Edge Cases
 
 - Paper: Brigadier cursor ranges, lifecycle re-registration, permission-filtered suggestions.

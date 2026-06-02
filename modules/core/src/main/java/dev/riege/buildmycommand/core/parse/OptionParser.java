@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.core.parse;
 
 
 import dev.riege.buildmycommand.core.registry.*;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,9 +10,15 @@ import java.util.Map;
 
 public final class OptionParser {
     private final ArgumentParserRegistry parsers;
+    private final CommandMatchingPolicy matchingPolicy;
 
     public OptionParser(ArgumentParserRegistry parsers) {
+        this(parsers, CommandMatchingPolicy.strict());
+    }
+
+    public OptionParser(ArgumentParserRegistry parsers, CommandMatchingPolicy matchingPolicy) {
         this.parsers = parsers;
+        this.matchingPolicy = matchingPolicy;
     }
 
     public ParseOptionsResult parseOptions(List<RegistryOptionSpec> specs, List<String> tokens) {
@@ -21,7 +28,7 @@ public final class OptionParser {
         int tokenIndex = 0;
         while (tokenIndex < tokens.size()) {
             String token = tokens.get(tokenIndex);
-            RegistryOptionSpec spec = findOption(specs, token);
+            RegistryOptionSpec spec = findOption(specs, token, matchingPolicy);
             if (spec == null) {
                 if (isOptionLike(token)) {
                     return ParseOptionsResult.failure("Unknown flag or option: " + token);
@@ -62,10 +69,12 @@ public final class OptionParser {
 
     private static RegistryOptionSpec findOption(
         List<RegistryOptionSpec> specs,
-        String token
+        String token,
+        CommandMatchingPolicy matchingPolicy
     ) {
         for (RegistryOptionSpec spec : specs) {
-            if (token.equals("--" + spec.name()) || spec.aliasOptional().map(alias -> token.equals("-" + alias)).orElse(false)) {
+            if (matchingPolicy.optionEquals(token, "--" + spec.name())
+                || spec.aliasOptional().map(alias -> matchingPolicy.optionEquals(token, "-" + alias)).orElse(false)) {
                 return spec;
             }
         }

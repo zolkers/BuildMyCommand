@@ -89,6 +89,82 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void dispatchIsCaseSensitiveByDefault() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "PING");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Unknown command: PING"), result.reply());
+    }
+
+    @Test
+    void caseInsensitiveLiteralsMatchCommandsSubcommandsAndAliasesWithoutChangingArguments() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+
+        framework.registry()
+            .route("ban|block <target:String> rank|roles set|put <rank:String>")
+            .executes(ctx -> Results.success(ctx.arg("target", String.class) + ":" + ctx.arg("rank", String.class)));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "BLOCK AdaCase Roles PuT AdminCase");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("AdaCase:AdminCase"), result.reply());
+        assertEquals("Usage: ban <target:String> rank set <rank:String>", framework.help("BLOCK Roles PuT"));
+    }
+
+    @Test
+    void caseInsensitiveOptionsMatchLongAndShortOptionNames() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveOptions()
+            .build();
+
+        framework.registry()
+            .route("give <target:String> [--silent|-s] [--amount:Integer|-a]")
+            .executes(ctx -> Results.success(
+                ctx.arg("target", String.class)
+                    + ":" + ctx.flag("silent")
+                    + ":" + ctx.option("amount", Integer.class).orElse(0)));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "give Ada -S --Amount 4");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Ada:true:4"), result.reply());
+    }
+
+    @Test
+    void caseInsensitiveLiteralsApplyToManualCommandTrees() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+
+        framework.registry().register(Commands.literal("User")
+            .alias("u")
+            .child(Commands.literal("Rank")
+                .alias("roles")
+                .child(Commands.literal("Set")
+                    .alias("put")
+                    .argument(Arguments.required("target", String.class))
+                    .handler(ctx -> Results.success(ctx.arg("target", String.class)))
+                    .build())
+                .build())
+            .build());
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "u roles put AdaCase");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("AdaCase"), result.reply());
+    }
+
+    @Test
     void rejectsNullDispatchInputs() {
         CommandFramework framework = CommandFramework.create();
         CommandSource source = new CommandSource() {

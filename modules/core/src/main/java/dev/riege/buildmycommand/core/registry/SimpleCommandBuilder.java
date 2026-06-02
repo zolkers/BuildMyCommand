@@ -4,6 +4,7 @@ package dev.riege.buildmycommand.core.registry;
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -14,6 +15,7 @@ import java.util.function.Consumer;
 
 public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilder {
     private final String literal;
+    private final CommandMatchingPolicy matchingPolicy;
     private String description;
     private String permission;
     private final List<String> aliases = new ArrayList<>();
@@ -23,7 +25,12 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     private CommandRegistry.CommandExecutor executor = SimpleCommandRegistry.DEFAULT_EXECUTOR;
 
     public SimpleCommandBuilder(String literal) {
+        this(literal, CommandMatchingPolicy.strict());
+    }
+
+    SimpleCommandBuilder(String literal, CommandMatchingPolicy matchingPolicy) {
         this.literal = Validators.literal(literal, "literal");
+        this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
     }
 
     @Override
@@ -62,10 +69,11 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         String validatedLiteral = Validators.literal(literal, "literal");
         Objects.requireNonNull(configure, "configure");
 
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(validatedLiteral);
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(validatedLiteral, matchingPolicy);
         configure.accept(builder);
         RegistryCommandNode child = builder.node();
-        RegistryNodeMerger.registerAll(children, child.literals(), child, "subcommand already registered: ");
+        RegistryNodeMerger.registerAll(children, child.literals(), child, "subcommand already registered: ",
+            matchingPolicy);
         return this;
     }
 

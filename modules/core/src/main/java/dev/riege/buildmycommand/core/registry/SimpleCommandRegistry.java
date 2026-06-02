@@ -3,6 +3,7 @@ package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
+import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.Results;
@@ -18,22 +19,31 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     static final CommandExecutor DEFAULT_EXECUTOR = context -> Results.silent();
 
     private final Map<String, RegistryCommandNode> commands = new LinkedHashMap<>();
+    private final CommandMatchingPolicy matchingPolicy;
+
+    public SimpleCommandRegistry() {
+        this(CommandMatchingPolicy.strict());
+    }
+
+    public SimpleCommandRegistry(CommandMatchingPolicy matchingPolicy) {
+        this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
+    }
 
     @Override
     public void command(String literal, Consumer<CommandBuilder> configure) {
         Objects.requireNonNull(configure, "configure");
 
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(literal);
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(literal, matchingPolicy);
         configure.accept(builder);
         RegistryCommandNode node = builder.node();
-        RegistryNodeMerger.registerAll(commands, node.literals(), node, "command already registered: ");
+        RegistryNodeMerger.registerAll(commands, node.literals(), node, "command already registered: ", matchingPolicy);
     }
 
     @Override
     public void register(CommandNode node) {
         Objects.requireNonNull(node, "node");
-        RegistryCommandNode internal = ManualCommandImporter.importNode(node);
-        RegistryNodeMerger.registerAll(commands, internal.literals(), internal, "command already registered: ");
+        RegistryCommandNode internal = ManualCommandImporter.importNode(node, matchingPolicy);
+        RegistryNodeMerger.registerAll(commands, internal.literals(), internal, "command already registered: ", matchingPolicy);
     }
 
     @Override
@@ -42,7 +52,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     }
 
     public RegistryCommandNode find(String literal) {
-        return commands.get(literal);
+        return commands.get(matchingPolicy.literalKey(literal));
     }
 
     public RegistryCommandPath findPath(List<String> literals) {
@@ -61,7 +71,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         canonicalPath.add(command.literal());
         nodes.add(command);
         for (int index = 1; index < literals.size(); index++) {
-            command = command.children().get(literals.get(index));
+            command = command.children().get(matchingPolicy.literalKey(literals.get(index)));
             if (command == null) {
                 return null;
             }
@@ -106,10 +116,10 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         public CommandBuilder executes(CommandExecutor executor) {
             Objects.requireNonNull(executor, "executor");
 
-            SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral());
+            SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral(), matchingPolicy);
             builder.aliases(route.rootAliases().toArray(String[]::new));
             configureRoute(builder, 0, route.steps(), executor);
-            RegistryNodeMerger.mergeRoot(commands, builder.node());
+            RegistryNodeMerger.mergeRoot(commands, builder.node(), matchingPolicy);
             return builder;
         }
 
