@@ -1,3 +1,5 @@
+import java.math.BigDecimal
+
 plugins {
     java
     jacoco
@@ -5,6 +7,62 @@ plugins {
 
 group = "dev.riege.buildmycommand"
 version = "0.1.0-SNAPSHOT"
+
+val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
+    include("**/src/main/java/**/*.java")
+}
+
+tasks.register("qualityStyle") {
+    group = "verification"
+    description = "Checks repository Java source style without external tooling."
+    inputs.files(mainJavaSources)
+
+    doLast {
+        val violations = mutableListOf<String>()
+        mainJavaSources.files.sortedBy { it.path }.forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                if (line.endsWith(" ") || line.endsWith("\t")) {
+                    violations.add("${file.relativeTo(rootDir)}:${index + 1}: trailing whitespace")
+                }
+                if ('\t' in line) {
+                    violations.add("${file.relativeTo(rootDir)}:${index + 1}: tab indentation")
+                }
+            }
+        }
+        if (violations.isNotEmpty()) {
+            throw GradleException("Style violations:\n" + violations.joinToString("\n"))
+        }
+    }
+}
+
+tasks.register("qualityStaticAnalysis") {
+    group = "verification"
+    description = "Runs lightweight static checks for TODOs and oversized Java classes."
+    inputs.files(mainJavaSources)
+
+    doLast {
+        val violations = mutableListOf<String>()
+        val maxClassLines = 700
+        mainJavaSources.files.sortedBy { it.path }.forEach { file ->
+            val lines = file.readLines()
+            lines.forEachIndexed { index, line ->
+                if ("TODO" in line || "FIXME" in line) {
+                    violations.add("${file.relativeTo(rootDir)}:${index + 1}: unresolved TODO/FIXME")
+                }
+            }
+            if (lines.size > maxClassLines) {
+                violations.add("${file.relativeTo(rootDir)}:1: file has ${lines.size} lines; max is $maxClassLines")
+            }
+        }
+        if (violations.isNotEmpty()) {
+            throw GradleException("Static analysis violations:\n" + violations.joinToString("\n"))
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn("qualityStyle", "qualityStaticAnalysis")
+}
 
 tasks.register<Exec>("setupIntellijPlugin") {
     group = "ide"
@@ -60,7 +118,7 @@ subprojects {
             violationRules {
                 rule {
                     limit {
-                        minimum = "0.20".toBigDecimal()
+                        minimum = coverageMinimumFor(path)
                     }
                 }
             }
@@ -76,4 +134,18 @@ subprojects {
         "testImplementation"("org.junit.jupiter:junit-jupiter")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
+}
+
+fun coverageMinimumFor(path: String): BigDecimal = when {
+    path == ":core" -> "0.80".toBigDecimal()
+    path == ":annotations" -> "0.75".toBigDecimal()
+    path == ":adapters" -> "0.80".toBigDecimal()
+    path == ":adapters:minecraft:common" -> "0.75".toBigDecimal()
+    path.startsWith(":adapters:minecraft") -> "0.55".toBigDecimal()
+    path == ":discord-adapter" -> "0.70".toBigDecimal()
+    path == ":terminal-adapter" -> "0.80".toBigDecimal()
+    path == ":schema" -> "0.80".toBigDecimal()
+    path == ":testkit" -> "0.75".toBigDecimal()
+    path == ":dsl" -> "0.60".toBigDecimal()
+    else -> "0.20".toBigDecimal()
 }
