@@ -62,4 +62,44 @@ class RouteParserTest {
         assertFalse(conflicts.isEmpty());
         assertEquals("ban|block <target:String>", conflicts.get(0).canonicalRoute());
     }
+
+    @Test
+    void detectsConflictsWhenOneRouteUsesAliasAsPrimaryLiteral() {
+        List<RouteConflict> conflicts = RouteConflictAnalyzer.findConflicts(List.of(
+            RouteParser.parse("ban|block <target:String>"),
+            RouteParser.parse("block <target:String>")
+        ));
+
+        assertFalse(conflicts.isEmpty());
+    }
+
+    @Test
+    void detectsConflictsWhenNestedLiteralAliasesOverlap() {
+        List<RouteConflict> conflicts = RouteConflictAnalyzer.findConflicts(List.of(
+            RouteParser.parse("user rank|roles set"),
+            RouteParser.parse("user roles set")
+        ));
+
+        assertFalse(conflicts.isEmpty());
+    }
+
+    @Test
+    void detectsConflictsForSameArgumentShapeWithDifferentBindingNames() {
+        List<RouteConflict> conflicts = RouteConflictAnalyzer.findConflicts(List.of(
+            RouteParser.parse("ban <target:String>"),
+            RouteParser.parse("ban <user:String>")
+        ));
+
+        assertFalse(conflicts.isEmpty());
+    }
+
+    @Test
+    void doesNotDetectConflictsForDifferentRuntimeArgumentTypes() {
+        List<RouteConflict> conflicts = RouteConflictAnalyzer.findConflicts(List.of(
+            RouteParser.parse("ban <target:String>"),
+            RouteParser.parse("ban <target:int>")
+        ));
+
+        assertEquals(List.of(), conflicts);
+    }
 }
