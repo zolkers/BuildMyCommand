@@ -1,6 +1,6 @@
 package dev.riege.buildmycommand.examples;
 
-import dev.riege.buildmycommand.terminal.TerminalAdapter;
+import dev.riege.buildmycommand.adapters.terminal.TerminalAdapter;
 
 import java.io.InputStream;
 import java.io.PrintStream;

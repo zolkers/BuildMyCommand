@@ -4,6 +4,6 @@ plugins {
 
 dependencies {
     implementation(project(":annotations"))
+    implementation(project(":adapters"))
     implementation(project(":core"))
-    implementation(project(":terminal-adapter"))
 }

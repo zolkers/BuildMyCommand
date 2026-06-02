@@ -17,3 +17,15 @@ The adapter owns:
 - `config()` to expose capabilities
 
 Keep native APIs at adapter boundaries. `core` and `api` should never depend on Bukkit, Brigadier, JDA, terminal libraries, or platform event types.
+
+For simple platforms, use `SimpleCommandAdapter` instead of writing a full class:
+
+```java
+CommandAdapter<MyUser, String, MyReply> adapter =
+    SimpleCommandAdapter.<MyUser, String, MyReply>builder(framework, platform)
+        .sourceMapper(user -> new MyCommandSource(user))
+        .inputMapper((user, input, runtime, mapper) ->
+            new CommandInput(mapper.map(user), input, input.length(), "", runtime.platform()))
+        .renderer(result -> MyReply.from(result))
+        .build();
+```

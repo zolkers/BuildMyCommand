@@ -9,7 +9,8 @@ Every declaration style compiles to the same public command model:
 - `modules/dsl`: route DSL parsing, canonicalization, validation, aliases, options, and conflict analysis.
 - `modules/annotations`: annotation scanner/compiler for route and method-based command declarations.
 - `modules/adapters`: generic adapter SDK plus Minecraft platform modules.
-- `modules/terminal-adapter` and `modules/discord-adapter`: non-Minecraft adapters proving platform independence.
+- `modules/adapters`: generic adapter SDK plus built-in terminal adapter and Minecraft platform modules.
+- `modules/discord-adapter`: non-Minecraft adapter proving platform independence.
 - `modules/intellij-plugin`: route DSL injection, highlighting, completion, inspections, theme resources, and install scripts.
 - `modules/testkit`: fluent command testing helpers.
 
