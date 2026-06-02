@@ -63,7 +63,7 @@ public final class AnnotationCommandCompiler {
                 target.getClass().getAnnotation(Alias.class),
                 method.getAnnotation(Alias.class)
             );
-            AnnotationRouteValidator.validate(commandRoute, method, boundMethod.bindings());
+            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,
@@ -77,7 +77,7 @@ public final class AnnotationCommandCompiler {
         }
         if (route != null) {
             String commandRoute = aliasedRoute(route.value(), method.getAnnotation(Alias.class));
-            AnnotationRouteValidator.validate(commandRoute, method, boundMethod.bindings());
+            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,

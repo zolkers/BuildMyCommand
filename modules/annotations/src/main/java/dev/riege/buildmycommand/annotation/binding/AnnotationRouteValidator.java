@@ -21,6 +21,32 @@ public final class AnnotationRouteValidator {
     private AnnotationRouteValidator() {
     }
 
+    public static void validateRouteContextUsage(
+        String route,
+        Method method,
+        List<MethodCommandBinder.ParameterBinding> bindings
+    ) {
+        Objects.requireNonNull(route, "route");
+        Objects.requireNonNull(method, "method");
+        Objects.requireNonNull(bindings, "bindings");
+
+        long routeContexts = bindings.stream()
+            .filter(binding -> binding.kind() == MethodCommandBinder.Kind.ROUTE_CONTEXT)
+            .count();
+        bindings.stream()
+            .filter(binding -> binding.kind() != MethodCommandBinder.Kind.ROUTE_CONTEXT)
+            .findFirst()
+            .ifPresent(binding -> {
+                throw new IllegalArgumentException("@Route method cannot use @" + binding.annotationName()
+                    + " parameters; read route values from @RouteCtx CommandContext: " + method.getName());
+            });
+        if (routeContexts != 1) {
+            throw new IllegalArgumentException("@Route method must declare exactly one @RouteCtx CommandContext parameter: "
+                + method.getName());
+        }
+        routeNames(route);
+    }
+
     public static void validate(
         String route,
         Method method,

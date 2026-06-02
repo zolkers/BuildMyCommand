@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.annotation.Hidden;
 import dev.riege.buildmycommand.annotation.Option;
 import dev.riege.buildmycommand.annotation.OptionalArg;
 import dev.riege.buildmycommand.annotation.Require;
+import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.Suggest;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
@@ -80,12 +81,19 @@ public final class MethodCommandBinder {
         Arg arg = parameter.getAnnotation(Arg.class);
         Flag flag = parameter.getAnnotation(Flag.class);
         Option option = parameter.getAnnotation(Option.class);
+        RouteCtx routeCtx = parameter.getAnnotation(RouteCtx.class);
 
-        if (annotationCount(arg, flag, option) > 1) {
+        if (annotationCount(arg, flag, option, routeCtx) > 1) {
             throw new IllegalArgumentException("unsupported annotated command parameter: " + bindingName(parameter));
         }
 
         Class<?> type = parameter.getType();
+        if (routeCtx != null && type == CommandContext.class) {
+            return ParameterBinding.routeContext();
+        }
+        if (routeCtx != null) {
+            throw new IllegalArgumentException("@RouteCtx parameter must be CommandContext: " + bindingName(parameter));
+        }
         if (type == CommandContext.class && arg == null && flag == null && option == null) {
             return ParameterBinding.context();
         }
@@ -137,7 +145,7 @@ public final class MethodCommandBinder {
         throw new IllegalArgumentException("unsupported annotated command parameter: " + bindingName(parameter));
     }
 
-    private static int annotationCount(Arg arg, Flag flag, Option option) {
+    private static int annotationCount(Arg arg, Flag flag, Option option, RouteCtx routeCtx) {
         int count = 0;
         if (arg != null) {
             count++;
@@ -146,6 +154,9 @@ public final class MethodCommandBinder {
             count++;
         }
         if (option != null) {
+            count++;
+        }
+        if (routeCtx != null) {
             count++;
         }
         return count;
@@ -163,6 +174,9 @@ public final class MethodCommandBinder {
         Option option = parameter.getAnnotation(Option.class);
         if (option != null) {
             return option.value();
+        }
+        if (parameter.isAnnotationPresent(RouteCtx.class)) {
+            return "routeContext";
         }
         return parameter.getName();
     }
@@ -448,6 +462,11 @@ public final class MethodCommandBinder {
                 SuggestionBinding.empty(), null);
         }
 
+        static ParameterBinding routeContext() {
+            return new ParameterBinding(null, CommandContext.class, Kind.ROUTE_CONTEXT, false, false, null, null,
+                SuggestionBinding.empty(), "RouteCtx");
+        }
+
         static ParameterBinding argument(
             String name,
             Class<?> type,
@@ -509,6 +528,7 @@ public final class MethodCommandBinder {
         Object value(CommandContext context) {
             return switch (kind) {
                 case CONTEXT -> context;
+                case ROUTE_CONTEXT -> context;
                 case ARGUMENT -> argumentValue(context);
                 case FLAG -> context.flag(name);
                 case OPTION -> context.option(name, type).orElse(null);
@@ -560,6 +580,7 @@ public final class MethodCommandBinder {
 
     public enum Kind {
         CONTEXT,
+        ROUTE_CONTEXT,
         ARGUMENT,
         FLAG,
         OPTION,

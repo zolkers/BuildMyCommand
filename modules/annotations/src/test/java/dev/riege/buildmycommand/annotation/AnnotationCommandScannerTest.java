@@ -117,7 +117,7 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void registersAnnotatedRouteCommandAliasAndParameterAliases() {
+    void registersAnnotatedRouteCommandAliasAndDslOptionAliases() {
         CommandFramework framework = CommandFramework.create();
 
         AnnotationCommandScanner.register(framework.registry(), new RouteAliasCommands());
@@ -295,80 +295,38 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void rejectsRouteArgumentWithoutMatchingMethodParameterBeforeRegistryMutation() {
+    void rejectsRouteWithoutRouteContextBeforeRegistryMutation() {
         CommandFramework framework = CommandFramework.create();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
             () -> AnnotationCommandScanner.register(framework.registry(), new MissingRouteArgumentCommands()));
 
-        assertEquals("route argument target has no matching method parameter on ban", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsAnnotatedArgumentMissingFromRouteDslBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedArgumentCommands()));
-
-        assertEquals("@Arg(\"missing\") does not exist in route DSL for ban", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsAnnotatedOptionMissingFromRouteDslBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedOptionCommands()));
-
-        assertEquals("@Option(\"duration\") does not exist in route DSL for ban", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsRouteArgumentTypeMismatchBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new RouteArgumentTypeMismatchCommands()));
-
-        assertEquals("route argument amount expects Integer but method parameter is String on amount",
+        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: ban",
             exception.getMessage());
         assertEquals("", framework.schema());
     }
 
     @Test
-    void rejectsRouteGreedyArgumentBoundWithoutGreedyAnnotationBeforeRegistryMutation() {
+    void rejectsRouteMixedWithArgumentAnnotationsBeforeRegistryMutation() {
         CommandFramework framework = CommandFramework.create();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new RouteGreedyMismatchCommands()));
+            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedArgumentCommands()));
 
-        assertEquals("route argument reason is greedy but method parameter is not @Greedy", exception.getMessage());
+        assertEquals("@Route method cannot use @Arg parameters; read route values from @RouteCtx CommandContext: ban",
+            exception.getMessage());
         assertEquals("", framework.schema());
     }
 
     @Test
-    void rejectsRouteFlagBoundAsValueOptionBeforeRegistryMutation() {
+    void rejectsRouteWithMultipleRouteContextsBeforeRegistryMutation() {
         CommandFramework framework = CommandFramework.create();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new RouteFlagBoundAsOptionCommands()));
+            () -> AnnotationCommandScanner.register(framework.registry(), new MultipleRouteCtxCommands()));
 
-        assertEquals("@Option(\"silent\") does not exist in route DSL for ban", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsRouteValueOptionBoundAsFlagBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new RouteOptionBoundAsFlagCommands()));
-
-        assertEquals("@Flag(\"duration\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: ban",
+            exception.getMessage());
         assertEquals("", framework.schema());
     }
 
@@ -481,25 +439,30 @@ class AnnotationCommandScannerTest {
     static final class InventoryCommands {
         @Route("inventory give <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]")
         @Description("Give an item")
-        CommandResult give(
-            @Arg("target") String target,
-            @Arg("item") String item,
-            @Option("amount") Integer amount,
-            @Flag("silent") boolean silent
-        ) {
-            return Results.success(target + " gets " + amount + " " + item + " silently=" + silent);
+        CommandResult give(@RouteCtx CommandContext route) {
+            return Results.success(
+                route.arg("target", String.class)
+                    + " gets "
+                    + route.option("amount", Integer.class).orElse(1)
+                    + " "
+                    + route.arg("item", String.class)
+                    + " silently="
+                    + route.flag("silent")
+            );
         }
     }
 
     static final class RouteAliasCommands {
-        @Route("ban <target:String> [--duration:Integer] [--silent]")
+        @Route("ban <target:String> [--duration:Integer|-d] [--silent|-s]")
         @Alias("block")
-        CommandResult ban(
-            @Arg("target") String target,
-            @Option("duration") @Alias("d") Integer duration,
-            @Flag("silent") @Alias("s") boolean silent
-        ) {
-            return Results.success(target + ":" + duration + ":" + silent);
+        CommandResult ban(@RouteCtx CommandContext route) {
+            return Results.success(
+                route.arg("target", String.class)
+                    + ":"
+                    + route.option("duration", Integer.class).orElse(null)
+                    + ":"
+                    + route.flag("silent")
+            );
         }
     }
 
@@ -525,8 +488,8 @@ class AnnotationCommandScannerTest {
     @Command("user")
     static final class UserCommands {
         @Subcommand("rank set <target:String> <rank:String>")
-        CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
-            return Results.success(target + "=" + rank);
+        CommandResult setRank(@RouteCtx CommandContext route) {
+            return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
         }
     }
 
@@ -535,20 +498,22 @@ class AnnotationCommandScannerTest {
     static final class AliasedUserCommands {
         @Subcommand("rank set <target:String> <rank:String>")
         @Alias({"roles put"})
-        CommandResult setRank(@Arg("target") String target, @Arg("rank") String rank) {
-            return Results.success(target + "=" + rank);
+        CommandResult setRank(@RouteCtx CommandContext route) {
+            return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
         }
     }
 
     @CaseInsensitive
     static final class CaseInsensitiveCommands {
         @Route("ban <target:String> [--duration:Integer|-d] [--silent|-s]")
-        CommandResult ban(
-            @Arg("target") String target,
-            @Option("duration") Integer duration,
-            @Flag("silent") boolean silent
-        ) {
-            return Results.success(target + ":" + duration + ":" + silent);
+        CommandResult ban(@RouteCtx CommandContext route) {
+            return Results.success(
+                route.arg("target", String.class)
+                    + ":"
+                    + route.option("duration", Integer.class).orElse(null)
+                    + ":"
+                    + route.flag("silent")
+            );
         }
     }
 
@@ -649,52 +614,24 @@ class AnnotationCommandScannerTest {
         }
     }
 
-    static final class MissingAnnotatedOptionCommands {
-        @Route("ban <target:String> [--silent]")
-        CommandResult ban(@Arg("target") String target, @Option("duration") Integer duration) {
-            return Results.success(target + duration);
-        }
-    }
-
-    static final class RouteArgumentTypeMismatchCommands {
-        @Route("ban <amount:Integer>")
-        CommandResult ban(@Arg("amount") String amount) {
-            return Results.success(amount);
-        }
-    }
-
-    static final class RouteGreedyMismatchCommands {
-        @Route("ban [reason:String...]")
-        CommandResult ban(@Arg("reason") @OptionalArg String reason) {
-            return Results.success(reason);
-        }
-    }
-
-    static final class RouteFlagBoundAsOptionCommands {
-        @Route("ban [--silent]")
-        CommandResult ban(@Option("silent") Boolean silent) {
-            return Results.success(String.valueOf(silent));
-        }
-    }
-
-    static final class RouteOptionBoundAsFlagCommands {
-        @Route("ban [--duration:Integer]")
-        CommandResult ban(@Flag("duration") boolean duration) {
-            return Results.success(String.valueOf(duration));
+    static final class MultipleRouteCtxCommands {
+        @Route("ban <target:String>")
+        CommandResult ban(@RouteCtx CommandContext first, @RouteCtx CommandContext second) {
+            return Results.success(first.input() + second.input());
         }
     }
 
     static final class InlineEnumRouteCommands {
         @Route("choose <mode:enum(a,b)>")
-        CommandResult choose(@Arg("mode") String mode) {
-            return Results.success(mode);
+        CommandResult choose(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
         }
     }
 
     static final class ConstrainedRouteCommands {
         @Route("ban <amount:Integer{1..5}>")
-        CommandResult ban(@Arg("amount") Integer amount) {
-            return Results.success(String.valueOf(amount));
+        CommandResult ban(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
         }
     }
 
