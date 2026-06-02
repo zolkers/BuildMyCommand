@@ -27,4 +27,11 @@ public final class NeoForgeMinecraftAdapter {
     ) {
         return MinecraftBrigadierBridge.create(framework, sourceMapper);
     }
+
+    public static <N> NeoForgeCommandRegistration<N> commandRegistration(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        return new NeoForgeCommandRegistration<>(profile(), brigadierBridge(framework, sourceMapper));
+    }
 }

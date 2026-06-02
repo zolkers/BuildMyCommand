@@ -27,4 +27,11 @@ public final class ForgeMinecraftAdapter {
     ) {
         return MinecraftBrigadierBridge.create(framework, sourceMapper);
     }
+
+    public static <N> ForgeCommandRegistration<N> commandRegistration(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        return new ForgeCommandRegistration<>(profile(), brigadierBridge(framework, sourceMapper));
+    }
 }

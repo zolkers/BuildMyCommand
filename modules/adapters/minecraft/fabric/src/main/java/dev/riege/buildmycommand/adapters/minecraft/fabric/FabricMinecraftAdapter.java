@@ -27,4 +27,11 @@ public final class FabricMinecraftAdapter {
     ) {
         return MinecraftBrigadierBridge.create(framework, sourceMapper);
     }
+
+    public static <N> FabricCommandRegistration<N> commandRegistration(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        return new FabricCommandRegistration<>(profile(), brigadierBridge(framework, sourceMapper));
+    }
 }

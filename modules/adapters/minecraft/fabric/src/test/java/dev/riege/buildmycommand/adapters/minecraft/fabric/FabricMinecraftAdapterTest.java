@@ -1,12 +1,16 @@
 package dev.riege.buildmycommand.adapters.minecraft.fabric;
 
+import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FabricMinecraftAdapterTest {
@@ -25,6 +29,26 @@ class FabricMinecraftAdapterTest {
 
         assertEquals("fabric", bridge.roots().get(0).getName());
         assertEquals("fabric", bridge.registrationPlan(FabricMinecraftAdapter.profile()).rootLiterals().get(0));
+    }
+
+    @Test
+    void registersFabricCallbackDispatcherRootsAndAliases() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("fabric|fb reload").executes(ctx -> Results.silent());
+        FabricCommandRegistration<NativeSource> registration =
+            FabricMinecraftAdapter.commandRegistration(framework, NativeSource::source);
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        assertEquals(List.of("fabric", "fb"), registration.labels());
+        assertEquals(List.of("fabric", "fb"), registration.register(dispatcher).stream().toList());
+        assertNotNull(dispatcher.getRoot().getChild("fabric"));
+        assertNotNull(dispatcher.getRoot().getChild("fb"));
+        assertEquals("CommandRegistrationCallback.EVENT", registration.callbackName());
+        assertTrue(registration.exactLiteralMatching());
+        assertEquals(
+            "Fabric registers Brigadier literal nodes directly; aliases are redirect literals and remain exact-case.",
+            registration.matchingNotice()
+        );
     }
 
     private record NativeSource() {
