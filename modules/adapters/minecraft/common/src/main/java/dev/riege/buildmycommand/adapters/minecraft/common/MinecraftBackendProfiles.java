@@ -99,4 +99,24 @@ public final class MinecraftBackendProfiles {
             true
         );
     }
+
+    public static MinecraftBackendProfile minestom() {
+        return new MinecraftBackendProfile(
+            "minestom",
+            "Minestom CommandManager",
+            Set.of(MinecraftCapability.BRIGADIER, MinecraftCapability.TAB_COMPLETION),
+            Set.of(MinecraftCommandEdgeCase.BRIGADIER_CURSOR, MinecraftCommandEdgeCase.PERMISSION_FILTERING),
+            true
+        );
+    }
+
+    public static MinecraftBackendProfile sponge() {
+        return new MinecraftBackendProfile(
+            "sponge",
+            "Sponge RegisterCommandEvent",
+            Set.of(MinecraftCapability.BRIGADIER, MinecraftCapability.EVENT_BUS, MinecraftCapability.TAB_COMPLETION),
+            Set.of(MinecraftCommandEdgeCase.BRIGADIER_CURSOR, MinecraftCommandEdgeCase.EVENT_BUS_REGISTRATION),
+            true
+        );
+    }
 }

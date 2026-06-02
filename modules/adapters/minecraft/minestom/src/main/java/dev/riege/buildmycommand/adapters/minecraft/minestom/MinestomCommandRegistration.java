@@ -1,0 +1,62 @@
+package dev.riege.buildmycommand.adapters.minecraft.minestom;
+
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
+
+import java.util.List;
+import java.util.Objects;
+
+public final class MinestomCommandRegistration {
+    private static final String MATCHING_NOTICE =
+        "Minestom command names and aliases are registered through Command(name, aliases...) and are exact-case.";
+
+    private final MinecraftBackendProfile profile;
+    private final MinecraftNativeCommandAdapter<Object> adapter;
+    private MinestomNativeCommand registeredCommand;
+
+    public MinestomCommandRegistration(
+        MinecraftBackendProfile profile,
+        MinecraftNativeCommandAdapter<Object> adapter
+    ) {
+        this.profile = Objects.requireNonNull(profile, "profile");
+        this.adapter = Objects.requireNonNull(adapter, "adapter");
+    }
+
+    public MinecraftNativeCommandAdapter<Object> adapter() {
+        return adapter;
+    }
+
+    public List<String> labels() {
+        return adapter.registrationLabels();
+    }
+
+    public MinestomNativeCommand command() {
+        if (registeredCommand == null) {
+            registeredCommand = MinestomMinecraftAdapter.nativeCommand(adapter);
+        }
+        return registeredCommand;
+    }
+
+    public MinestomNativeCommand register(MinestomCommandRegistrar registrar) {
+        Objects.requireNonNull(registrar, "registrar").register(command());
+        return registeredCommand;
+    }
+
+    public MinestomCommandRegistration unregister(MinestomCommandRegistrar registrar) {
+        Objects.requireNonNull(registrar, "registrar").unregister(command());
+        return this;
+    }
+
+    public MinecraftCommandRegistrationPlan plan() {
+        return new MinecraftCommandRegistrationPlan(profile, labels(), 1, true);
+    }
+
+    public boolean exactLiteralMatching() {
+        return true;
+    }
+
+    public String matchingNotice() {
+        return MATCHING_NOTICE;
+    }
+}
