@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.adapters.minecraft.neoforge;
 
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -27,7 +28,8 @@ class NeoForgeMinecraftAdapterTest {
         var bridge = NeoForgeMinecraftAdapter.brigadierBridge(framework, NativeSource::source);
 
         assertEquals("neoforge", bridge.roots().get(0).getName());
-        assertEquals("neoforge", bridge.registrationPlan(NeoForgeMinecraftAdapter.profile()).rootLiterals().get(0));
+        assertEquals("neoforge", MinecraftCommandRegistrationPlans.from(NeoForgeMinecraftAdapter.profile(), bridge)
+            .rootLiterals().get(0));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.velocity;
 
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
@@ -69,10 +70,10 @@ public final class VelocityMinecraftAdapter {
         return new VelocityCommandRegistration(plugin, adapter);
     }
 
-    public static MinecraftBrigadierBridge<com.velocitypowered.api.command.CommandSource> brigadierBridge(
+    public static BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> brigadierBridge(
         CommandFramework framework
     ) {
-        return MinecraftBrigadierBridge.create(framework, VelocityMinecraftAdapter::commandSource);
+        return MinecraftBrigadierAdapters.create(framework, VelocityMinecraftAdapter::commandSource);
     }
 
     public static VelocityBrigadierRegistration brigadierRegistration(

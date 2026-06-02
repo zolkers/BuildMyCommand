@@ -1,11 +1,14 @@
-package dev.riege.buildmycommand.adapters.minecraft.common;
+package dev.riege.buildmycommand.adapters.brigadier;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.riege.buildmycommand.adapters.AdapterCapabilities;
+import dev.riege.buildmycommand.adapters.AdapterConfig;
 import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -19,12 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MinecraftBrigadierBridgeTest {
+class BrigadierCommandAdapterTest {
     @Test
     void buildsBrigadierTreeFromFrameworkGraphAndDispatchesThroughCore() throws Exception {
         CommandFramework framework = CommandFramework.create();
         AtomicReference<String> executed = new AtomicReference<>();
-        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(framework, NativeSource::source);
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
 
         framework.registry()
             .route("user rank set <target:String> [--silent|-s]")
@@ -50,7 +53,7 @@ class MinecraftBrigadierBridgeTest {
     @Test
     void registersRootAliasAsRedirectNode() {
         CommandFramework framework = CommandFramework.create();
-        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(framework, NativeSource::source);
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
 
         framework.registry().command("ping", command -> command
             .alias("p")
@@ -65,14 +68,14 @@ class MinecraftBrigadierBridgeTest {
     @Test
     void exposesGenericAdapterSdkForRawBrigadierInput() {
         CommandFramework framework = CommandFramework.create();
-        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(framework, NativeSource::source);
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
         framework.registry().command("ping", command -> command.executes(ctx -> Results.success("pong")));
 
         CommandAdapter<NativeSource, String, Integer> adapter = bridge;
         CommandInput input = adapter.mapInput(new NativeSource(), "/ping");
 
-        assertEquals("minecraft-brigadier", adapter.config().adapterId());
-        assertEquals("minecraft", adapter.runtime().platform().id());
+        assertEquals("brigadier", adapter.config().adapterId());
+        assertEquals("brigadier", adapter.runtime().platform().id());
         assertEquals("/ping", input.rawInput());
         assertEquals("ping", input.normalizedInput());
         assertEquals(1, adapter.execute(new NativeSource(), "/ping"));
@@ -80,7 +83,7 @@ class MinecraftBrigadierBridgeTest {
 
     @Test
     void rejectsNullMappedSource() {
-        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(
             CommandFramework.create(),
             source -> null
         );
@@ -89,6 +92,20 @@ class MinecraftBrigadierBridgeTest {
             () -> bridge.mapSource(new NativeSource()));
 
         assertEquals("mapped source", exception.getMessage());
+    }
+
+    @Test
+    void acceptsCustomPlatformAndAdapterConfig() {
+        CommandPlatform platform = new CommandPlatform("minecraft", "Minecraft", false, true, true);
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(
+            CommandFramework.create(),
+            NativeSource::source,
+            platform,
+            new AdapterConfig("minecraft-brigadier", "Minecraft Brigadier", AdapterCapabilities.from(platform))
+        );
+
+        assertEquals("minecraft-brigadier", bridge.config().adapterId());
+        assertEquals("minecraft", bridge.runtime().platform().id());
     }
 
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {

@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.paper;
 
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
@@ -44,11 +45,11 @@ public final class PaperMinecraftAdapter {
         return PaperCommandRegistrationStrategy.of(mode);
     }
 
-    public static <N> MinecraftBrigadierBridge<N> brigadierBridge(
+    public static <N> BrigadierCommandAdapter<N> brigadierBridge(
         CommandFramework framework,
         MinecraftSourceMapper<N> sourceMapper
     ) {
-        return MinecraftBrigadierBridge.create(framework, sourceMapper::map);
+        return MinecraftBrigadierAdapters.create(framework, sourceMapper::map);
     }
 
     public static PaperBrigadierRegistration brigadierRegistration(

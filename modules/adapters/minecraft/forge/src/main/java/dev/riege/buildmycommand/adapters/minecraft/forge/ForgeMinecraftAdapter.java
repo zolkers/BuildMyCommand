@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.forge;
 
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
@@ -21,11 +22,11 @@ public final class ForgeMinecraftAdapter {
         return MinecraftInvocation.slash(input, cursor);
     }
 
-    public static <N> MinecraftBrigadierBridge<N> brigadierBridge(
+    public static <N> BrigadierCommandAdapter<N> brigadierBridge(
         CommandFramework framework,
         Function<N, CommandSource> sourceMapper
     ) {
-        return MinecraftBrigadierBridge.create(framework, sourceMapper);
+        return MinecraftBrigadierAdapters.create(framework, sourceMapper);
     }
 
     public static <N> ForgeCommandRegistration<N> commandRegistration(

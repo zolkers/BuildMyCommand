@@ -3,8 +3,9 @@ package dev.riege.buildmycommand.adapters.minecraft.neoforge;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,14 +17,14 @@ public final class NeoForgeCommandRegistration<N> {
         "NeoForge RegisterCommandsEvent exposes the Minecraft Brigadier dispatcher; aliases are exact redirect literals.";
 
     private final MinecraftBackendProfile profile;
-    private final MinecraftBrigadierBridge<N> bridge;
+    private final BrigadierCommandAdapter<N> bridge;
 
-    public NeoForgeCommandRegistration(MinecraftBackendProfile profile, MinecraftBrigadierBridge<N> bridge) {
+    public NeoForgeCommandRegistration(MinecraftBackendProfile profile, BrigadierCommandAdapter<N> bridge) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.bridge = Objects.requireNonNull(bridge, "bridge");
     }
 
-    public MinecraftBrigadierBridge<N> bridge() {
+    public BrigadierCommandAdapter<N> bridge() {
         return bridge;
     }
 
@@ -46,7 +47,7 @@ public final class NeoForgeCommandRegistration<N> {
     }
 
     public MinecraftCommandRegistrationPlan plan() {
-        return bridge.registrationPlan(profile);
+        return MinecraftCommandRegistrationPlans.from(profile, bridge);
     }
 
     public String eventName() {

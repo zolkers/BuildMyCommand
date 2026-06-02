@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.adapters.minecraft.fabric;
 
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -28,7 +29,8 @@ class FabricMinecraftAdapterTest {
         var bridge = FabricMinecraftAdapter.brigadierBridge(framework, NativeSource::source);
 
         assertEquals("fabric", bridge.roots().get(0).getName());
-        assertEquals("fabric", bridge.registrationPlan(FabricMinecraftAdapter.profile()).rootLiterals().get(0));
+        assertEquals("fabric", MinecraftCommandRegistrationPlans.from(FabricMinecraftAdapter.profile(), bridge)
+            .rootLiterals().get(0));
     }
 
     @Test

@@ -1,4 +1,4 @@
-package dev.riege.buildmycommand.adapters.minecraft.common;
+package dev.riege.buildmycommand.adapters.brigadier;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.LiteralMessage;
@@ -18,13 +18,11 @@ import dev.riege.buildmycommand.adapters.AdapterRenderer;
 import dev.riege.buildmycommand.adapters.AdapterRuntime;
 import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.api.ArgumentSpec;
-import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
-import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.ArrayList;
@@ -32,7 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, String, Integer> {
+public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, String, Integer> {
     private static final String FLAG_TUNNEL = "_bmc_flags";
 
     private final CommandFramework framework;
@@ -41,41 +39,48 @@ public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, Stri
     private final AdapterRuntime runtime;
     private final AdapterConfig config;
 
-    private MinecraftBrigadierBridge(
+    private BrigadierCommandAdapter(
         CommandFramework framework,
         Function<N, CommandSource> sourceMapper,
-        CommandPlatform platform
+        CommandPlatform platform,
+        AdapterConfig config
     ) {
         this.framework = Objects.requireNonNull(framework, "framework");
         this.sourceMapper = Objects.requireNonNull(sourceMapper, "sourceMapper");
         this.platform = Objects.requireNonNull(platform, "platform");
         this.runtime = new AdapterRuntime(framework, platform);
-        this.config = new AdapterConfig(
-            "minecraft-brigadier",
-            "Minecraft Brigadier",
-            AdapterCapabilities.from(platform)
-        );
+        this.config = Objects.requireNonNull(config, "config");
     }
 
-    public static <N> MinecraftBrigadierBridge<N> create(
+    public static <N> BrigadierCommandAdapter<N> create(
         CommandFramework framework,
         Function<N, CommandSource> sourceMapper
     ) {
-        return new MinecraftBrigadierBridge<>(framework, sourceMapper,
-            new CommandPlatform("minecraft", "Minecraft", false, true, true));
+        CommandPlatform platform = new CommandPlatform("brigadier", "Brigadier", false, true, true);
+        return create(framework, sourceMapper, platform,
+            new AdapterConfig("brigadier", "Brigadier", AdapterCapabilities.from(platform)));
+    }
+
+    public static <N> BrigadierCommandAdapter<N> create(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper,
+        CommandPlatform platform,
+        AdapterConfig config
+    ) {
+        return new BrigadierCommandAdapter<>(framework, sourceMapper, platform, config);
     }
 
     public List<LiteralCommandNode<N>> roots() {
         List<LiteralCommandNode<N>> roots = new ArrayList<>();
-        for (MinecraftBrigadierRoot<N> root : projectedRoots()) {
+        for (BrigadierRoot<N> root : projectedRoots()) {
             roots.add(root.root());
             roots.addAll(root.aliasRoots());
         }
         return List.copyOf(roots);
     }
 
-    public List<MinecraftBrigadierRoot<N>> projectedRoots() {
-        List<MinecraftBrigadierRoot<N>> roots = new ArrayList<>();
+    public List<BrigadierRoot<N>> projectedRoots() {
+        List<BrigadierRoot<N>> roots = new ArrayList<>();
         for (CommandNode root : framework.graph().roots()) {
             LiteralCommandNode<N> rootNode = convertRoot(root).build();
             List<LiteralCommandNode<N>> aliasRoots = root.aliases().stream()
@@ -85,19 +90,13 @@ public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, Stri
                     .redirect(rootNode)
                     .build())
                 .toList();
-            roots.add(new MinecraftBrigadierRoot<>(rootNode, root.aliases(), aliasRoots));
+            roots.add(new BrigadierRoot<>(rootNode, root.aliases(), aliasRoots));
         }
         return List.copyOf(roots);
     }
 
-    public MinecraftCommandRegistrationPlan registrationPlan(MinecraftBackendProfile backend) {
-        Objects.requireNonNull(backend, "backend");
-        return new MinecraftCommandRegistrationPlan(
-            backend,
-            framework.graph().roots().stream().map(CommandNode::literal).toList(),
-            1,
-            backend.reloadSafe()
-        );
+    public List<String> rootLiterals() {
+        return framework.graph().roots().stream().map(CommandNode::literal).toList();
     }
 
     private LiteralArgumentBuilder<N> convertRoot(CommandNode node) {

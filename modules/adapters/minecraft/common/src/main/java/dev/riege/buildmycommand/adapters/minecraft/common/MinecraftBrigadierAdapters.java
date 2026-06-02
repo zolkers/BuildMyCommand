@@ -1,0 +1,29 @@
+package dev.riege.buildmycommand.adapters.minecraft.common;
+
+import dev.riege.buildmycommand.adapters.AdapterCapabilities;
+import dev.riege.buildmycommand.adapters.AdapterConfig;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.api.CommandPlatform;
+import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.core.CommandFramework;
+
+import java.util.function.Function;
+
+public final class MinecraftBrigadierAdapters {
+    private static final CommandPlatform PLATFORM = new CommandPlatform("minecraft", "Minecraft", false, true, true);
+
+    private MinecraftBrigadierAdapters() {
+    }
+
+    public static <N> BrigadierCommandAdapter<N> create(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        return BrigadierCommandAdapter.create(
+            framework,
+            sourceMapper,
+            PLATFORM,
+            new AdapterConfig("minecraft-brigadier", "Minecraft Brigadier", AdapterCapabilities.from(PLATFORM))
+        );
+    }
+}

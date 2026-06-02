@@ -147,6 +147,7 @@ subprojects {
 fun coverageMinimumFor(path: String): BigDecimal = when {
     path == ":core" -> "0.80".toBigDecimal()
     path == ":annotations" -> "0.75".toBigDecimal()
+    path == ":adapters:brigadier" -> "0.80".toBigDecimal()
     path == ":adapters:core" -> "0.80".toBigDecimal()
     path == ":adapters:terminal" -> "0.80".toBigDecimal()
     path == ":adapters:discord" -> "0.70".toBigDecimal()

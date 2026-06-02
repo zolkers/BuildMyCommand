@@ -9,6 +9,7 @@ Every declaration style compiles to the same public command model:
 - `modules/dsl`: route DSL parsing, canonicalization, validation, aliases, options, and conflict analysis.
 - `modules/annotations`: annotation scanner/compiler for route and method-based command declarations.
 - `modules/adapters/core`: generic adapter SDK for first-party and custom adapters.
+- `modules/adapters/brigadier`: Mojang Brigadier tree projection, suggestions, aliases, permissions, and dispatch bridge.
 - `modules/adapters/terminal`: terminal adapter and legacy terminal package shim.
 - `modules/adapters/discord`: non-Minecraft adapter proving platform independence.
 - `modules/adapters/minecraft`: Minecraft adapter family and platform modules.

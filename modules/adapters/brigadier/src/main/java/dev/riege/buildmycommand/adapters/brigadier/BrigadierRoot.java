@@ -1,16 +1,16 @@
-package dev.riege.buildmycommand.adapters.minecraft.common;
+package dev.riege.buildmycommand.adapters.brigadier;
 
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import java.util.List;
 import java.util.Objects;
 
-public record MinecraftBrigadierRoot<N>(
+public record BrigadierRoot<N>(
     LiteralCommandNode<N> root,
     List<String> aliases,
     List<LiteralCommandNode<N>> aliasRoots
 ) {
-    public MinecraftBrigadierRoot {
+    public BrigadierRoot {
         Objects.requireNonNull(root, "root");
         aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
         aliasRoots = List.copyOf(Objects.requireNonNull(aliasRoots, "aliasRoots"));

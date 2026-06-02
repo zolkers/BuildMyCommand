@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.adapters.minecraft.forge;
 
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -27,7 +28,8 @@ class ForgeMinecraftAdapterTest {
         var bridge = ForgeMinecraftAdapter.brigadierBridge(framework, NativeSource::source);
 
         assertEquals("forge", bridge.roots().get(0).getName());
-        assertEquals("forge", bridge.registrationPlan(ForgeMinecraftAdapter.profile()).rootLiterals().get(0));
+        assertEquals("forge", MinecraftCommandRegistrationPlans.from(ForgeMinecraftAdapter.profile(), bridge)
+            .rootLiterals().get(0));
     }
 
     @Test

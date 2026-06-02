@@ -2,9 +2,10 @@ package dev.riege.buildmycommand.adapters.minecraft.paper;
 
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierRoot;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierRoot;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.handler.LifecycleEventHandler;
@@ -23,11 +24,11 @@ public final class PaperBrigadierRegistration {
         "Paper Brigadier projection registers exact literal nodes; it does not add case-insensitive aliases.";
 
     private final MinecraftBackendProfile profile;
-    private final MinecraftBrigadierBridge<CommandSourceStack> bridge;
+    private final BrigadierCommandAdapter<CommandSourceStack> bridge;
 
     public PaperBrigadierRegistration(
         MinecraftBackendProfile profile,
-        MinecraftBrigadierBridge<CommandSourceStack> bridge
+        BrigadierCommandAdapter<CommandSourceStack> bridge
     ) {
         this.profile = Objects.requireNonNull(profile, "profile");
         this.bridge = Objects.requireNonNull(bridge, "bridge");
@@ -37,7 +38,7 @@ public final class PaperBrigadierRegistration {
         return PaperCommandRegistrationMode.BRIGADIER_PROJECTION;
     }
 
-    public MinecraftBrigadierBridge<CommandSourceStack> bridge() {
+    public BrigadierCommandAdapter<CommandSourceStack> bridge() {
         return bridge;
     }
 
@@ -58,7 +59,7 @@ public final class PaperBrigadierRegistration {
     public Set<String> register(Commands commands) {
         Objects.requireNonNull(commands, "commands");
         Set<String> registered = new LinkedHashSet<>();
-        for (MinecraftBrigadierRoot<CommandSourceStack> root : bridge.projectedRoots()) {
+        for (BrigadierRoot<CommandSourceStack> root : bridge.projectedRoots()) {
             registered.addAll(commands.register(root.root(), root.aliases()));
         }
         return Collections.unmodifiableSet(registered);
@@ -75,7 +76,7 @@ public final class PaperBrigadierRegistration {
     }
 
     public MinecraftCommandRegistrationPlan plan() {
-        return bridge.registrationPlan(profile);
+        return MinecraftCommandRegistrationPlans.from(profile, bridge);
     }
 
     public boolean exactLiteralMatching() {

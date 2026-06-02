@@ -5,9 +5,10 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierBridge;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierRoot;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierRoot;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -20,13 +21,13 @@ public final class VelocityBrigadierRegistration {
         "Velocity command metadata treats aliases case-insensitively; Brigadier literal children remain exact.";
 
     private final MinecraftBackendProfile profile;
-    private final MinecraftBrigadierBridge<com.velocitypowered.api.command.CommandSource> bridge;
+    private final BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> bridge;
     private final Object plugin;
     private final List<CommandMeta> registered = new ArrayList<>();
 
     public VelocityBrigadierRegistration(
         MinecraftBackendProfile profile,
-        MinecraftBrigadierBridge<com.velocitypowered.api.command.CommandSource> bridge,
+        BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> bridge,
         Object plugin
     ) {
         this.profile = Objects.requireNonNull(profile, "profile");
@@ -34,7 +35,7 @@ public final class VelocityBrigadierRegistration {
         this.plugin = plugin;
     }
 
-    public MinecraftBrigadierBridge<com.velocitypowered.api.command.CommandSource> bridge() {
+    public BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> bridge() {
         return bridge;
     }
 
@@ -48,7 +49,7 @@ public final class VelocityBrigadierRegistration {
 
     public List<BrigadierCommand> commands() {
         return bridge.projectedRoots().stream()
-            .map(MinecraftBrigadierRoot::root)
+            .map(BrigadierRoot::root)
             .map(BrigadierCommand::new)
             .toList();
     }
@@ -58,7 +59,7 @@ public final class VelocityBrigadierRegistration {
         unregister(commandManager);
 
         Set<String> labels = new LinkedHashSet<>();
-        for (MinecraftBrigadierRoot<com.velocitypowered.api.command.CommandSource> root : bridge.projectedRoots()) {
+        for (BrigadierRoot<com.velocitypowered.api.command.CommandSource> root : bridge.projectedRoots()) {
             BrigadierCommand command = new BrigadierCommand(root.root());
             String label = command.getNode().getLiteral();
             CommandMeta.Builder builder = commandManager.metaBuilder(label);
@@ -89,7 +90,7 @@ public final class VelocityBrigadierRegistration {
     }
 
     public MinecraftCommandRegistrationPlan plan() {
-        return bridge.registrationPlan(profile);
+        return MinecraftCommandRegistrationPlans.from(profile, bridge);
     }
 
     public boolean exactLiteralMatching() {

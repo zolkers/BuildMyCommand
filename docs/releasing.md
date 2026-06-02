@@ -22,6 +22,7 @@ The `examples` module is intentionally not published. `intellij-plugin` is built
 Artifact ids are derived from Gradle paths:
 
 - `:core` -> `core`
+- `:adapters:brigadier` -> `adapters-brigadier`
 - `:adapters:core` -> `adapters-core`
 - `:adapters:discord` -> `adapters-discord`
 - `:adapters:terminal` -> `adapters-terminal`
