@@ -1,6 +1,9 @@
 package dev.riege.buildmycommand.core.parse;
 
 
+import dev.riege.buildmycommand.api.ArgumentParseContext;
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.core.registry.*;
 import java.util.HashMap;
 import java.util.List;
@@ -13,7 +16,11 @@ public final class ArgumentResolver {
         this.parsers = parsers;
     }
 
-    public ParseArgumentsResult parseArguments(List<RegistryArgumentSpec> specs, List<String> tokens) {
+    public ParseArgumentsResult parseArguments(
+        List<RegistryArgumentSpec> specs,
+        List<String> tokens,
+        CommandInput input
+    ) {
         Map<String, Object> values = new HashMap<>();
         int tokenIndex = 0;
 
@@ -27,7 +34,7 @@ public final class ArgumentResolver {
                     continue;
                 }
                 String raw = String.join(" ", tokens.subList(tokenIndex, tokens.size()));
-                ParseResult<?> parsed = parsers.parse(spec.type(), raw);
+                ParseResult<?> parsed = parsers.parse(spec.type(), raw, context(spec, raw, input));
                 if (parsed.failure().isPresent()) {
                     return ParseArgumentsResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
                 }
@@ -44,7 +51,7 @@ public final class ArgumentResolver {
             }
 
             String raw = tokens.get(tokenIndex);
-            ParseResult<?> parsed = parsers.parse(spec.type(), raw);
+            ParseResult<?> parsed = parsers.parse(spec.type(), raw, context(spec, raw, input));
             if (parsed.failure().isPresent()) {
                 return ParseArgumentsResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
             }
@@ -59,7 +66,11 @@ public final class ArgumentResolver {
         return ParseArgumentsResult.success(values);
     }
 
-    public ParseArgumentPrefixResult parseArgumentPrefix(List<RegistryArgumentSpec> specs, List<String> tokens) {
+    public ParseArgumentPrefixResult parseArgumentPrefix(
+        List<RegistryArgumentSpec> specs,
+        List<String> tokens,
+        CommandInput input
+    ) {
         Map<String, Object> values = new HashMap<>();
         int tokenIndex = 0;
 
@@ -77,7 +88,7 @@ public final class ArgumentResolver {
             }
 
             String raw = tokens.get(tokenIndex);
-            ParseResult<?> parsed = parsers.parse(spec.type(), raw);
+            ParseResult<?> parsed = parsers.parse(spec.type(), raw, context(spec, raw, input));
             if (parsed.failure().isPresent()) {
                 return ParseArgumentPrefixResult.failure(parsed.failure().get() + " for argument " + spec.name() + ": " + raw);
             }
@@ -86,5 +97,18 @@ public final class ArgumentResolver {
         }
 
         return ParseArgumentPrefixResult.success(values, tokenIndex);
+    }
+
+    private static ArgumentParseContext context(RegistryArgumentSpec spec, String raw, CommandInput input) {
+        return new ArgumentParseContext(
+            input.source(),
+            input,
+            spec.name(),
+            spec.type(),
+            raw,
+            input.normalizedCursor(),
+            input.normalizedCursor(),
+            SuggestionType.ARGUMENT
+        );
     }
 }

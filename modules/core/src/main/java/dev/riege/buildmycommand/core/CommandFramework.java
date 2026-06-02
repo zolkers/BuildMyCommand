@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.core.parse.CommandTokenizer;
 import dev.riege.buildmycommand.core.parse.OptionParser;
 import dev.riege.buildmycommand.core.registry.ManualCommandImporter;
 import dev.riege.buildmycommand.core.registry.SimpleCommandRegistry;
+import dev.riege.buildmycommand.api.ArgumentParser;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandNode;
@@ -18,6 +19,7 @@ import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionProvider;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,16 +32,19 @@ public final class CommandFramework {
     private final SchemaExporter schema;
     private final CommandMatchingPolicy matchingPolicy;
 
-    private CommandFramework(SimpleCommandRegistry registry, CommandMatchingPolicy matchingPolicy) {
+    private CommandFramework(
+        SimpleCommandRegistry registry,
+        CommandMatchingPolicy matchingPolicy,
+        ArgumentParserRegistry parsers
+    ) {
         CommandTokenizer tokenizer = new CommandTokenizer();
-        ArgumentParserRegistry parsers = new ArgumentParserRegistry();
         ArgumentResolver argumentResolver = new ArgumentResolver(parsers);
         OptionParser optionParser = new OptionParser(parsers, matchingPolicy);
 
         this.registry = registry;
         this.matchingPolicy = matchingPolicy;
         this.dispatcher = new CommandDispatcher(registry, tokenizer, optionParser, argumentResolver, matchingPolicy);
-        this.suggestions = new SuggestionEngine(registry, tokenizer, matchingPolicy);
+        this.suggestions = new SuggestionEngine(registry, tokenizer, matchingPolicy, parsers);
         this.help = new HelpGenerator(registry, tokenizer);
         this.schema = new SchemaExporter();
     }
@@ -128,6 +133,7 @@ public final class CommandFramework {
     public static final class Builder {
         private boolean caseInsensitiveLiterals;
         private boolean caseInsensitiveOptions;
+        private final ArgumentParserRegistry parsers = new ArgumentParserRegistry();
 
         private Builder() {
         }
@@ -142,10 +148,24 @@ public final class CommandFramework {
             return this;
         }
 
+        public <T> Builder argumentParser(Class<T> type, ArgumentParser<? extends T> parser) {
+            parsers.register(type, parser);
+            return this;
+        }
+
+        public <T> Builder suggestionProvider(Class<T> type, SuggestionProvider provider) {
+            parsers.registerSuggestions(type, provider);
+            return this;
+        }
+
         public CommandFramework build() {
             CommandMatchingPolicy matchingPolicy =
                 new CommandMatchingPolicy(caseInsensitiveLiterals, caseInsensitiveOptions);
-            return new CommandFramework(new SimpleCommandRegistry(matchingPolicy), matchingPolicy);
+            return new CommandFramework(
+                new SimpleCommandRegistry(matchingPolicy),
+                matchingPolicy,
+                new ArgumentParserRegistry(parsers.parsers(), parsers.suggestionProviders())
+            );
         }
     }
 }

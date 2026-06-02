@@ -63,7 +63,7 @@ public final class CommandDispatcher {
             return Results.failure("Unknown command: " + tokens.get(0));
         }
 
-        MatchResult match = matchCommandPath(source, tokens, command);
+        MatchResult match = matchCommandPath(input, tokens, command);
         if (match.failure().isPresent()) {
             return Results.failure(match.failure().get());
         }
@@ -75,13 +75,14 @@ public final class CommandDispatcher {
 
         ParseOptionsResult options = optionParser.parseOptions(
             match.command().options(),
-            tokens.subList(match.tokenIndex(), tokens.size())
+            tokens.subList(match.tokenIndex(), tokens.size()),
+            input
         );
         if (options.failure().isPresent()) {
             return Results.failure(options.failure().get());
         }
 
-        ParseArgumentsResult arguments = argumentResolver.parseArguments(match.command().arguments(), options.positionals());
+        ParseArgumentsResult arguments = argumentResolver.parseArguments(match.command().arguments(), options.positionals(), input);
         if (arguments.failure().isPresent()) {
             return Results.failure(arguments.failure().get());
         }
@@ -94,10 +95,11 @@ public final class CommandDispatcher {
     }
 
     private MatchResult matchCommandPath(
-        CommandSource source,
+        CommandInput input,
         List<String> tokens,
         RegistryCommandNode root
     ) {
+        CommandSource source = input.source();
         RegistryCommandNode command = root;
         int tokenIndex = 1;
         Map<String, Object> pathValues = new HashMap<>();
@@ -119,7 +121,8 @@ public final class CommandDispatcher {
                 if (!command.children().isEmpty() && !command.arguments().isEmpty()) {
                     ParseArgumentPrefixResult prefix = argumentResolver.parseArgumentPrefix(
                         command.arguments(),
-                        tokens.subList(tokenIndex, tokens.size())
+                        tokens.subList(tokenIndex, tokens.size()),
+                        input
                     );
                     if (prefix.failure().isPresent()) {
                         return MatchResult.failure(prefix.failure().get());

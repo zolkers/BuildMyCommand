@@ -3,6 +3,12 @@ package dev.riege.buildmycommand.core.route;
 
 import dev.riege.buildmycommand.core.registry.SimpleCommandBuilder;
 import dev.riege.buildmycommand.core.support.Validators;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -161,11 +167,19 @@ public final class RoutePatternParser {
             case "int" -> int.class;
             case "Long" -> Long.class;
             case "long" -> long.class;
+            case "Float" -> Float.class;
+            case "float" -> float.class;
             case "Double" -> Double.class;
             case "double" -> double.class;
             case "Boolean" -> Boolean.class;
             case "boolean" -> boolean.class;
             case "UUID" -> UUID.class;
+            case "Duration" -> Duration.class;
+            case "LocalDate" -> LocalDate.class;
+            case "LocalDateTime" -> LocalDateTime.class;
+            case "Path" -> Path.class;
+            case "URI" -> URI.class;
+            case "URL" -> URL.class;
             default -> null;
         };
         if (type != null) {

@@ -1,5 +1,8 @@
 package dev.riege.buildmycommand.core;
 
+import dev.riege.buildmycommand.api.ArgumentParseContext;
+import dev.riege.buildmycommand.api.ArgumentParseResult;
+import dev.riege.buildmycommand.api.ArgumentParser;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.CommandInput;
@@ -14,6 +17,12 @@ import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -546,6 +555,150 @@ class CommandFrameworkTest {
         assertEquals(Optional.of("Invalid enum for argument mode: slow"),
             framework.dispatch(new CommandSource() {
             }, "types 42 3.5 true 123e4567-e89b-12d3-a456-426614174000 slow").reply());
+    }
+
+    @Test
+    void customPublicParserParsesRejectsAndReceivesParseContext() {
+        AtomicReference<ArgumentParseContext> seenContext = new AtomicReference<>();
+        CommandSource source = new CommandSource() {
+        };
+        CommandPlatform platform = new CommandPlatform("minecraft", "Minecraft", true, true, true);
+        ArgumentParser<Rank> rankParser = (raw, context) -> {
+            seenContext.set(context);
+            if ("admin".equals(raw)) {
+                return ArgumentParseResult.success(new Rank(raw));
+            }
+            return ArgumentParseResult.failure("Unknown rank");
+        };
+        CommandFramework framework = CommandFramework.builder()
+            .argumentParser(Rank.class, rankParser)
+            .build();
+
+        framework.registry().command("rank", command -> command
+            .argument("value", Rank.class)
+            .executes(ctx -> Results.success(ctx.arg("value", Rank.class).name())));
+
+        CommandResult success = framework.dispatch(new CommandInput(
+            source,
+            "/rank admin",
+            "rank admin",
+            11,
+            "/",
+            platform
+        ));
+
+        assertEquals(CommandResult.Status.SUCCESS, success.status());
+        assertEquals(Optional.of("admin"), success.reply());
+        assertEquals("admin", seenContext.get().rawToken());
+        assertEquals(source, seenContext.get().source());
+        assertEquals("rank admin", seenContext.get().input().normalizedInput());
+        assertEquals("value", seenContext.get().name());
+        assertEquals(Rank.class, seenContext.get().type());
+
+        CommandResult failure = framework.dispatch(source, "rank owner");
+
+        assertEquals(Optional.of("Unknown rank for argument value: owner"), failure.reply());
+    }
+
+    @Test
+    void customPublicParserSuggestionsFeedStringAndRichSuggestionApis() {
+        CommandFramework framework = CommandFramework.builder()
+            .argumentParser(Rank.class, new ArgumentParser<>() {
+                @Override
+                public ArgumentParseResult<Rank> parse(String rawToken, ArgumentParseContext context) {
+                    if ("admin".equals(rawToken)) {
+                        return ArgumentParseResult.success(new Rank(rawToken));
+                    }
+                    return ArgumentParseResult.failure("Unknown rank");
+                }
+
+                @Override
+                public List<Suggestion> suggestions(ArgumentParseContext context) {
+                    return List.of(
+                        new Suggestion("admin", Optional.of("Full access"), context.replacementStart(),
+                            context.replacementEnd(), SuggestionType.ARGUMENT, 100),
+                        new Suggestion("mod", Optional.empty(), context.replacementStart(), context.replacementEnd(),
+                            SuggestionType.ARGUMENT, 50),
+                        new Suggestion("helper", Optional.empty(), context.replacementStart(), context.replacementEnd(),
+                            SuggestionType.ARGUMENT, 10)
+                    );
+                }
+            })
+            .build();
+
+        framework.registry().command("rank", command -> command
+            .argument("value", Rank.class)
+            .executes(ctx -> Results.success(ctx.arg("value", Rank.class).name())));
+
+        CommandInput input = CommandInput.normalized(new CommandSource() {
+        }, "rank ");
+        List<Suggestion> richSuggestions = framework.suggestRich(input);
+
+        assertEquals(List.of("admin", "mod", "helper"),
+            framework.suggest(new CommandSource() {
+            }, "rank ", 5));
+        assertEquals(List.of(
+            new Suggestion("admin", Optional.of("Full access"), 5, 5, SuggestionType.ARGUMENT, 100),
+            new Suggestion("mod", Optional.empty(), 5, 5, SuggestionType.ARGUMENT, 50),
+            new Suggestion("helper", Optional.empty(), 5, 5, SuggestionType.ARGUMENT, 10)
+        ), richSuggestions);
+    }
+
+    @Test
+    void customPublicParserSuggestionsCompleteOptionValuesWithRanges() {
+        CommandFramework framework = CommandFramework.builder()
+            .suggestionProvider(Rank.class, context -> List.of("admin", "mod", "helper"))
+            .build();
+
+        framework.registry().command("rank", command -> command
+            .option("value", Rank.class, "r")
+            .executes(ctx -> Results.success(ctx.option("value", Rank.class).map(Rank::name).orElse("none"))));
+
+        assertEquals(List.of(
+            new Suggestion("admin", Optional.empty(), 13, 14, SuggestionType.OPTION_VALUE, 0),
+            new Suggestion("mod", Optional.empty(), 13, 14, SuggestionType.OPTION_VALUE, 0),
+            new Suggestion("helper", Optional.empty(), 13, 14, SuggestionType.OPTION_VALUE, 0)
+        ), framework.suggestRich(CommandInput.normalized(new CommandSource() {
+        }, "rank --value a")));
+    }
+
+    @Test
+    void parsesNewBuiltInArgumentAndOptionTypesWithStableFailures() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        URL url = URI.create("https://example.com/docs").toURL();
+
+        framework.registry().command("types", command -> command
+            .argument("ratio", float.class)
+            .argument("ttl", Duration.class)
+            .argument("date", LocalDate.class)
+            .argument("timestamp", LocalDateTime.class)
+            .argument("path", Path.class)
+            .argument("uri", URI.class)
+            .option("url", URL.class)
+            .executes(ctx -> Results.success(
+                ctx.arg("ratio", float.class)
+                    + ":" + ctx.arg("ttl", Duration.class)
+                    + ":" + ctx.arg("date", LocalDate.class)
+                    + ":" + ctx.arg("timestamp", LocalDateTime.class)
+                    + ":" + ctx.arg("path", Path.class)
+                    + ":" + ctx.arg("uri", URI.class)
+                    + ":" + ctx.option("url", URL.class).orElseThrow())));
+
+        CommandResult success = framework.dispatch(new CommandSource() {
+        }, "types 1.5 PT30S 2026-06-02 2026-06-02T10:15:30 C:\\tools https://example.com --url " + url);
+        CommandResult invalidFloat = framework.dispatch(new CommandSource() {
+        }, "types nope PT30S 2026-06-02 2026-06-02T10:15:30 C:\\tools https://example.com");
+        CommandResult invalidDuration = framework.dispatch(new CommandSource() {
+        }, "types 1.5 soon 2026-06-02 2026-06-02T10:15:30 C:\\tools https://example.com");
+        CommandResult invalidUrl = framework.dispatch(new CommandSource() {
+        }, "types 1.5 PT30S 2026-06-02 2026-06-02T10:15:30 C:\\tools https://example.com --url ht!tp://bad");
+
+        assertEquals(CommandResult.Status.SUCCESS, success.status());
+        assertEquals(Optional.of("1.5:PT30S:2026-06-02:2026-06-02T10:15:30:C:\\tools:https://example.com:" + url),
+            success.reply());
+        assertEquals(Optional.of("Invalid float for argument ratio: nope"), invalidFloat.reply());
+        assertEquals(Optional.of("Invalid duration for argument ttl: soon"), invalidDuration.reply());
+        assertEquals(Optional.of("Invalid URL for option url: ht!tp://bad"), invalidUrl.reply());
     }
 
     @Test
@@ -1131,21 +1284,23 @@ class CommandFrameworkTest {
         UUID id = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
 
         framework.registry()
-            .route("types <longValue:long> <enabled:boolean> <id:UUID> [--ratio:double]")
+            .route("types <longValue:long> <enabled:boolean> <ttl:Duration> <id:UUID> [--ratio:float]")
             .executes(ctx -> Results.success(
                 ctx.arg("longValue", long.class)
                     + ":"
                     + ctx.arg("enabled", boolean.class)
                     + ":"
+                    + ctx.arg("ttl", Duration.class)
+                    + ":"
                     + ctx.arg("id", UUID.class)
                     + ":"
-                    + ctx.option("ratio", double.class).orElse(1.0)));
+                    + ctx.option("ratio", float.class).orElse(1.0f)));
 
         CommandResult result = framework.dispatch(new CommandSource() {
-        }, "types 7 false " + id + " --ratio 2.5");
+        }, "types 7 false PT5S " + id + " --ratio 2.5");
 
         assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("7:false:" + id + ":2.5"), result.reply());
+        assertEquals(Optional.of("7:false:PT5S:" + id + ":2.5"), result.reply());
     }
 
     @Test
@@ -1511,5 +1666,8 @@ class CommandFrameworkTest {
     private enum Mode {
         FAST,
         SAFE
+    }
+
+    private record Rank(String name) {
     }
 }

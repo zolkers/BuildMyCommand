@@ -1,6 +1,9 @@
 package dev.riege.buildmycommand.core.parse;
 
 
+import dev.riege.buildmycommand.api.ArgumentParseContext;
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.core.registry.*;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import java.util.ArrayList;
@@ -21,7 +24,7 @@ public final class OptionParser {
         this.matchingPolicy = matchingPolicy;
     }
 
-    public ParseOptionsResult parseOptions(List<RegistryOptionSpec> specs, List<String> tokens) {
+    public ParseOptionsResult parseOptions(List<RegistryOptionSpec> specs, List<String> tokens, CommandInput input) {
         Map<String, Object> values = new HashMap<>();
         List<String> positionals = new ArrayList<>();
 
@@ -49,7 +52,7 @@ public final class OptionParser {
             }
 
             String raw = tokens.get(tokenIndex + 1);
-            ParseResult<?> parsed = parsers.parse(spec.type(), raw);
+            ParseResult<?> parsed = parsers.parse(spec.type(), raw, context(spec, raw, input));
             if (parsed.failure().isPresent()) {
                 return ParseOptionsResult.failure(parsed.failure().get() + " for option " + spec.name() + ": " + raw);
             }
@@ -79,5 +82,18 @@ public final class OptionParser {
             }
         }
         return null;
+    }
+
+    private static ArgumentParseContext context(RegistryOptionSpec spec, String raw, CommandInput input) {
+        return new ArgumentParseContext(
+            input.source(),
+            input,
+            spec.name(),
+            spec.type(),
+            raw,
+            input.normalizedCursor(),
+            input.normalizedCursor(),
+            SuggestionType.OPTION_VALUE
+        );
     }
 }
