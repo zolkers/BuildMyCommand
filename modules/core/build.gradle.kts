@@ -4,4 +4,5 @@ plugins {
 
 dependencies {
     api(project(":api"))
+    implementation(project(":dsl"))
 }

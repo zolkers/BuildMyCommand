@@ -2,195 +2,73 @@ package dev.riege.buildmycommand.core.route;
 
 
 import dev.riege.buildmycommand.core.registry.SimpleCommandBuilder;
-import dev.riege.buildmycommand.core.support.Validators;
-import java.net.URI;
-import java.net.URL;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 public final class RoutePatternParser {
     private RoutePatternParser() {
     }
 
+    /**
+     * Compatibility facade for core callers; public DSL parsing lives in the :dsl module.
+     */
     public static RoutePattern parse(String pattern) {
-        Objects.requireNonNull(pattern, "pattern");
-        if (pattern.isBlank()) {
-            throw new IllegalArgumentException("route pattern must not be blank");
-        }
-
-        String[] tokens = pattern.trim().split("\\s+");
-        LiteralToken rootLiteral = null;
+        dev.riege.buildmycommand.dsl.RoutePattern parsed = dev.riege.buildmycommand.dsl.RouteParser.parse(pattern);
         List<RouteStep> steps = new ArrayList<>();
-        boolean seenOption = false;
-
-        for (String token : tokens) {
-            RouteElement element = parseElement(token);
-            if (element == null) {
-                if (seenOption) {
-                    throw new IllegalArgumentException("route options must appear after literals: " + token);
-                }
-                LiteralToken literal = parseLiteralToken(token);
-                if (rootLiteral == null) {
-                    rootLiteral = literal;
-                } else {
-                    steps.add(new LiteralRouteStep(literal.value(), literal.aliases()));
-                }
-                continue;
-            }
-
-            if (rootLiteral == null) {
-                throw new IllegalArgumentException("route pattern must start with a literal");
-            }
-            if (element instanceof OptionRouteElement) {
-                seenOption = true;
-            }
-            steps.add(new ElementRouteStep(element));
+        for (dev.riege.buildmycommand.dsl.RouteStep step : parsed.steps()) {
+            steps.add(convertStep(step));
         }
-
-        if (rootLiteral == null) {
-            throw new IllegalArgumentException("route pattern must start with a literal");
-        }
-        return new RoutePattern(rootLiteral.value(), rootLiteral.aliases(), steps);
+        return new RoutePattern(parsed.rootLiteral(), parsed.rootAliases(), steps);
     }
 
-    private static LiteralToken parseLiteralToken(String token) {
-        String[] parts = token.split("\\|", -1);
-        if (parts.length == 0) {
-            throw new IllegalArgumentException("invalid route literal: " + token);
+    private static RouteStep convertStep(dev.riege.buildmycommand.dsl.RouteStep step) {
+        Objects.requireNonNull(step, "step");
+        if (step instanceof dev.riege.buildmycommand.dsl.LiteralRouteStep literal) {
+            return new LiteralRouteStep(literal.value(), literal.aliases());
         }
-
-        String literal = Validators.literal(parts[0], "route literal");
-        List<String> aliases = new ArrayList<>();
-        for (int index = 1; index < parts.length; index++) {
-            aliases.add(Validators.literal(parts[index], "route literal alias"));
+        if (step instanceof dev.riege.buildmycommand.dsl.ArgumentRouteStep argument) {
+            return new ElementRouteStep(convertArgument(argument));
         }
-        return new LiteralToken(literal, aliases);
+        if (step instanceof dev.riege.buildmycommand.dsl.OptionRouteStep option) {
+            return new ElementRouteStep(new OptionRouteElement(convertOption(option)));
+        }
+        throw new IllegalArgumentException("unknown route step: " + step);
     }
 
-    private static RouteElement parseElement(String token) {
-        if (token.startsWith("<") || token.endsWith(">")) {
-            if (!token.startsWith("<") || !token.endsWith(">")) {
-                throw new IllegalArgumentException("invalid required argument token: " + token);
-            }
-            ArgumentToken argument = parseArgumentToken(token.substring(1, token.length() - 1), token);
-            if (argument.greedy()) {
-                return builder -> builder.greedyArgument(argument.name(), argument.type());
-            }
-            return builder -> builder.argument(argument.name(), argument.type());
-        }
-
-        if (token.startsWith("[") || token.endsWith("]")) {
-            if (!token.startsWith("[") || !token.endsWith("]")) {
-                throw new IllegalArgumentException("invalid optional token: " + token);
-            }
-            String body = token.substring(1, token.length() - 1);
-            if (body.startsWith("--")) {
-                return parseOptionToken(body, token);
-            }
-
-            ArgumentToken argument = parseArgumentToken(body, token);
-            if (argument.greedy()) {
-                return builder -> ((SimpleCommandBuilder) builder).optionalGreedyArgument(argument.name(), argument.type());
-            }
-            return builder -> builder.optionalArgument(argument.name(), argument.type());
-        }
-
-        return null;
-    }
-
-    private static ArgumentToken parseArgumentToken(String body, String token) {
-        int separator = body.indexOf(':');
-        if (separator <= 0 || separator == body.length() - 1 || body.indexOf(':', separator + 1) != -1) {
-            throw new IllegalArgumentException("invalid argument token: " + token);
-        }
-
-        String name = body.substring(0, separator);
-        String typeName = body.substring(separator + 1);
-        boolean greedy = typeName.endsWith("...");
-        if (greedy) {
-            typeName = typeName.substring(0, typeName.length() - 3);
-        }
-
-        Class<?> type = typeFor(typeName);
-        if (greedy && type != String.class) {
-            throw new IllegalArgumentException("greedy route arguments must be String: " + token);
-        }
-        return new ArgumentToken(Validators.name(name, "argument name"), type, greedy);
-    }
-
-    private static RouteElement parseOptionToken(String body, String token) {
-        String[] parts = body.split("\\|", -1);
-        if (parts.length > 2) {
-            throw new IllegalArgumentException("invalid option token: " + token);
-        }
-
-        String option = parts[0];
-        String alias = parts.length == 2 ? parseAlias(parts[1], token) : null;
-        int separator = option.indexOf(':');
-        if (separator < 0) {
-            String name = parseLongOptionName(option, token);
-            return new OptionRouteElement(builder -> builder.flag(name, alias));
-        }
-        if (separator == option.length() - 1 || option.indexOf(':', separator + 1) != -1) {
-            throw new IllegalArgumentException("invalid option token: " + token);
-        }
-
-        String name = parseLongOptionName(option.substring(0, separator), token);
-        Class<?> type = typeFor(option.substring(separator + 1));
-        return new OptionRouteElement(builder -> builder.option(name, type, alias));
-    }
-
-    private static String parseLongOptionName(String raw, String token) {
-        if (!raw.startsWith("--") || raw.length() <= 2) {
-            throw new IllegalArgumentException("invalid long option token: " + token);
-        }
-        return Validators.name(raw.substring(2), "option name");
-    }
-
-    private static String parseAlias(String raw, String token) {
-        if (!raw.startsWith("-") || raw.startsWith("--") || raw.length() != 2) {
-            throw new IllegalArgumentException("invalid option alias token: " + token);
-        }
-        return Validators.name(raw.substring(1), "option alias");
-    }
-
-    private static Class<?> typeFor(String typeName) {
-        Class<?> type = switch (typeName) {
-            case "String" -> String.class;
-            case "Integer" -> Integer.class;
-            case "int" -> int.class;
-            case "Long" -> Long.class;
-            case "long" -> long.class;
-            case "Float" -> Float.class;
-            case "float" -> float.class;
-            case "Double" -> Double.class;
-            case "double" -> double.class;
-            case "Boolean" -> Boolean.class;
-            case "boolean" -> boolean.class;
-            case "UUID" -> UUID.class;
-            case "Duration" -> Duration.class;
-            case "LocalDate" -> LocalDate.class;
-            case "LocalDateTime" -> LocalDateTime.class;
-            case "Path" -> Path.class;
-            case "URI" -> URI.class;
-            case "URL" -> URL.class;
-            default -> null;
+    private static RouteElement convertArgument(dev.riege.buildmycommand.dsl.ArgumentRouteStep argument) {
+        Class<?> type = runtimeType(argument.type());
+        return switch (argument.kind()) {
+            case REQUIRED -> builder -> builder.argument(argument.name(), typedClass(type));
+            case OPTIONAL -> builder -> builder.optionalArgument(argument.name(), typedClass(type));
+            case GREEDY -> builder -> builder.greedyArgument(argument.name(), typedClass(type));
+            case OPTIONAL_GREEDY -> builder -> ((SimpleCommandBuilder) builder)
+                .optionalGreedyArgument(argument.name(), typedClass(type));
         };
-        if (type != null) {
-            return type;
-        }
-        throw new IllegalArgumentException("unknown route type: " + typeName);
     }
 
-    private record LiteralToken(String value, List<String> aliases) {
-        private LiteralToken {
-            aliases = List.copyOf(aliases);
+    private static RouteElement convertOption(dev.riege.buildmycommand.dsl.OptionRouteStep option) {
+        Class<?> type = runtimeType(option.type());
+        if (option.kind() == dev.riege.buildmycommand.dsl.RouteOptionKind.FLAG) {
+            return builder -> builder.flag(option.name(), option.alias());
         }
+        return builder -> builder.option(option.name(), typedClass(type), option.alias());
+    }
+
+    private static Class<?> runtimeType(dev.riege.buildmycommand.dsl.RouteType type) {
+        if (type.inlineEnum()) {
+            throw new IllegalArgumentException("inline enum route types are supported by DSL analysis only: "
+                + type.displayName());
+        }
+        if (type.constrained()) {
+            throw new IllegalArgumentException("constrained route types are supported by DSL analysis only: "
+                + type.displayName());
+        }
+        return type.runtimeType();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Class<T> typedClass(Class<?> type) {
+        return (Class<T>) type;
     }
 }

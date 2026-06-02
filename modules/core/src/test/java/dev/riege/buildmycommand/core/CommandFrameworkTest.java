@@ -1367,6 +1367,16 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void routeDslRejectsAnalysisOnlyTypesAtRuntimeRegistration() {
+        CommandFramework framework = CommandFramework.create();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("give <amount:int{1..64}>").executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().route("mode <mode:enum(EASY,NORMAL,HARD)>").executes(ctx -> Results.silent()));
+    }
+
+    @Test
     void routeDslMergesRoutesSharingTheSameRoot() {
         CommandFramework framework = CommandFramework.create();
 
