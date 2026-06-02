@@ -33,6 +33,7 @@ public final class ManualCommandImporter {
         CommandNode.Builder builder = Commands.literal(node.literal());
         node.descriptionOptional().ifPresent(builder::description);
         node.permissionOptional().ifPresent(builder::permission);
+        builder.metadata(node.metadata());
         builder.aliases(node.aliases().toArray(String[]::new));
         for (RegistryArgumentSpec argument : node.arguments()) {
             builder.argument(exportArgument(argument));
@@ -55,6 +56,7 @@ public final class ManualCommandImporter {
         }
         node.description().ifPresent(builder::description);
         node.permission().ifPresent(builder::permission);
+        applyMetadata(builder, node.metadata());
         for (ArgumentSpec<?> argument : node.arguments()) {
             applyArgument(builder, argument);
         }
@@ -65,6 +67,17 @@ public final class ManualCommandImporter {
             builder.subcommand(child.literal(), childBuilder -> configure((SimpleCommandBuilder) childBuilder, child));
         }
         node.executor().ifPresent(builder::executes);
+    }
+
+    private static void applyMetadata(SimpleCommandBuilder builder, dev.riege.buildmycommand.api.CommandMetadata metadata) {
+        if (metadata.hidden()) {
+            builder.hidden();
+        }
+        metadata.usage().ifPresent(builder::usage);
+        metadata.examples().forEach(builder::example);
+        metadata.cooldown().ifPresent(builder::cooldown);
+        metadata.requirement().ifPresent(builder::requirement);
+        metadata.group().ifPresent(builder::group);
     }
 
     private static void applyArgument(SimpleCommandBuilder builder, ArgumentSpec<?> argument) {

@@ -25,16 +25,39 @@ public final class SchemaExporter {
             .ifPresent(description -> CommandFormatting.appendLine(builder, "  description " + description));
         command.permissionOptional()
             .ifPresent(permission -> CommandFormatting.appendLine(builder, "  permission " + permission));
+        if (command.metadata().hidden()) {
+            CommandFormatting.appendLine(builder, "  hidden true");
+        }
+        command.metadata().group()
+            .ifPresent(group -> CommandFormatting.appendLine(builder, "  group " + group));
+        command.metadata().usage()
+            .ifPresent(usage -> CommandFormatting.appendLine(builder, "  usage " + usage));
+        command.metadata().examples()
+            .forEach(example -> CommandFormatting.appendLine(builder, "  example " + example));
+        command.metadata().cooldown()
+            .ifPresent(cooldown -> CommandFormatting.appendLine(builder, "  cooldown " + cooldown));
+        command.metadata().requirement()
+            .ifPresent(requirement -> CommandFormatting.appendLine(builder, "  require " + requirement));
         for (RegistryArgumentSpec argument : command.arguments()) {
+            String suggestions = argument.suggestionProviderOptional()
+                .flatMap(ignored -> java.util.Optional.ofNullable(argument.suggestionProviderName()))
+                .map(name -> " suggest=" + name)
+                .orElse("");
             CommandFormatting.appendLine(builder, "  argument " + argument.name() + ":"
-                + CommandFormatting.typeName(argument.type()) + " " + CommandFormatting.schemaArgumentKind(argument.kind()));
+                + CommandFormatting.typeName(argument.type()) + " " + CommandFormatting.schemaArgumentKind(argument.kind())
+                + suggestions);
         }
         for (RegistryOptionSpec option : command.options()) {
             String alias = option.aliasOptional()
                 .map(value -> " alias=" + value)
                 .orElse("");
+            String suggestions = option.suggestionProviderOptional()
+                .flatMap(ignored -> java.util.Optional.ofNullable(option.suggestionProviderName()))
+                .map(name -> " suggest=" + name)
+                .orElse("");
             CommandFormatting.appendLine(builder, "  option " + option.name() + ":"
-                + CommandFormatting.typeName(option.type()) + " " + CommandFormatting.schemaOptionKind(option.kind()) + alias);
+                + CommandFormatting.typeName(option.type()) + " " + CommandFormatting.schemaOptionKind(option.kind()) + alias
+                + suggestions);
         }
         for (RegistryCommandNode child : command.uniqueChildren()) {
             CommandFormatting.appendLine(builder, "  child " + child.literal());

@@ -3,9 +3,12 @@ package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.SuggestionProvider;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,6 +21,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     private final CommandMatchingPolicy matchingPolicy;
     private String description;
     private String permission;
+    private final CommandMetadata.Builder metadata = new CommandMetadata.Builder();
     private final List<String> aliases = new ArrayList<>();
     private final List<RegistryArgumentSpec> arguments = new ArrayList<>();
     private final List<RegistryOptionSpec> options = new ArrayList<>();
@@ -42,6 +46,42 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     @Override
     public CommandRegistry.CommandBuilder permission(String permission) {
         this.permission = Validators.metadata(permission, "permission");
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder hidden() {
+        metadata.hidden();
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder usage(String usage) {
+        metadata.usage(usage);
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder example(String example) {
+        metadata.example(example);
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder cooldown(Duration cooldown) {
+        metadata.cooldown(cooldown);
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder requirement(String requirement) {
+        metadata.requirement(requirement);
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder group(String group) {
+        metadata.group(group);
         return this;
     }
 
@@ -130,13 +170,50 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     }
 
     @Override
+    public CommandRegistry.CommandBuilder argumentSuggestions(String name, SuggestionProvider provider) {
+        return argumentSuggestions(name, null, provider);
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder argumentSuggestions(String name, String providerName, SuggestionProvider provider) {
+        Objects.requireNonNull(provider, "provider");
+        for (int index = 0; index < arguments.size(); index++) {
+            RegistryArgumentSpec argument = arguments.get(index);
+            if (argument.name().equals(name)) {
+                arguments.set(index, argument.suggestions(providerName, provider));
+                return this;
+            }
+        }
+        throw new IllegalStateException("unknown argument for suggestions: " + name);
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder optionSuggestions(String name, SuggestionProvider provider) {
+        return optionSuggestions(name, null, provider);
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder optionSuggestions(String name, String providerName, SuggestionProvider provider) {
+        Objects.requireNonNull(provider, "provider");
+        for (int index = 0; index < options.size(); index++) {
+            RegistryOptionSpec option = options.get(index);
+            if (option.name().equals(name)) {
+                options.set(index, option.suggestions(providerName, provider));
+                return this;
+            }
+        }
+        throw new IllegalStateException("unknown option for suggestions: " + name);
+    }
+
+    @Override
     public CommandRegistry.CommandBuilder executes(CommandRegistry.CommandExecutor executor) {
         this.executor = Objects.requireNonNull(executor, "executor");
         return this;
     }
 
     RegistryCommandNode node() {
-        return new RegistryCommandNode(literal, description, permission, aliases, executor, arguments, options, children);
+        return new RegistryCommandNode(literal, description, permission, aliases, executor, arguments, options,
+            metadata.build(), children);
     }
 
     private void validateCanAdd(String nextName, RegistryArgumentKind nextKind) {

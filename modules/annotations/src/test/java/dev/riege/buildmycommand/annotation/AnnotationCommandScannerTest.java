@@ -4,6 +4,8 @@ import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.annotation.binding.AnnotationCommandCompiler;
 import dev.riege.buildmycommand.annotation.binding.MethodCommandBinder;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -201,14 +203,53 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void scannerLeavesFutureOnlyAnnotationsAsMetadataUntilCoreSupportsThem() {
+    void appliesHiddenUsageExamplesCooldownRequirementAndSuggestionMetadata() {
         CommandFramework framework = CommandFramework.create();
 
         AnnotationCommandScanner.register(framework.registry(), new FutureMetadataCommands());
 
-        assertEquals("Usage: secret <target:String>", framework.help("secret"));
-        assertEquals(List.of("secret"), framework.suggest(source(), "s", 1));
-        assertEquals(Optional.of("Ada"), framework.dispatch(source(), "secret Ada").reply());
+        assertEquals("Unknown command: secret", framework.help(permittedSource("perm.a", "perm.b"), "secret"));
+        assertEquals(List.of(), framework.suggest(source(), "s", 1));
+        assertEquals("Missing permission: perm.a && perm.b",
+            framework.dispatch(permittedSource(), "secret Ada").reply().orElseThrow());
+        assertEquals(Optional.of("Ada"), framework.dispatch(permittedSource("perm.a", "perm.b"), "secret Ada").reply());
+
+        assertEquals("""
+            command secret
+              hidden true
+              group moderation
+              usage secret <target>
+              example secret Ada
+              example secret Bob
+              cooldown PT30S
+              require perm.a && perm.b
+              argument target:String required suggest=players""", framework.schema());
+    }
+
+    @Test
+    void rendersVisibleAnnotationUsageExamplesAndNamedSuggestions() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new VisibleMetadataCommands());
+
+        assertEquals("""
+            Usage: visible <player>
+            Description: Show player info
+            Example: visible Ada
+            Example: visible Bob""", framework.help(permittedSource("perm.visible"), "visible"));
+        assertEquals(List.of(
+            new Suggestion("Ada", Optional.of("online"), 8, 8, SuggestionType.ARGUMENT, 10),
+            new Suggestion("Bob", Optional.empty(), 8, 8, SuggestionType.ARGUMENT, 0)
+        ), framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(permittedSource("perm.visible"), "visible ")));
+        assertEquals("""
+            command visible
+              description Show player info
+              usage visible <player>
+              example visible Ada
+              example visible Bob
+              cooldown PT5S
+              require perm.visible
+              argument target:String required suggest=players""", framework.schema());
     }
 
     @Test
@@ -245,6 +286,51 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void rejectsRouteArgumentTypeMismatchBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new RouteArgumentTypeMismatchCommands()));
+
+        assertEquals("route argument amount expects Integer but method parameter is String on amount",
+            exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsRouteGreedyArgumentBoundWithoutGreedyAnnotationBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new RouteGreedyMismatchCommands()));
+
+        assertEquals("route argument reason is greedy but method parameter is not @Greedy", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsRouteFlagBoundAsValueOptionBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new RouteFlagBoundAsOptionCommands()));
+
+        assertEquals("@Option(\"silent\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsRouteValueOptionBoundAsFlagBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new RouteOptionBoundAsFlagCommands()));
+
+        assertEquals("@Flag(\"duration\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
     void infersArgumentNamesFromParametersWhenAvailable() {
         CommandFramework framework = CommandFramework.create();
 
@@ -258,6 +344,15 @@ class AnnotationCommandScannerTest {
 
     private static CommandSource source() {
         return new CommandSource() {
+        };
+    }
+
+    private static CommandSource permittedSource(String... permissions) {
+        return new CommandSource() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return List.of(permissions).contains(permission);
+            }
         };
     }
 
@@ -404,6 +499,31 @@ class AnnotationCommandScannerTest {
         CommandResult secret(@Arg("target") @Suggest("players") String target) {
             return Results.success(target);
         }
+
+        List<String> players() {
+            return List.of("Ada", "Bob");
+        }
+    }
+
+    static final class VisibleMetadataCommands {
+        @Command("visible")
+        @Description("Show player info")
+        @Usage("visible <player>")
+        @Example({"visible Ada", "visible Bob"})
+        @Cooldown(5)
+        @Require("perm.visible")
+        CommandResult visible(@Arg("target") @Suggest("players") String target) {
+            return Results.success(target);
+        }
+
+        List<Suggestion> players(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+            return List.of(
+                new Suggestion("Ada", Optional.of("online"), context.replacementStart(), context.replacementEnd(),
+                    context.suggestionType(), 10),
+                new Suggestion("Bob", Optional.empty(), context.replacementStart(), context.replacementEnd(),
+                    context.suggestionType(), 0)
+            );
+        }
     }
 
     static final class MissingRouteArgumentCommands {
@@ -424,6 +544,34 @@ class AnnotationCommandScannerTest {
         @Route("ban <target:String> [--silent]")
         CommandResult ban(@Arg("target") String target, @Option("duration") Integer duration) {
             return Results.success(target + duration);
+        }
+    }
+
+    static final class RouteArgumentTypeMismatchCommands {
+        @Route("ban <amount:Integer>")
+        CommandResult ban(@Arg("amount") String amount) {
+            return Results.success(amount);
+        }
+    }
+
+    static final class RouteGreedyMismatchCommands {
+        @Route("ban [reason:String...]")
+        CommandResult ban(@Arg("reason") @OptionalArg String reason) {
+            return Results.success(reason);
+        }
+    }
+
+    static final class RouteFlagBoundAsOptionCommands {
+        @Route("ban [--silent]")
+        CommandResult ban(@Option("silent") Boolean silent) {
+            return Results.success(String.valueOf(silent));
+        }
+    }
+
+    static final class RouteOptionBoundAsFlagCommands {
+        @Route("ban [--duration:Integer]")
+        CommandResult ban(@Flag("duration") boolean duration) {
+            return Results.success(String.valueOf(duration));
         }
     }
 

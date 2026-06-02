@@ -311,6 +311,17 @@ public final class AnnotationCommandCompiler {
                 CommandRegistry.RouteBuilder builder = registry.route(aliasedParameterRoute(route, boundMethod.bindings()));
                 description.ifPresent(builder::description);
                 permission.ifPresent(builder::permission);
+                applyMetadata(builder);
+                for (MethodCommandBinder.ParameterBinding binding : boundMethod.bindings()) {
+                    binding.suggestionProviderFunction().ifPresent(provider -> {
+                        if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
+                            builder.argumentSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
+                        } else if (binding.kind() == MethodCommandBinder.Kind.OPTION
+                            || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
+                            builder.optionSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
+                        }
+                    });
+                }
                 builder.executes(boundMethod::invoke);
                 return;
             }
@@ -318,14 +329,47 @@ public final class AnnotationCommandCompiler {
             registry.command(route, builder -> {
                 description.ifPresent(builder::description);
                 permission.ifPresent(builder::permission);
+                applyMetadata(builder);
                 if (!aliases.isEmpty()) {
                     builder.aliases(aliases.toArray(String[]::new));
                 }
                 for (MethodCommandBinder.ParameterBinding binding : boundMethod.bindings()) {
                     binding.apply(builder);
+                    binding.suggestionProviderFunction().ifPresent(provider -> {
+                        if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
+                            builder.argumentSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
+                        } else if (binding.kind() == MethodCommandBinder.Kind.OPTION
+                            || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
+                            builder.optionSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
+                        }
+                    });
                 }
                 builder.executes(boundMethod::invoke);
             });
+        }
+
+        private void applyMetadata(CommandRegistry.CommandBuilder builder) {
+            MethodCommandBinder.CommandMetadata metadata = metadata();
+            if (metadata.hidden()) {
+                builder.hidden();
+            }
+            metadata.usage().ifPresent(builder::usage);
+            metadata.examples().forEach(builder::example);
+            metadata.cooldown().ifPresent(builder::cooldown);
+            metadata.requirement().ifPresent(builder::requirement);
+            group.ifPresent(builder::group);
+        }
+
+        private void applyMetadata(CommandRegistry.RouteBuilder builder) {
+            MethodCommandBinder.CommandMetadata metadata = metadata();
+            if (metadata.hidden()) {
+                builder.hidden();
+            }
+            metadata.usage().ifPresent(builder::usage);
+            metadata.examples().forEach(builder::example);
+            metadata.cooldown().ifPresent(builder::cooldown);
+            metadata.requirement().ifPresent(builder::requirement);
+            group.ifPresent(builder::group);
         }
     }
 

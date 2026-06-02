@@ -28,15 +28,21 @@ public final class HelpGenerator {
         if (commandPath == null) {
             return "Unknown command: " + path;
         }
+        if (commandPath.nodes().stream().anyMatch(node -> node.metadata().hidden())) {
+            return "Unknown command: " + path;
+        }
 
         Optional<String> deniedPermission = CommandPermissions.deniedPermission(source, commandPath.nodes());
         if (deniedPermission.isPresent()) {
             return "Missing permission: " + deniedPermission.get();
         }
 
-        StringBuilder builder = new StringBuilder("Usage: ").append(usage(commandPath));
+        StringBuilder builder = new StringBuilder("Usage: ")
+            .append(commandPath.node().metadata().usage().orElseGet(() -> usage(commandPath)));
         commandPath.node().descriptionOptional()
             .ifPresent(description -> CommandFormatting.appendLine(builder, "Description: " + description));
+        commandPath.node().metadata().examples()
+            .forEach(example -> CommandFormatting.appendLine(builder, "Example: " + example));
         return builder.toString();
     }
 

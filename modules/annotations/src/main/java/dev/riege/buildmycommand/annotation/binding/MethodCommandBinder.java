@@ -13,9 +13,12 @@ import dev.riege.buildmycommand.annotation.OptionalArg;
 import dev.riege.buildmycommand.annotation.Require;
 import dev.riege.buildmycommand.annotation.Suggest;
 import dev.riege.buildmycommand.annotation.Usage;
+import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
+import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionProvider;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -38,7 +41,7 @@ public final class MethodCommandBinder {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(method, "method");
         validateMethod(method);
-        List<ParameterBinding> bindings = bindingsFor(method);
+        List<ParameterBinding> bindings = bindingsFor(target, method);
         makeAccessible(target, method);
         return new BoundMethod(target, method, bindings, metadataFor(target.getClass(), method));
     }
@@ -65,15 +68,15 @@ public final class MethodCommandBinder {
         }
     }
 
-    private static List<ParameterBinding> bindingsFor(Method method) {
+    private static List<ParameterBinding> bindingsFor(Object target, Method method) {
         List<ParameterBinding> bindings = new ArrayList<>();
         for (Parameter parameter : method.getParameters()) {
-            bindings.add(bindingFor(parameter));
+            bindings.add(bindingFor(target, parameter));
         }
         return List.copyOf(bindings);
     }
 
-    private static ParameterBinding bindingFor(Parameter parameter) {
+    private static ParameterBinding bindingFor(Object target, Parameter parameter) {
         Arg arg = parameter.getAnnotation(Arg.class);
         Flag flag = parameter.getAnnotation(Flag.class);
         Option option = parameter.getAnnotation(Option.class);
@@ -93,7 +96,7 @@ public final class MethodCommandBinder {
                 parameter.isAnnotationPresent(OptionalArg.class),
                 parameter.isAnnotationPresent(Greedy.class),
                 defaultValue(parameter),
-                suggestionProvider(parameter),
+                suggestionProvider(target, parameter),
                 "Arg"
             );
         }
@@ -101,7 +104,7 @@ public final class MethodCommandBinder {
             return ParameterBinding.flag(flag.value(), aliasValue(parameter), "Flag");
         }
         if (option != null && isSupportedArgumentType(type)) {
-            return ParameterBinding.option(option.value(), type, aliasValue(parameter), suggestionProvider(parameter), "Option");
+            return ParameterBinding.option(option.value(), type, aliasValue(parameter), suggestionProvider(target, parameter), "Option");
         }
         if (option != null && type == Optional.class) {
             Class<?> valueType = optionalValueType(parameter);
@@ -110,7 +113,7 @@ public final class MethodCommandBinder {
                     option.value(),
                     valueType,
                     aliasValue(parameter),
-                    suggestionProvider(parameter),
+                    suggestionProvider(target, parameter),
                     "Option"
                 );
             }
@@ -126,7 +129,7 @@ public final class MethodCommandBinder {
                 parameter.isAnnotationPresent(OptionalArg.class),
                 parameter.isAnnotationPresent(Greedy.class),
                 defaultValue(parameter),
-                suggestionProvider(parameter),
+                suggestionProvider(target, parameter),
                 null
             );
         }
@@ -180,12 +183,89 @@ public final class MethodCommandBinder {
         return alias.value()[0];
     }
 
-    private static Optional<String> suggestionProvider(Parameter parameter) {
+    private static SuggestionBinding suggestionProvider(Object target, Parameter parameter) {
         Suggest suggest = parameter.getAnnotation(Suggest.class);
         if (suggest == null) {
-            return Optional.empty();
+            return SuggestionBinding.empty();
         }
-        return Optional.of(metadata(suggest.value(), "suggestion provider"));
+        String providerName = metadata(suggest.value(), "suggestion provider");
+        Method providerMethod = providerMethod(target.getClass(), providerName);
+        makeAccessible(target, providerMethod);
+        SuggestionProvider provider = new SuggestionProvider() {
+            @Override
+            public List<String> suggestions(ArgumentParseContext context) {
+                return richSuggestions(context).stream()
+                    .map(Suggestion::value)
+                    .toList();
+            }
+
+            @Override
+            public List<Suggestion> richSuggestions(ArgumentParseContext context) {
+                return invokeProvider(target, providerMethod, context);
+            }
+        };
+        return new SuggestionBinding(Optional.of(providerName), Optional.of(provider));
+    }
+
+    private static Method providerMethod(Class<?> owner, String providerName) {
+        for (Method method : owner.getDeclaredMethods()) {
+            if (!method.getName().equals(providerName)) {
+                continue;
+            }
+            if (method.getParameterCount() == 0
+                || (method.getParameterCount() == 1 && method.getParameterTypes()[0] == ArgumentParseContext.class)) {
+                if (List.class.isAssignableFrom(method.getReturnType())) {
+                    return method;
+                }
+            }
+        }
+        throw new IllegalArgumentException("suggestion provider not found: " + providerName);
+    }
+
+    private static List<Suggestion> invokeProvider(Object target, Method method, ArgumentParseContext context) {
+        try {
+            Object value = method.getParameterCount() == 0
+                ? method.invoke(target)
+                : method.invoke(target, context);
+            if (!(value instanceof List<?> list)) {
+                throw new IllegalStateException("suggestion provider did not return a List: " + method.getName());
+            }
+            if (list.isEmpty()) {
+                return List.of();
+            }
+            Object first = list.get(0);
+            if (first instanceof Suggestion) {
+                return list.stream()
+                    .map(Suggestion.class::cast)
+                    .toList();
+            }
+            if (first instanceof String) {
+                return list.stream()
+                    .map(String.class::cast)
+                    .map(suggestion -> new Suggestion(
+                        suggestion,
+                        Optional.empty(),
+                        context.replacementStart(),
+                        context.replacementEnd(),
+                        context.suggestionType(),
+                        0
+                    ))
+                    .toList();
+            }
+            throw new IllegalStateException("suggestion provider must return List<String> or List<Suggestion>: "
+                + method.getName());
+        } catch (IllegalAccessException exception) {
+            throw new IllegalStateException("cannot invoke suggestion provider: " + method.getName(), exception);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("suggestion provider failed: " + method.getName(), cause);
+        }
     }
 
     private static boolean isSupportedArgumentType(Class<?> type) {
@@ -311,16 +391,24 @@ public final class MethodCommandBinder {
         boolean greedy,
         String defaultValue,
         String alias,
-        Optional<String> suggestionProvider,
+        SuggestionBinding suggestionBinding,
         String annotationName
     ) {
         public ParameterBinding {
-            suggestionProvider = Objects.requireNonNull(suggestionProvider, "suggestionProvider");
+            suggestionBinding = Objects.requireNonNull(suggestionBinding, "suggestionBinding");
+        }
+
+        public Optional<String> suggestionProvider() {
+            return suggestionBinding.name();
+        }
+
+        public Optional<SuggestionProvider> suggestionProviderFunction() {
+            return suggestionBinding.provider();
         }
 
         static ParameterBinding context() {
             return new ParameterBinding(null, CommandContext.class, Kind.CONTEXT, false, false, null, null,
-                Optional.empty(), null);
+                SuggestionBinding.empty(), null);
         }
 
         static ParameterBinding argument(
@@ -329,7 +417,7 @@ public final class MethodCommandBinder {
             boolean optional,
             boolean greedy,
             String defaultValue,
-            Optional<String> suggestionProvider,
+            SuggestionBinding suggestionProvider,
             String annotationName
         ) {
             return new ParameterBinding(name, type, Kind.ARGUMENT, optional, greedy, defaultValue, null,
@@ -337,7 +425,7 @@ public final class MethodCommandBinder {
         }
 
         static ParameterBinding flag(String name, String alias, String annotationName) {
-            return new ParameterBinding(name, Boolean.class, Kind.FLAG, false, false, null, alias, Optional.empty(),
+            return new ParameterBinding(name, Boolean.class, Kind.FLAG, false, false, null, alias, SuggestionBinding.empty(),
                 annotationName);
         }
 
@@ -345,7 +433,7 @@ public final class MethodCommandBinder {
             String name,
             Class<?> type,
             String alias,
-            Optional<String> suggestionProvider,
+            SuggestionBinding suggestionProvider,
             String annotationName
         ) {
             return new ParameterBinding(name, type, Kind.OPTION, false, false, null, alias, suggestionProvider,
@@ -356,7 +444,7 @@ public final class MethodCommandBinder {
             String name,
             Class<?> type,
             String alias,
-            Optional<String> suggestionProvider,
+            SuggestionBinding suggestionProvider,
             String annotationName
         ) {
             return new ParameterBinding(name, type, Kind.OPTIONAL_OPTION, false, false, null, alias, suggestionProvider,
@@ -419,6 +507,17 @@ public final class MethodCommandBinder {
             }
             java.util.Optional<?> value = context.optionalArg(name, type);
             return value.isPresent() ? value.get() : parsedDefault();
+        }
+    }
+
+    public record SuggestionBinding(Optional<String> name, Optional<SuggestionProvider> provider) {
+        public SuggestionBinding {
+            name = Objects.requireNonNull(name, "name");
+            provider = Objects.requireNonNull(provider, "provider");
+        }
+
+        static SuggestionBinding empty() {
+            return new SuggestionBinding(Optional.empty(), Optional.empty());
         }
     }
 

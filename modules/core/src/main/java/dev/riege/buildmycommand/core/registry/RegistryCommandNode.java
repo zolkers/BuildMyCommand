@@ -3,6 +3,7 @@ package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandRegistry;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ public record RegistryCommandNode(
     CommandRegistry.CommandExecutor executor,
     List<RegistryArgumentSpec> arguments,
     List<RegistryOptionSpec> options,
+    CommandMetadata metadata,
     Map<String, RegistryCommandNode> children
 ) {
     public RegistryCommandNode {
@@ -35,6 +37,7 @@ public record RegistryCommandNode(
         Objects.requireNonNull(executor, "executor");
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         options = List.copyOf(Objects.requireNonNull(options, "options"));
+        metadata = Objects.requireNonNull(metadata, "metadata");
         children = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(children, "children")));
     }
 

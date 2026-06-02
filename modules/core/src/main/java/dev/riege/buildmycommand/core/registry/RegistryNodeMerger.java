@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.core.registry;
 
 
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
@@ -84,8 +85,19 @@ public final class RegistryNodeMerger {
             executor,
             arguments,
             options,
+            mergeCommandMetadata(existing.metadata(), incoming.metadata()),
             children
         );
+    }
+
+    private static CommandMetadata mergeCommandMetadata(CommandMetadata existing, CommandMetadata incoming) {
+        if (existing.equals(CommandMetadata.empty())) {
+            return incoming;
+        }
+        if (incoming.equals(CommandMetadata.empty()) || existing.equals(incoming)) {
+            return existing;
+        }
+        throw new IllegalArgumentException("route conflicts with existing command metadata");
     }
 
     private static String mergeMetadata(String existing, String incoming, String label) {

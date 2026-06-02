@@ -13,6 +13,7 @@ public record CommandNode(
     List<ArgumentSpec<?>> arguments,
     List<FlagSpec<?>> flags,
     List<CommandNode> children,
+    CommandMetadata metadata,
     Optional<CommandRegistry.CommandExecutor> executor
 ) {
     public CommandNode {
@@ -28,6 +29,7 @@ public record CommandNode(
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         flags = List.copyOf(Objects.requireNonNull(flags, "flags"));
         children = List.copyOf(Objects.requireNonNull(children, "children"));
+        metadata = Objects.requireNonNull(metadata, "metadata");
         executor = Objects.requireNonNull(executor, "executor");
     }
 
@@ -39,6 +41,7 @@ public record CommandNode(
         private final List<ArgumentSpec<?>> arguments = new ArrayList<>();
         private final List<FlagSpec<?>> flags = new ArrayList<>();
         private final List<CommandNode> children = new ArrayList<>();
+        private CommandMetadata metadata = CommandMetadata.empty();
         private CommandRegistry.CommandExecutor executor;
 
         Builder(String literal) {
@@ -83,6 +86,11 @@ public record CommandNode(
             return this;
         }
 
+        public Builder metadata(CommandMetadata metadata) {
+            this.metadata = Objects.requireNonNull(metadata, "metadata");
+            return this;
+        }
+
         public Builder handler(CommandRegistry.CommandExecutor executor) {
             this.executor = Objects.requireNonNull(executor, "executor");
             return this;
@@ -97,6 +105,7 @@ public record CommandNode(
                 arguments,
                 flags,
                 children,
+                metadata,
                 Optional.ofNullable(executor)
             );
         }

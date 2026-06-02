@@ -49,6 +49,9 @@ public final class CommandPermissions {
         List<RegistryCommandNode> path,
         RegistryCommandNode command
     ) {
+        if (command.metadata().hidden()) {
+            return false;
+        }
         if (!canAccess(source, path)) {
             return false;
         }
@@ -72,7 +75,30 @@ public final class CommandPermissions {
             if (permission.isPresent() && !source.hasPermission(permission.get())) {
                 return permission;
             }
+            Optional<String> requirement = command.metadata().requirement();
+            if (requirement.isPresent() && !matchesRequirement(source, requirement.get())) {
+                return requirement;
+            }
         }
         return Optional.empty();
+    }
+
+    private static boolean matchesRequirement(CommandSource source, String expression) {
+        String[] orParts = expression.split("\\|\\|");
+        for (String orPart : orParts) {
+            boolean andResult = true;
+            String[] andParts = orPart.split("&&");
+            for (String permission : andParts) {
+                String trimmed = permission.trim();
+                if (trimmed.isEmpty() || !source.hasPermission(trimmed)) {
+                    andResult = false;
+                    break;
+                }
+            }
+            if (andResult) {
+                return true;
+            }
+        }
+        return false;
     }
 }

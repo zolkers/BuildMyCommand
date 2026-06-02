@@ -103,6 +103,7 @@ public final class SuggestionEngine {
         command = state.command();
         matchedNodes = state.matchedNodes();
         boolean canAccessMatchedPath = CommandPermissions.canAccess(source, matchedNodes);
+        boolean canDiscoverMatchedPath = matchedNodes.stream().noneMatch(node -> node.metadata().hidden());
 
         RegistryOptionSpec valueOption = valueOptionBeforeCurrent(
             command.options(),
@@ -112,14 +113,19 @@ public final class SuggestionEngine {
             matchingPolicy
         );
         if (valueOption != null) {
-            if (!canAccessMatchedPath) {
+            if (!canAccessMatchedPath || !canDiscoverMatchedPath) {
                 return List.of();
             }
-            return parsers.suggestions(valueOption.type(), context(input, valueOption, current, replacementStart, replacementEnd));
+            return valueOption.suggestionProviderOptional()
+                .map(provider -> provider.richSuggestions(context(input, valueOption, current, replacementStart, replacementEnd)))
+                .orElseGet(() -> parsers.suggestions(
+                    valueOption.type(),
+                    context(input, valueOption, current, replacementStart, replacementEnd)
+                ));
         }
 
         if (current.startsWith("-")) {
-            if (!canAccessMatchedPath) {
+            if (!canAccessMatchedPath || !canDiscoverMatchedPath) {
                 return List.of();
             }
             return command.options().stream()
@@ -138,13 +144,13 @@ public final class SuggestionEngine {
             matchingPolicy
         );
         if (nextArgument != null) {
-            if (!canAccessMatchedPath) {
+            if (!canAccessMatchedPath || !canDiscoverMatchedPath) {
                 return List.of();
             }
-            List<Suggestion> suggestions = parsers.suggestions(
-                nextArgument.type(),
-                context(input, nextArgument, current, replacementStart, replacementEnd)
-            );
+            ArgumentParseContext suggestionContext = context(input, nextArgument, current, replacementStart, replacementEnd);
+            List<Suggestion> suggestions = nextArgument.suggestionProviderOptional()
+                .map(provider -> provider.richSuggestions(suggestionContext))
+                .orElseGet(() -> parsers.suggestions(nextArgument.type(), suggestionContext));
             if (!suggestions.isEmpty()) {
                 return suggestions;
             }
