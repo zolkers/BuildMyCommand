@@ -1,35 +1,52 @@
 # Minecraft Adapter Architecture
 
-BuildMyCommand targets Minecraft through a neutral bridge instead of one hard dependency.
+BuildMyCommand targets Minecraft through a family of adapter modules instead of one hard dependency.
 
-## Why
+## Module Layout
 
-Modern Paper and Fabric command APIs both route through Mojang Brigadier, but their registration lifecycle and source types differ by loader and version. Paper documents Brigadier command registration through its command API and lifecycle registration. Fabric documents command registration through Fabric API callbacks. NeoForge has its own mod event model. A single compiled adapter cannot honestly cover every server/mod-loader version without either reflection or separate backend modules.
+- `modules/adapters/minecraft/common`: version-neutral invocation, source mapping, runtime capabilities, backend profiles, and registration plans.
+- `modules/adapters/minecraft/paper`: Paper Brigadier/lifecycle profile and invocation normalization.
+- `modules/adapters/minecraft/spigot`: Bukkit/Spigot `CommandExecutor` and `TabCompleter` profile.
+- `modules/adapters/minecraft/bungee`: BungeeCord proxy command and tab-complete profile.
+- `modules/adapters/minecraft/velocity`: Velocity command API profile.
+- `modules/adapters/minecraft/fabric`: Fabric `CommandRegistrationCallback` profile.
+- `modules/adapters/minecraft/forge`: Forge `RegisterCommandsEvent` profile.
+- `modules/adapters/minecraft/neoforge`: NeoForge `RegisterCommandsEvent` profile.
 
-## Current Module
+The platform modules intentionally depend only on `common` today. Native Paper, Bukkit, BungeeCord, Velocity, Fabric, Forge, and NeoForge jars should be introduced in those modules one by one, never in `core`.
 
-`modules/minecraft-adapter` provides:
+## Neutral Model
 
-- `MinecraftCommandBridge<S>`: dispatches and suggests against `CommandFramework` from any platform source type.
-- `MinecraftSourceMapper<S>`: maps a Paper/Fabric/NeoForge/Bukkit sender/source object into `CommandSource`.
-- `MinecraftRuntimeDescriptor`: records loader, Minecraft version, API version, and detected capabilities.
-- `MinecraftCapability`: describes runtime features such as Brigadier, lifecycle events, legacy command maps, and client commands.
+`MinecraftInvocation` preserves the information that platform APIs expose differently:
 
-## Backend Pattern
+- raw input with slash state
+- normalized input without a leading slash
+- invoked label or alias
+- args array excluding the label
+- normalized cursor
+- current argument prefix
 
-Version-specific modules should stay thin:
+`MinecraftCommandBridge<S>` accepts either raw command strings or a `MinecraftInvocation`, maps the native source through `MinecraftSourceMapper<S>`, and delegates to `CommandFramework`.
 
-1. Detect loader and version at runtime.
-2. Build a `MinecraftRuntimeDescriptor`.
-3. Register root literals with the platform's command registration API.
-4. Delegate execution to `MinecraftCommandBridge#dispatch`.
-5. Delegate completions to `MinecraftCommandBridge#suggest`.
+`MinecraftBackendProfile` and `MinecraftBackendProfiles` describe capabilities and edge cases per backend. These profiles are tested so adapters do not silently forget platform-specific constraints.
 
-This keeps BuildMyCommand stable while loaders change their registration APIs.
+## Backend Edge Cases
+
+- Paper: Brigadier cursor ranges, lifecycle re-registration, permission-filtered suggestions.
+- Spigot: `label + args[]` reconstruction, trailing empty tab argument, alias label preservation, coarse plugin.yml permissions.
+- BungeeCord: command objects bind root labels, tab completion lacks a label parameter, message-only results, unregister-before-reregister reloads.
+- Velocity: proxy command ownership, aliases through metadata, Brigadier/Simple/Raw command trade-offs.
+- Fabric: dedicated environment flag, command tree caching, Brigadier `.requires(...)` permission filtering.
+- Forge and NeoForge: event-bus registration, reload rebuilds, version-specific source/context signatures.
 
 ## References
 
 - Paper command API: https://docs.papermc.io/paper/dev/api/command-api/
 - Paper registration lifecycle: https://docs.papermc.io/paper/dev/command-api/basics/registration/
+- Spigot `CommandExecutor`: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/command/CommandExecutor.html
+- Spigot `TabCompleter`: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/command/TabCompleter.html
+- BungeeCord `Command`: https://javadoc.io/static/net.md-5/bungeecord-api/1.16-R0.2/net/md_5/bungee/api/plugin/Command.html
+- Velocity command API: https://docs.papermc.io/velocity/dev/command-api/
 - Fabric command basics: https://docs.fabricmc.net/develop/commands/basics
-- NeoForge docs: https://docs.neoforged.net/
+- Forge `RegisterCommandsEvent`: https://nekoyue.github.io/ForgeJavaDocs-NG/javadoc/1.18.2/net/minecraftforge/event/RegisterCommandsEvent.html
+- NeoForge `RegisterCommandsEvent`: https://nekoyue.github.io/ForgeJavaDocs-NG/javadoc/1.20.6-neoforge/net/neoforged/neoforge/event/RegisterCommandsEvent.html

@@ -9,8 +9,15 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.intellij.intelliLang</depends>
+    <depends>org.jetbrains.plugins.textmate</depends>
 
     <extensions defaultExtensionNs="org.intellij.intelliLang">
         <injectionConfig config="buildmycommandInjections.xml"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
+        <additionalTextAttributes scheme="Default" file="colorSchemes/BuildMyCommandRoute.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorSchemes/BuildMyCommandRouteDarcula.xml"/>
     </extensions>
 </idea-plugin>

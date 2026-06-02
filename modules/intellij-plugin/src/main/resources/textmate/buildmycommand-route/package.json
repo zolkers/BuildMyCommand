@@ -1,0 +1,22 @@
+{
+  "name": "buildmycommand-route",
+  "displayName": "BuildMyCommand Route DSL",
+  "version": "0.0.1",
+  "publisher": "buildmycommand",
+  "contributes": {
+    "languages": [
+      {
+        "id": "buildmycommand-route",
+        "aliases": ["BuildMyCommand Route", "bmc-route"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "buildmycommand-route",
+        "scopeName": "source.buildmycommand.route",
+        "path": "./syntaxes/buildmycommand-route.tmLanguage.json",
+        "embeddedLanguages": {}
+      }
+    ]
+  }
+}

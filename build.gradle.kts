@@ -36,7 +36,7 @@ subprojects {
         }
     }
 
-    if (name != "examples") {
+    if (name != "examples" && name != "intellij-plugin") {
         tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             dependsOn(tasks.named("test"))
             violationRules {

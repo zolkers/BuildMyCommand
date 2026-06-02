@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,10 +16,56 @@ class IntellijPluginResourcesTest {
         String injections = resource("buildmycommandInjections.xml");
 
         assertTrue(pluginXml.contains("org.intellij.intelliLang"));
+        assertTrue(pluginXml.contains("org.jetbrains.plugins.textmate"));
         assertTrue(pluginXml.contains("buildmycommandInjections.xml"));
+        assertTrue(pluginXml.contains("textmate.bundleProvider"));
+        assertTrue(pluginXml.contains("additionalTextAttributes"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
         assertTrue(injections.contains("dev.riege.buildmycommand.api.CommandRegistry"));
         assertTrue(injections.contains("route"));
+    }
+
+    @Test
+    void textMateBundleResourcesArePresent() throws IOException {
+        String manifest = resource("textmate/buildmycommand-route/package.json");
+        String grammar = resource("textmate/buildmycommand-route/syntaxes/buildmycommand-route.tmLanguage.json");
+
+        assertTrue(manifest.contains("\"buildmycommand-route\""));
+        assertTrue(manifest.contains("\"source.buildmycommand.route\""));
+        assertTrue(manifest.contains("\"./syntaxes/buildmycommand-route.tmLanguage.json\""));
+        assertTrue(grammar.contains("\"scopeName\": \"source.buildmycommand.route\""));
+        assertTrue(grammar.contains("\"begin\": \"\\\\[(?=--)\""));
+        assertTrue(grammar.contains("\"begin\": \"\\\\[(?!--)\""));
+        assertTrue(grammar.contains("String|Integer|int|Long|long|Double|double|Boolean|boolean|UUID"));
+        assertTrue(grammar.contains("entity.name.option.long.buildmycommand.route"));
+        assertTrue(grammar.contains("keyword.operator.greedy.buildmycommand.route"));
+    }
+
+    @Test
+    void colorSchemesDeclareBuildMyCommandTextMateScopes() throws IOException {
+        String light = resource("colorSchemes/BuildMyCommandRoute.xml");
+        String dark = resource("colorSchemes/BuildMyCommandRouteDarcula.xml");
+
+        assertTrue(light.contains("TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(light.contains("<attributes>"));
+        assertTrue(!light.contains("<scheme"));
+        assertTrue(light.contains("ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(light.contains("VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(light.contains("STORAGE_TYPE_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(light.contains("ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(dark.contains("<attributes>"));
+        assertTrue(!dark.contains("<scheme"));
+        assertTrue(dark.contains("TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE"));
+    }
+
+    @Test
+    void textMateBundleProviderReturnsBundledGrammarDirectory() {
+        BuildMyCommandTextMateBundleProvider provider = new BuildMyCommandTextMateBundleProvider();
+
+        List<org.jetbrains.plugins.textmate.api.TextMateBundleProvider.PluginBundle> bundles = provider.getBundles();
+
+        assertTrue(bundles.stream().anyMatch(bundle -> bundle.getName().equals("BuildMyCommand Route DSL")));
+        assertTrue(bundles.stream().anyMatch(bundle -> bundle.getPath().toString().contains("buildmycommand-route")));
     }
 
     private static String resource(String path) throws IOException {

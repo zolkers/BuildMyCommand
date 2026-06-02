@@ -1,0 +1,50 @@
+{
+  "name": "BuildMyCommand Route",
+  "scopeName": "source.buildmycommand.route",
+  "patterns": [
+    { "include": "#optional-option" },
+    { "include": "#optional-argument" },
+    { "include": "#required-argument" },
+    { "include": "#literal" }
+  ],
+  "repository": {
+    "required-argument": {
+      "name": "meta.argument.required.buildmycommand.route",
+      "begin": "<",
+      "end": ">",
+      "patterns": [
+        { "match": "[A-Za-z0-9_-]+", "name": "variable.parameter.argument.buildmycommand.route" },
+        { "match": ":", "name": "punctuation.separator.type.buildmycommand.route" },
+        { "match": "\\b(String|Integer|int|Long|long|Double|double|Boolean|boolean|UUID)\\b", "name": "storage.type.buildmycommand.route" },
+        { "match": "\\.\\.\\.", "name": "keyword.operator.greedy.buildmycommand.route" }
+      ]
+    },
+    "optional-argument": {
+      "name": "meta.argument.optional.buildmycommand.route",
+      "begin": "\\[(?!--)",
+      "end": "\\]",
+      "patterns": [
+        { "match": "[A-Za-z0-9_-]+", "name": "variable.parameter.argument.buildmycommand.route" },
+        { "match": ":", "name": "punctuation.separator.type.buildmycommand.route" },
+        { "match": "\\b(String|Integer|int|Long|long|Double|double|Boolean|boolean|UUID)\\b", "name": "storage.type.buildmycommand.route" },
+        { "match": "\\.\\.\\.", "name": "keyword.operator.greedy.buildmycommand.route" }
+      ]
+    },
+    "optional-option": {
+      "name": "meta.option.optional.buildmycommand.route",
+      "begin": "\\[(?=--)",
+      "end": "\\]",
+      "patterns": [
+        { "match": "--[A-Za-z0-9_-]+", "name": "entity.name.option.long.buildmycommand.route" },
+        { "match": "-[A-Za-z0-9_-]", "name": "entity.name.option.alias.buildmycommand.route" },
+        { "match": "\\|", "name": "punctuation.separator.alias.buildmycommand.route" },
+        { "match": ":", "name": "punctuation.separator.type.buildmycommand.route" },
+        { "match": "\\b(String|Integer|int|Long|long|Double|double|Boolean|boolean|UUID)\\b", "name": "storage.type.buildmycommand.route" }
+      ]
+    },
+    "literal": {
+      "match": "[^\\s\\[\\]<>:|]+",
+      "name": "entity.name.function.literal.buildmycommand.route"
+    }
+  }
+}

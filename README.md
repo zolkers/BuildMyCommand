@@ -6,7 +6,7 @@ The project follows a simple rule: every public declaration style eventually com
 
 - `api` for public contracts
 - `core` for registration, routing, dispatch, parsing, and suggestions
-- `minecraft-adapter` for version-neutral Minecraft integration primitives
+- `adapters` for platform integrations, including the Minecraft adapter family
 - `intellij-plugin` for IDE support around annotations and route DSL strings
 - `testkit` for platform-free command tests
 
@@ -32,5 +32,5 @@ The repository is being built incrementally from a minimal command dispatcher to
 ## Architecture Notes
 
 - Core runtime internals are grouped by responsibility under packages such as `registry`, `parse`, `dispatch`, `route`, and `help`.
-- Minecraft support is intentionally loader-neutral. Paper, Fabric, NeoForge, and legacy Bukkit-style integrations should bind their version-specific registration APIs to `MinecraftCommandBridge` instead of leaking those APIs into `core`.
-- IntelliJ support starts as an IntelliLang-based plugin scaffold. Rich validation and completion should be added inside `modules/intellij-plugin`, not in runtime modules.
+- Minecraft support lives under `modules/adapters/minecraft`, with a `common` bridge and backend modules for Paper, Spigot, BungeeCord, Velocity, Fabric, Forge, and NeoForge.
+- IntelliJ support includes IntelliLang injection plus a TextMate grammar and light/dark color schemes for the route DSL. Rich validation and completion should be added inside `modules/intellij-plugin`, not in runtime modules.
