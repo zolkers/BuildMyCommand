@@ -4,12 +4,17 @@ import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.annotation.binding.AnnotationCommandCompiler;
+import dev.riege.buildmycommand.annotation.binding.MethodCommandBinder;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AnnotationCommandScannerTest {
@@ -177,6 +182,80 @@ class AnnotationCommandScannerTest {
         assertEquals(Optional.of("Ada:5:true"), result.reply());
     }
 
+    @Test
+    void compilerExposesFutureAnnotationMetadataBeforeRegistryMutation() {
+        AnnotationCommandCompiler.CompiledCommands compiled =
+            AnnotationCommandCompiler.compile(new FutureMetadataCommands());
+
+        AnnotationCommandCompiler.CompiledCommand command = compiled.commands().get(0);
+        MethodCommandBinder.CommandMetadata metadata = command.metadata();
+
+        assertEquals("secret", command.route());
+        assertEquals(Optional.of("moderation"), command.group());
+        assertEquals(true, metadata.hidden());
+        assertEquals(Optional.of("secret <target>"), metadata.usage());
+        assertIterableEquals(List.of("secret Ada", "secret Bob"), metadata.examples());
+        assertEquals(Optional.of(Duration.ofSeconds(30)), metadata.cooldown());
+        assertEquals(Optional.of("perm.a && perm.b"), metadata.requirement());
+        assertEquals(Optional.of("players"), command.bindings().get(0).suggestionProvider());
+    }
+
+    @Test
+    void scannerLeavesFutureOnlyAnnotationsAsMetadataUntilCoreSupportsThem() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new FutureMetadataCommands());
+
+        assertEquals("Usage: secret <target:String>", framework.help("secret"));
+        assertEquals(List.of("secret"), framework.suggest(source(), "s", 1));
+        assertEquals(Optional.of("Ada"), framework.dispatch(source(), "secret Ada").reply());
+    }
+
+    @Test
+    void rejectsRouteArgumentWithoutMatchingMethodParameterBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MissingRouteArgumentCommands()));
+
+        assertEquals("route argument target has no matching method parameter on ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsAnnotatedArgumentMissingFromRouteDslBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedArgumentCommands()));
+
+        assertEquals("@Arg(\"missing\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void rejectsAnnotatedOptionMissingFromRouteDslBeforeRegistryMutation() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedOptionCommands()));
+
+        assertEquals("@Option(\"duration\") does not exist in route DSL for ban", exception.getMessage());
+        assertEquals("", framework.schema());
+    }
+
+    @Test
+    void infersArgumentNamesFromParametersWhenAvailable() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new InferredParameterCommands());
+
+        CommandResult result = framework.dispatch(source(), "ban Ada repeated griefing");
+
+        assertEquals(Optional.of("Ada:repeated griefing"), result.reply());
+        assertEquals("Usage: ban <target:String> <reason:String...>", framework.help("ban"));
+    }
+
     private static CommandSource source() {
         return new CommandSource() {
         };
@@ -311,6 +390,47 @@ class AnnotationCommandScannerTest {
             @Flag("silent") boolean silent
         ) {
             return Results.success(target + ":" + duration + ":" + silent);
+        }
+    }
+
+    @CommandGroup("moderation")
+    static final class FutureMetadataCommands {
+        @Command("secret")
+        @Hidden
+        @Usage("secret <target>")
+        @Example({"secret Ada", "secret Bob"})
+        @Cooldown(30)
+        @Require("perm.a && perm.b")
+        CommandResult secret(@Arg("target") @Suggest("players") String target) {
+            return Results.success(target);
+        }
+    }
+
+    static final class MissingRouteArgumentCommands {
+        @Route("ban <target:String>")
+        CommandResult ban() {
+            return Results.silent();
+        }
+    }
+
+    static final class MissingAnnotatedArgumentCommands {
+        @Route("ban <target:String>")
+        CommandResult ban(@Arg("missing") String target) {
+            return Results.success(target);
+        }
+    }
+
+    static final class MissingAnnotatedOptionCommands {
+        @Route("ban <target:String> [--silent]")
+        CommandResult ban(@Arg("target") String target, @Option("duration") Integer duration) {
+            return Results.success(target + duration);
+        }
+    }
+
+    static final class InferredParameterCommands {
+        @Command("ban")
+        CommandResult ban(String target, @Greedy String reason) {
+            return Results.success(target + ":" + reason);
         }
     }
 }
