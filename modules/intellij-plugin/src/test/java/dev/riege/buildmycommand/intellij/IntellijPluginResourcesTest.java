@@ -27,6 +27,10 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteAnnotator"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteCompletionContributor"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteInspection"));
+        assertTrue(pluginXml.contains("localInspection"));
+        assertTrue(pluginXml.contains("completion.contributor"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Route"));
@@ -47,7 +51,8 @@ class IntellijPluginResourcesTest {
         assertTrue(grammar.contains("\"scopeName\": \"source.buildmycommand.route\""));
         assertTrue(grammar.contains("\"begin\": \"\\\\[(?=--)\""));
         assertTrue(grammar.contains("\"begin\": \"\\\\[(?!--)\""));
-        assertTrue(grammar.contains("String|Integer|int|Long|long|Double|double|Boolean|boolean|UUID"));
+        assertTrue(grammar.contains("String|Integer|int|Long|long|Double|double|Float|float|Boolean|boolean|UUID"));
+        assertTrue(grammar.contains("Duration|LocalDate|LocalDateTime|Path|URI|URL"));
         assertTrue(grammar.contains("entity.name.option.long.buildmycommand.route"));
         assertTrue(grammar.contains("keyword.operator.greedy.buildmycommand.route"));
     }
@@ -94,6 +99,26 @@ class IntellijPluginResourcesTest {
         assertHighlights(lexer, highlighter, "--duration", "ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "Integer", "STORAGE_TYPE_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "-d", "ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE");
+    }
+
+    @Test
+    void routeDslValidationFindsMalformedTypesAliasesAndOrdering() {
+        List<BuildMyCommandRouteDsl.Issue> issues = BuildMyCommandRouteDsl.validate(
+            "ban|block <target:Player> [duration:Integer] <reason:Integer...> [--duration:Unknown|-d] [--silent|-d]"
+        );
+
+        assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Unknown argument type: Player")));
+        assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Required argument cannot follow an optional argument")));
+        assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Greedy arguments must use String")));
+        assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Unknown option type: Unknown")));
+        assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Duplicate alias: -d")));
+    }
+
+    @Test
+    void routeDslCompletionSuggestsTypesAndOptionAliases() {
+        assertTrue(BuildMyCommandRouteDsl.completionsFor("give <target:", 13).contains("String"));
+        assertTrue(BuildMyCommandRouteDsl.completionsFor("give [--amount:Integer|-", 24).contains("a"));
+        assertTrue(BuildMyCommandRouteDsl.completionsFor("give [--", 8).contains("duration"));
     }
 
     @Test

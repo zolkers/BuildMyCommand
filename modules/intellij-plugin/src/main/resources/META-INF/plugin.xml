@@ -19,6 +19,15 @@
     <extensions defaultExtensionNs="com.intellij">
         <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteAnnotator"/>
+        <completion.contributor language="BuildMyCommandRoute"
+                                implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteCompletionContributor"/>
+        <localInspection language="JAVA"
+                         shortName="BuildMyCommandRouteDsl"
+                         displayName="BuildMyCommand route DSL validation"
+                         groupName="BuildMyCommand"
+                         enabledByDefault="true"
+                         level="WARNING"
+                         implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInspection"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRoute"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
