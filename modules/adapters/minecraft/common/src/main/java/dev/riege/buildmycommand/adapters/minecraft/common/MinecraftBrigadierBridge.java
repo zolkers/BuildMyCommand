@@ -12,6 +12,11 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.riege.buildmycommand.adapters.AdapterCapabilities;
+import dev.riege.buildmycommand.adapters.AdapterConfig;
+import dev.riege.buildmycommand.adapters.AdapterRenderer;
+import dev.riege.buildmycommand.adapters.AdapterRuntime;
+import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.api.ArgumentSpec;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
@@ -27,12 +32,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-public final class MinecraftBrigadierBridge<N> {
+public final class MinecraftBrigadierBridge<N> implements CommandAdapter<N, String, Integer> {
     private static final String FLAG_TUNNEL = "_bmc_flags";
 
     private final CommandFramework framework;
     private final Function<N, CommandSource> sourceMapper;
     private final CommandPlatform platform;
+    private final AdapterRuntime runtime;
+    private final AdapterConfig config;
 
     private MinecraftBrigadierBridge(
         CommandFramework framework,
@@ -42,6 +49,12 @@ public final class MinecraftBrigadierBridge<N> {
         this.framework = Objects.requireNonNull(framework, "framework");
         this.sourceMapper = Objects.requireNonNull(sourceMapper, "sourceMapper");
         this.platform = Objects.requireNonNull(platform, "platform");
+        this.runtime = new AdapterRuntime(framework, platform);
+        this.config = new AdapterConfig(
+            "minecraft-brigadier",
+            "Minecraft Brigadier",
+            AdapterCapabilities.from(platform)
+        );
     }
 
     public static <N> MinecraftBrigadierBridge<N> create(
@@ -158,9 +171,7 @@ public final class MinecraftBrigadierBridge<N> {
 
     private void attachExecutor(ArgumentBuilder<N, ?> builder) {
         builder.executes(context -> {
-            CommandSource source = sourceMapper.apply(context.getSource());
-            CommandResult result = framework.dispatch(input(source, context.getInput(), context.getInput().length()));
-            return result.status() == CommandResult.Status.SUCCESS ? Command.SINGLE_SUCCESS : 0;
+            return execute(context.getSource(), context.getInput());
         });
     }
 
@@ -195,6 +206,33 @@ public final class MinecraftBrigadierBridge<N> {
             input = input.substring(1);
         }
         return input;
+    }
+
+    @Override
+    public AdapterRuntime runtime() {
+        return runtime;
+    }
+
+    @Override
+    public AdapterConfig config() {
+        return config;
+    }
+
+    @Override
+    public AdapterRenderer<Integer> renderer() {
+        return result -> result.status() == CommandResult.Status.SUCCESS ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    @Override
+    public CommandSource mapSource(N nativeSource) {
+        Objects.requireNonNull(nativeSource, "nativeSource");
+        return sourceMapper.apply(nativeSource);
+    }
+
+    @Override
+    public CommandInput mapInput(N nativeSource, String nativeInput) {
+        Objects.requireNonNull(nativeInput, "nativeInput");
+        return input(mapSource(nativeSource), nativeInput, nativeInput.length());
     }
 
     private CommandInput input(CommandSource source, String rawInput, int cursor) {

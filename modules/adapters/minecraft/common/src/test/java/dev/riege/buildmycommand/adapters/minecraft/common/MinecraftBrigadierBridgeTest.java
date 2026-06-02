@@ -4,6 +4,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.riege.buildmycommand.adapters.CommandAdapter;
+import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -57,6 +59,22 @@ class MinecraftBrigadierBridgeTest {
 
         assertEquals("p", alias.getName());
         assertEquals("ping", alias.getRedirect().getName());
+    }
+
+    @Test
+    void exposesGenericAdapterSdkForRawBrigadierInput() {
+        CommandFramework framework = CommandFramework.create();
+        MinecraftBrigadierBridge<NativeSource> bridge = MinecraftBrigadierBridge.create(framework, NativeSource::source);
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("pong")));
+
+        CommandAdapter<NativeSource, String, Integer> adapter = bridge;
+        CommandInput input = adapter.mapInput(new NativeSource(), "/ping");
+
+        assertEquals("minecraft-brigadier", adapter.config().adapterId());
+        assertEquals("minecraft", adapter.runtime().platform().id());
+        assertEquals("/ping", input.rawInput());
+        assertEquals("ping", input.normalizedInput());
+        assertEquals(1, adapter.execute(new NativeSource(), "/ping"));
     }
 
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {

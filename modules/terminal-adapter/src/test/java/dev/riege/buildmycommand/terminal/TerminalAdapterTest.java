@@ -1,5 +1,9 @@
 package dev.riege.buildmycommand.terminal;
 
+import dev.riege.buildmycommand.adapters.AdapterRegistrationLabels;
+import dev.riege.buildmycommand.adapters.CommandAdapter;
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -84,6 +88,29 @@ class TerminalAdapterTest {
             .runOnce();
 
         assertEquals(line("from source"), text(captured));
+    }
+
+    @Test
+    void exposesGenericAdapterSdkWithoutChangingTerminalApi() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("ping", command -> command
+            .alias("p")
+            .executes(ctx -> Results.success(ctx.commandInput().platform().id())));
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        TerminalAdapter adapter = TerminalAdapter.attach(framework).output(output(captured));
+
+        CommandAdapter<CommandSource, String, Void> sdkAdapter = adapter;
+        CommandInput input = sdkAdapter.mapInput(source(), "ping");
+        CommandResult result = sdkAdapter.dispatch(source(), "ping");
+        sdkAdapter.render(result);
+
+        assertEquals("terminal", input.platform().id());
+        assertEquals("ping", input.normalizedInput());
+        assertEquals(new AdapterRegistrationLabels(
+            java.util.List.of("ping"),
+            java.util.List.of("ping", "p")
+        ), sdkAdapter.registrationLabels());
+        assertEquals(line("terminal"), text(captured));
     }
 
     private static ByteArrayInputStream input(String value) {

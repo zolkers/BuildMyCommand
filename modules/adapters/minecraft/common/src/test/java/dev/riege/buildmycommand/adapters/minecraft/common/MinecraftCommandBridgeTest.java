@@ -1,5 +1,9 @@
 package dev.riege.buildmycommand.adapters.minecraft.common;
 
+import dev.riege.buildmycommand.adapters.AdapterCapabilities;
+import dev.riege.buildmycommand.adapters.AdapterRegistrationLabels;
+import dev.riege.buildmycommand.adapters.CommandAdapter;
+import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
@@ -137,6 +141,55 @@ class MinecraftCommandBridgeTest {
 
         assertEquals(Optional.of("Alex:griefing"), result.reply());
         assertEquals(List.of(), deniedSuggestions);
+    }
+
+    @Test
+    void commandBridgeImplementsGenericAdapterSdkForMinecraftInvocations() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("msg", command -> command
+            .alias("tell")
+            .executes(ctx -> Results.success(ctx.commandInput().platform().id())));
+        MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(
+            framework,
+            sender -> permissionSource(sender.permissions())
+        );
+
+        CommandAdapter<FakeSender, MinecraftInvocation, CommandResult> adapter = bridge;
+        CommandInput input = adapter.mapInput(new FakeSender(Set.of()), MinecraftInvocation.slash("/msg", 4));
+        CommandResult rendered = adapter.execute(new FakeSender(Set.of()), MinecraftInvocation.slash("/msg", 4));
+
+        assertEquals("minecraft", input.platform().id());
+        assertEquals("/msg", input.rawInput());
+        assertEquals("msg", input.normalizedInput());
+        assertEquals(new AdapterCapabilities(false, true, true), adapter.capabilities());
+        assertEquals(new AdapterRegistrationLabels(
+            List.of("msg"),
+            List.of("msg", "tell")
+        ), adapter.registrationLabels());
+        assertEquals(Optional.of("minecraft"), rendered.reply());
+    }
+
+    @Test
+    void nativeAdapterExposesSdkConceptsWhileKeepingRegistrationLabelsList() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("home", command -> command
+            .alias("h")
+            .executes(ctx -> Results.success("ok")));
+        MinecraftNativeCommandAdapter<FakeSender> adapter = new MinecraftNativeCommandAdapter<>(
+            framework,
+            sender -> permissionSource(sender.permissions())
+        );
+
+        assertEquals(List.of("home", "h"), adapter.registrationLabels());
+        assertEquals(new AdapterRegistrationLabels(
+            List.of("home"),
+            List.of("home", "h")
+        ), adapter.adapterRegistrationLabels());
+        assertEquals(new AdapterCapabilities(false, true, true), adapter.capabilities());
+        assertEquals("minecraft-native", adapter.config().adapterId());
+        assertEquals("minecraft", adapter.runtime().platform().id());
+        assertEquals("home", adapter.mapInput(new FakeSender(Set.of()), MinecraftInvocation.slash("/home", 5))
+            .normalizedInput());
     }
 
     @Test
