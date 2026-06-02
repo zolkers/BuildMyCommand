@@ -72,6 +72,29 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     }
 
     @Override
+    public boolean unregister(String path) {
+        Objects.requireNonNull(path, "path");
+        if (path.isBlank()) {
+            throw new IllegalArgumentException("path must not be blank");
+        }
+
+        RegistryCommandPath commandPath = findPath(List.of(path.trim().split("\\s+")));
+        if (commandPath == null) {
+            return false;
+        }
+
+        List<RegistryCommandNode> nodes = commandPath.nodes();
+        if (nodes.size() == 1) {
+            removeRoot(nodes.get(0));
+        } else {
+            removeNestedPath(nodes);
+        }
+        notifyUnregistered(commandPath.literals());
+        notifyRegistryRebuilt();
+        return true;
+    }
+
+    @Override
     public RouteBuilder route(String pattern) {
         return new SimpleRouteBuilder(RoutePatternParser.parse(pattern));
     }
@@ -144,12 +167,83 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         lifecycleListeners.forEach(listener -> listener.registryRebuilt(roots));
     }
 
+    private void notifyUnregistered(List<String> path) {
+        if (lifecycleListeners.isEmpty()) {
+            return;
+        }
+        List<String> immutablePath = List.copyOf(path);
+        lifecycleListeners.forEach(listener -> listener.commandUnregistered(immutablePath));
+    }
+
     private RegistryCommandNode findEventNode(List<String> path, RegistryCommandNode fallback) {
         RegistryCommandPath commandPath = findPath(path);
         if (commandPath == null || commandPath.nodes().isEmpty()) {
             return fallback;
         }
         return commandPath.nodes().get(commandPath.nodes().size() - 1);
+    }
+
+    private void removeNestedPath(List<RegistryCommandNode> nodes) {
+        RegistryCommandNode oldChild = nodes.get(nodes.size() - 1);
+        RegistryCommandNode newChild = null;
+
+        for (int parentIndex = nodes.size() - 2; parentIndex >= 0; parentIndex--) {
+            RegistryCommandNode oldParent = nodes.get(parentIndex);
+            Map<String, RegistryCommandNode> children = new LinkedHashMap<>(oldParent.children());
+            if (newChild == null) {
+                RegistryCommandNode removedChild = oldChild;
+                children.entrySet().removeIf(entry -> entry.getValue() == removedChild);
+            } else {
+                replaceNode(children, oldChild, newChild);
+            }
+
+            RegistryCommandNode rebuiltParent = copyWithChildren(oldParent, children);
+            oldChild = oldParent;
+            if (!rebuiltParent.isExecutable() && rebuiltParent.children().isEmpty()) {
+                newChild = null;
+                continue;
+            }
+            newChild = rebuiltParent;
+        }
+
+        if (newChild == null) {
+            removeRoot(nodes.get(0));
+        } else {
+            replaceNode(commands, nodes.get(0), newChild);
+        }
+    }
+
+    private void removeRoot(RegistryCommandNode root) {
+        commands.entrySet().removeIf(entry -> entry.getValue() == root);
+    }
+
+    private static RegistryCommandNode copyWithChildren(
+        RegistryCommandNode node,
+        Map<String, RegistryCommandNode> children
+    ) {
+        return new RegistryCommandNode(
+            node.literal(),
+            node.description(),
+            node.permission(),
+            node.aliases(),
+            node.executor(),
+            node.arguments(),
+            node.options(),
+            node.metadata(),
+            children
+        );
+    }
+
+    private static void replaceNode(
+        Map<String, RegistryCommandNode> nodes,
+        RegistryCommandNode oldNode,
+        RegistryCommandNode newNode
+    ) {
+        for (Map.Entry<String, RegistryCommandNode> entry : nodes.entrySet()) {
+            if (entry.getValue() == oldNode) {
+                entry.setValue(newNode);
+            }
+        }
     }
 
     private final class SimpleRouteBuilder implements RouteBuilder {
@@ -248,11 +342,11 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral(), matchingPolicy);
             builder.aliases(route.rootAliases().toArray(String[]::new));
             configureRoute(builder, 0, route.steps(), executor);
-            boolean updatesExistingRoot = commands.containsKey(matchingPolicy.literalKey(route.rootLiteral()));
-            RegistryNodeMerger.mergeRoot(commands, builder.node(), matchingPolicy);
             List<String> path = commandPath(route);
+            boolean updatesExistingPath = findPath(path) != null;
+            RegistryNodeMerger.mergeRoot(commands, builder.node(), matchingPolicy);
             RegistryCommandNode eventNode = findEventNode(path, builder.node());
-            if (updatesExistingRoot) {
+            if (updatesExistingPath) {
                 notifyUpdated(eventNode, path);
             } else {
                 notifyRegistered(eventNode, path);

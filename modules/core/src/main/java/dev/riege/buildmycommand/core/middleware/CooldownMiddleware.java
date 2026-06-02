@@ -11,19 +11,20 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class CooldownMiddleware implements CommandMiddleware {
     private final Clock clock;
-    private final Map<Key, Instant> expiresAt;
+    private final ConcurrentMap<Key, Instant> expiresAt;
 
     public CooldownMiddleware(Clock clock) {
         this(clock, new ConcurrentHashMap<>());
     }
 
-    public CooldownMiddleware(Clock clock, Map<Key, Instant> expiresAt) {
+    public CooldownMiddleware(Clock clock, ConcurrentMap<Key, Instant> expiresAt) {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt");
     }
@@ -41,17 +42,38 @@ public final class CooldownMiddleware implements CommandMiddleware {
         }
 
         Instant now = clock.instant();
+        cleanupExpired(now);
         Key key = new Key(sourceKey(context.source()), String.join(" ", commandPath));
-        Instant expiry = expiresAt.get(key);
-        if (expiry != null && expiry.isAfter(now)) {
-            return Results.failure("Command is on cooldown for " + Duration.between(now, expiry));
+        Instant reservedUntil = now.plus(cooldown);
+        AtomicReference<Duration> remaining = new AtomicReference<>();
+        expiresAt.compute(key, (ignored, expiry) -> {
+            if (expiry != null && expiry.isAfter(now)) {
+                remaining.set(Duration.between(now, expiry));
+                return expiry;
+            }
+            return reservedUntil;
+        });
+        if (remaining.get() != null) {
+            return Results.failure("Command is on cooldown for " + remaining.get());
         }
 
-        CommandResult result = next.proceed(context);
-        if (result.status() != CommandResult.Status.FAILURE) {
-            expiresAt.put(key, now.plus(cooldown));
+        try {
+            CommandResult result = next.proceed(context);
+            if (result.status() == CommandResult.Status.FAILURE) {
+                expiresAt.remove(key, reservedUntil);
+            }
+            return result;
+        } catch (RuntimeException exception) {
+            expiresAt.remove(key, reservedUntil);
+            throw exception;
+        } catch (Error error) {
+            expiresAt.remove(key, reservedUntil);
+            throw error;
         }
-        return result;
+    }
+
+    private void cleanupExpired(Instant now) {
+        expiresAt.entrySet().removeIf(entry -> !entry.getValue().isAfter(now));
     }
 
     private static String sourceKey(CommandSource source) {

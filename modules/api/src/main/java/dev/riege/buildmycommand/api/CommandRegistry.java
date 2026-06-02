@@ -16,6 +16,10 @@ public interface CommandRegistry {
 
     void register(CommandNode node);
 
+    default boolean unregister(String path) {
+        throw new UnsupportedOperationException("command unregister is not supported by this registry");
+    }
+
     RouteBuilder route(String pattern);
 
     interface RouteBuilder {

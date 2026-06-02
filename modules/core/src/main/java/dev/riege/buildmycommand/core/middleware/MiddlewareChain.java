@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.CommandResult;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MiddlewareChain {
     private final List<CommandMiddleware> middleware;
@@ -43,8 +44,18 @@ public final class MiddlewareChain {
             context,
             command,
             commandPath,
-            nextContext -> proceed(index + 1, nextContext, command, commandPath, terminal)
+            oneShot(nextContext -> proceed(index + 1, nextContext, command, commandPath, terminal))
         );
         return Objects.requireNonNull(result, "command result");
+    }
+
+    private static CommandMiddleware.Chain oneShot(CommandMiddleware.Chain delegate) {
+        AtomicBoolean called = new AtomicBoolean();
+        return context -> {
+            if (!called.compareAndSet(false, true)) {
+                throw new IllegalStateException("middleware next already called");
+            }
+            return delegate.proceed(context);
+        };
     }
 }

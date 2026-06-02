@@ -111,7 +111,9 @@ public final class CommandDispatcher {
                 commandPath,
                 nextContext -> match.command().executor().execute(nextContext)
             );
-        } catch (Throwable error) {
+        } catch (Error error) {
+            throw error;
+        } catch (RuntimeException error) {
             return Objects.requireNonNull(
                 errorHandler.handle(context, commandSnapshot, commandPath, error),
                 "command result"

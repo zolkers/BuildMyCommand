@@ -30,9 +30,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public final class CommandFramework {
     private final SimpleCommandRegistry registry;
@@ -49,7 +49,7 @@ public final class CommandFramework {
         List<CommandMiddleware> middleware,
         CommandErrorHandler errorHandler,
         Clock cooldownClock,
-        Map<CooldownMiddleware.Key, Instant> cooldownStore
+        ConcurrentMap<CooldownMiddleware.Key, Instant> cooldownStore
     ) {
         CommandTokenizer tokenizer = new CommandTokenizer();
         ArgumentResolver argumentResolver = new ArgumentResolver(parsers);
@@ -162,7 +162,7 @@ public final class CommandFramework {
         private final List<CommandLifecycleListener> lifecycleListeners = new ArrayList<>();
         private CommandErrorHandler errorHandler = Builder::rethrow;
         private Clock cooldownClock = Clock.systemUTC();
-        private Map<CooldownMiddleware.Key, Instant> cooldownStore = new ConcurrentHashMap<>();
+        private ConcurrentMap<CooldownMiddleware.Key, Instant> cooldownStore = new ConcurrentHashMap<>();
 
         private Builder() {
         }
@@ -207,7 +207,7 @@ public final class CommandFramework {
             return this;
         }
 
-        public Builder cooldownStore(Map<CooldownMiddleware.Key, Instant> cooldownStore) {
+        public Builder cooldownStore(ConcurrentMap<CooldownMiddleware.Key, Instant> cooldownStore) {
             this.cooldownStore = Objects.requireNonNull(cooldownStore, "cooldownStore");
             return this;
         }

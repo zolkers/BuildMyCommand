@@ -19,6 +19,7 @@ import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.core.middleware.CooldownMiddleware;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -36,6 +37,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -1824,9 +1828,173 @@ class CommandFrameworkTest {
             "rebuilt:[ping]",
             "registered:admin/reload",
             "rebuilt:[ping, admin]",
-            "updated:admin/status",
+            "registered:admin/status",
             "rebuilt:[ping, admin]"
         ), events);
+    }
+
+    @Test
+    void unregisterRemovesNestedPathAndEmitsLifecycleEvents() {
+        List<String> events = new ArrayList<>();
+        CommandFramework framework = CommandFramework.builder()
+            .lifecycleListener(new CommandLifecycleListener() {
+                @Override
+                public void commandUnregistered(List<String> path) {
+                    events.add("unregistered:" + String.join("/", path));
+                }
+
+                @Override
+                public void registryRebuilt(List<CommandNode> roots) {
+                    events.add("rebuilt:" + roots.stream().map(CommandNode::literal).toList());
+                }
+            })
+            .build();
+
+        framework.registry().route("admin reload").executes(ctx -> Results.success("reload"));
+        framework.registry().route("admin status").executes(ctx -> Results.success("status"));
+
+        boolean removed = framework.registry().unregister("admin reload");
+        CommandResult removedCommand = framework.dispatch(new CommandSource() {
+        }, "admin reload");
+        CommandResult sibling = framework.dispatch(new CommandSource() {
+        }, "admin status");
+        boolean removedAgain = framework.registry().unregister("admin reload");
+
+        assertEquals(true, removed);
+        assertEquals(CommandResult.Status.FAILURE, removedCommand.status());
+        assertEquals(CommandResult.Status.SUCCESS, sibling.status());
+        assertEquals(Optional.of("status"), sibling.reply());
+        assertEquals(false, removedAgain);
+        assertEquals(List.of(
+            "rebuilt:[admin]",
+            "rebuilt:[admin]",
+            "unregistered:admin/reload",
+            "rebuilt:[admin]"
+        ), events);
+    }
+
+    @Test
+    void unregisterRemovesRootAliasesAndRootCommand() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry()
+            .route("ping|p")
+            .executes(ctx -> Results.success("Pong"));
+
+        boolean removed = framework.registry().unregister("p");
+        CommandResult canonical = framework.dispatch(new CommandSource() {
+        }, "ping");
+        CommandResult alias = framework.dispatch(new CommandSource() {
+        }, "p");
+
+        assertEquals(true, removed);
+        assertEquals(CommandResult.Status.FAILURE, canonical.status());
+        assertEquals(CommandResult.Status.FAILURE, alias.status());
+    }
+
+    @Test
+    void errorHandlerDoesNotCatchFatalErrors() {
+        CommandFramework framework = CommandFramework.builder()
+            .errorHandler((context, command, path, error) -> Results.failure("handled"))
+            .build();
+        AssertionError fatal = new AssertionError("fatal");
+
+        framework.registry().command("boom", command -> command.executes(ctx -> {
+            throw fatal;
+        }));
+
+        AssertionError thrown = assertThrows(AssertionError.class, () -> framework.dispatch(new CommandSource() {
+        }, "boom"));
+
+        assertEquals(fatal, thrown);
+    }
+
+    @Test
+    void cooldownReservesBeforeExecutionForConcurrentDispatch() throws InterruptedException {
+        CountDownLatch enteredExecutor = new CountDownLatch(1);
+        CountDownLatch releaseExecutor = new CountDownLatch(1);
+        AtomicInteger executions = new AtomicInteger();
+        AtomicReference<CommandResult> first = new AtomicReference<>();
+        AtomicReference<CommandResult> second = new AtomicReference<>();
+        CommandFramework framework = CommandFramework.create();
+        CommandSource source = sourceWithId("ada");
+
+        framework.registry()
+            .route("slow")
+            .cooldown(Duration.ofSeconds(30))
+            .executes(ctx -> {
+                executions.incrementAndGet();
+                enteredExecutor.countDown();
+                await(releaseExecutor);
+                return Results.success("done");
+            });
+
+        Thread firstThread = new Thread(() -> first.set(framework.dispatch(source, "slow")));
+        firstThread.start();
+        await(enteredExecutor);
+
+        Thread secondThread = new Thread(() -> second.set(framework.dispatch(source, "slow")));
+        secondThread.start();
+        secondThread.join(5_000);
+        releaseExecutor.countDown();
+        firstThread.join(5_000);
+
+        assertEquals(CommandResult.Status.SUCCESS, first.get().status());
+        assertEquals(CommandResult.Status.FAILURE, second.get().status());
+        assertEquals(1, executions.get());
+    }
+
+    @Test
+    void failedCooldownExecutionRollsBackReservationAndExpiredEntriesAreCleanedUp() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-02T10:00:00Z"));
+        ConcurrentHashMap<CooldownMiddleware.Key, Instant> store = new ConcurrentHashMap<>();
+        store.put(new CooldownMiddleware.Key("stale", "stale"), clock.instant().minusSeconds(1));
+        AtomicInteger executions = new AtomicInteger();
+        CommandFramework framework = CommandFramework.builder()
+            .cooldownClock(clock)
+            .cooldownStore(store)
+            .build();
+
+        framework.registry()
+            .route("flaky")
+            .cooldown(Duration.ofSeconds(5))
+            .executes(ctx -> {
+                if (executions.incrementAndGet() == 1) {
+                    return Results.failure("nope");
+                }
+                return Results.success("ok");
+            });
+
+        CommandResult failure = framework.dispatch(sourceWithId("ada"), "flaky");
+        CommandResult retry = framework.dispatch(sourceWithId("ada"), "flaky");
+
+        assertEquals(CommandResult.Status.FAILURE, failure.status());
+        assertEquals(CommandResult.Status.SUCCESS, retry.status());
+        assertEquals(false, store.containsKey(new CooldownMiddleware.Key("stale", "stale")));
+        assertEquals(2, executions.get());
+    }
+
+    @Test
+    void middlewareNextProceedIsOneShotAndMappedByErrorHandler() {
+        AtomicInteger executions = new AtomicInteger();
+        CommandFramework framework = CommandFramework.builder()
+            .middleware((context, command, path, next) -> {
+                next.proceed(context);
+                return next.proceed(context);
+            })
+            .errorHandler((context, command, path, error) -> Results.failure(error.getMessage()))
+            .build();
+
+        framework.registry().command("ping", command -> command.executes(ctx -> {
+            executions.incrementAndGet();
+            return Results.success("Pong");
+        }));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "ping");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("middleware next already called"), result.reply());
+        assertEquals(1, executions.get());
     }
 
     @Test
@@ -1887,6 +2055,17 @@ class CommandFrameworkTest {
                 return Optional.of(id);
             }
         };
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("timed out waiting for latch");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("interrupted waiting for latch", exception);
+        }
     }
 
     private static final class MutableClock extends Clock {
