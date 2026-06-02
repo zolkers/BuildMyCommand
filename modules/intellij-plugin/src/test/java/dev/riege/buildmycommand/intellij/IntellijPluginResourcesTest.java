@@ -26,6 +26,7 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteAnnotator"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Route"));

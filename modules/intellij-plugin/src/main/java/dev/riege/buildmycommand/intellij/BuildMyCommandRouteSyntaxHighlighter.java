@@ -9,25 +9,25 @@ import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 
 final class BuildMyCommandRouteSyntaxHighlighter extends SyntaxHighlighterBase implements SyntaxHighlighter {
-    private static final TextAttributesKey LITERAL =
+    static final TextAttributesKey LITERAL =
         TextAttributesKey.createTextAttributesKey("ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.KEYWORD);
-    private static final TextAttributesKey ARGUMENT =
+    static final TextAttributesKey ARGUMENT =
         TextAttributesKey.createTextAttributesKey("VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.PARAMETER);
-    private static final TextAttributesKey TYPE =
+    static final TextAttributesKey TYPE =
         TextAttributesKey.createTextAttributesKey("STORAGE_TYPE_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.CLASS_NAME);
-    private static final TextAttributesKey OPTION_LONG =
+    static final TextAttributesKey OPTION_LONG =
         TextAttributesKey.createTextAttributesKey("ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.INSTANCE_FIELD);
-    private static final TextAttributesKey OPTION_ALIAS =
+    static final TextAttributesKey OPTION_ALIAS =
         TextAttributesKey.createTextAttributesKey("ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.INSTANCE_FIELD);
-    private static final TextAttributesKey GREEDY =
+    static final TextAttributesKey GREEDY =
         TextAttributesKey.createTextAttributesKey("KEYWORD_OPERATOR_GREEDY_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.OPERATION_SIGN);
-    private static final TextAttributesKey MARKUP =
+    static final TextAttributesKey MARKUP =
         TextAttributesKey.createTextAttributesKey("PUNCTUATION_DEFINITION_BUILDMYCOMMAND_ROUTE",
             DefaultLanguageHighlighterColors.BRACKETS);
 
