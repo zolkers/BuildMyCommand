@@ -1,0 +1,17 @@
+<component name="LanguageInjectionConfiguration">
+    <injection language="TEXT" injector-id="java">
+        <display-name>BuildMyCommand annotation command pattern</display-name>
+        <place><![CDATA[
+            psiAnnotation("dev.riege.buildmycommand.annotation.Command")
+        ]]></place>
+    </injection>
+    <injection language="TEXT" injector-id="java">
+        <display-name>BuildMyCommand route DSL</display-name>
+        <place><![CDATA[
+            psiParameter()
+                .ofMethod(0, psiMethod()
+                    .withName("route")
+                    .definedInClass("dev.riege.buildmycommand.api.CommandRegistry"))
+        ]]></place>
+    </injection>
+</component>

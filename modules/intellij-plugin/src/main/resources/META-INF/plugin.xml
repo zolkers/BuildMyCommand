@@ -1,0 +1,16 @@
+<idea-plugin>
+    <id>dev.riege.buildmycommand.intellij</id>
+    <name>BuildMyCommand DSL Support</name>
+    <vendor>Riege</vendor>
+
+    <description>
+        Adds initial IntelliJ awareness for BuildMyCommand annotation and route DSL string literals.
+    </description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.intellij.intelliLang</depends>
+
+    <extensions defaultExtensionNs="org.intellij.intelliLang">
+        <injectionConfig config="buildmycommandInjections.xml"/>
+    </extensions>
+</idea-plugin>

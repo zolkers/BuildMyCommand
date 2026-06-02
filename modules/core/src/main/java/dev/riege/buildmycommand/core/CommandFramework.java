@@ -1,5 +1,15 @@
 package dev.riege.buildmycommand.core;
 
+
+import dev.riege.buildmycommand.core.dispatch.CommandDispatcher;
+import dev.riege.buildmycommand.core.help.HelpGenerator;
+import dev.riege.buildmycommand.core.help.SchemaExporter;
+import dev.riege.buildmycommand.core.help.SuggestionEngine;
+import dev.riege.buildmycommand.core.parse.ArgumentParserRegistry;
+import dev.riege.buildmycommand.core.parse.ArgumentResolver;
+import dev.riege.buildmycommand.core.parse.CommandTokenizer;
+import dev.riege.buildmycommand.core.parse.OptionParser;
+import dev.riege.buildmycommand.core.registry.SimpleCommandRegistry;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
@@ -33,6 +43,12 @@ public final class CommandFramework {
 
     public CommandRegistry registry() {
         return registry;
+    }
+
+    public List<String> rootLiterals() {
+        return registry.roots().stream()
+            .map(command -> command.literal())
+            .toList();
     }
 
     public String help(String path) {
