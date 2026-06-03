@@ -22,9 +22,10 @@ public final class SuggestionExample {
                 ? ArgumentParseResult.failure("player is required")
                 : ArgumentParseResult.success(new OnlinePlayer(rawToken)))
             .build();
-        framework.registry()
-            .route("message <target:OnlinePlayer> <text:String...>")
-            .executes(ctx -> Results.success("DM " + ctx.arg("target", OnlinePlayer.class).name()));
+        framework.registry().command("message", message -> message
+            .argument("target", OnlinePlayer.class)
+            .greedyArgument("text", String.class)
+            .executes(ctx -> Results.success("DM " + ctx.arg("target", OnlinePlayer.class).name())));
         return framework;
     }
 

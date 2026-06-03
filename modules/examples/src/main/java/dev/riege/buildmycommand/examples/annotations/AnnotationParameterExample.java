@@ -12,6 +12,8 @@ import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
+import java.util.List;
+
 public final class AnnotationParameterExample {
     private AnnotationParameterExample() {
     }
@@ -26,11 +28,15 @@ public final class AnnotationParameterExample {
         @Command("kit")
         CommandResult kit(
             @Arg("target") String target,
-            @OptionalArg @Default("starter") @Suggest("kit-names") String kit,
+            @Arg("kit") @OptionalArg @Default("starter") @Suggest("kits") String kit,
             @Option("amount") @Default("1") Integer amount,
             @Flag("silent") boolean silent
         ) {
             return Results.success("Giving " + amount + "x " + kit + " to " + target + " silent=" + silent);
+        }
+
+        List<String> kits() {
+            return List.of("starter", "builder", "pvp");
         }
     }
 }
