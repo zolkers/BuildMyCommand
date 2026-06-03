@@ -4,9 +4,8 @@ This module is the in-repository home for IDE support around the BuildMyCommand 
 
 The current slice provides:
 
-- `@dev.riege.buildmycommand.annotation.Command`
 - `@dev.riege.buildmycommand.annotation.Route`
-- `@dev.riege.buildmycommand.annotation.Subcommand`
+- `@dev.riege.buildmycommand.annotation.SubRoute`
 - `CommandRegistry#route(String)`
 - a lightweight `BuildMyCommandRoute` language with syntax highlighting
 - a bundled TextMate grammar and light/Darcula color attributes

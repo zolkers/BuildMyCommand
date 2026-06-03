@@ -17,7 +17,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     static final String ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN =
         "Route DSL methods should read values from @RouteCtx CommandContext instead of @Arg/@Option/@Flag parameters";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
-    private static final String SUBCOMMAND = "dev.riege.buildmycommand.annotation.Subcommand";
+    private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
     private static final String ARG = "dev.riege.buildmycommand.annotation.Arg";
     private static final String OPTION = "dev.riege.buildmycommand.annotation.Option";
@@ -28,7 +28,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         return new JavaElementVisitor() {
             @Override
             public void visitMethod(@NotNull PsiMethod method) {
-                if (!hasAnnotation(method, ROUTE) && !hasAnnotation(method, SUBCOMMAND)) {
+                if (!hasAnnotation(method, ROUTE) && !hasAnnotation(method, SUB_ROUTE)) {
                     return;
                 }
 

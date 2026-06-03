@@ -6,7 +6,7 @@ import dev.riege.buildmycommand.annotation.CaseInsensitive;
 import dev.riege.buildmycommand.annotation.Command;
 import dev.riege.buildmycommand.annotation.Permission;
 import dev.riege.buildmycommand.annotation.RouteCtx;
-import dev.riege.buildmycommand.annotation.Subcommand;
+import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
@@ -31,7 +31,7 @@ public final class AnnotationRouteSubcommandExample {
     @Alias("u")
     @CaseInsensitive(literals = true, options = true)
     static final class UserCommands {
-        @Subcommand("rank set <target:String> <rank:String> [--silent|-s]")
+        @SubRoute("rank set <target:String> <rank:String> [--silent|-s]")
         @Alias("roles put")
         @Permission("user.rank.set")
         CommandResult setRank(@RouteCtx CommandContext route) {
@@ -41,7 +41,7 @@ public final class AnnotationRouteSubcommandExample {
             return Results.success("Set " + target + " to " + rank + " silent=" + silent);
         }
 
-        @Subcommand("note add <target:String> <message:String...> [--private|-p]")
+        @SubRoute("note add <target:String> <message:String...> [--private|-p]")
         @Permission("user.note.add")
         CommandResult addNote(@RouteCtx CommandContext route) {
             String visibility = route.flag("private") ? "private" : "public";
@@ -53,7 +53,7 @@ public final class AnnotationRouteSubcommandExample {
             );
         }
 
-        @Subcommand("teleport <target:String> [world:String]")
+        @SubRoute("teleport <target:String> [world:String]")
         @Alias("tp")
         @Permission("user.teleport")
         CommandResult teleport(@RouteCtx CommandContext route) {

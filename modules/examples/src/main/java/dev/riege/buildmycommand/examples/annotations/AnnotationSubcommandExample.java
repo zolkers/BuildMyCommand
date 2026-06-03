@@ -38,16 +38,11 @@ public final class AnnotationSubcommandExample {
             return Results.success("Server online");
         }
 
-        @Subcommand("maintenance enable")
+        @Subcommand("maintenance")
+        @Alias("maint")
         @Permission("server.maintenance")
-        CommandResult enableMaintenance() {
-            return Results.success("Maintenance enabled");
-        }
-
-        @Subcommand("maintenance disable")
-        @Permission("server.maintenance")
-        CommandResult disableMaintenance() {
-            return Results.success("Maintenance disabled");
+        CommandResult maintenance() {
+            return Results.success("Maintenance status");
         }
     }
 

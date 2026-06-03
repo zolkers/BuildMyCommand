@@ -33,9 +33,8 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("localInspection"));
         assertTrue(pluginXml.contains("completion.contributor"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
-        assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Command"));
         assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Route"));
-        assertTrue(injections.contains("dev.riege.buildmycommand.annotation.Subcommand"));
+        assertTrue(injections.contains("dev.riege.buildmycommand.annotation.SubRoute"));
         assertTrue(injections.contains("dev.riege.buildmycommand.api.CommandRegistry"));
         assertTrue(injections.contains("language=\"BuildMyCommandRoute\""));
         assertTrue(injections.contains("route"));

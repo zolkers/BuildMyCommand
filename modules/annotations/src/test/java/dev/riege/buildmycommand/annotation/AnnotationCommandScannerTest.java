@@ -138,7 +138,7 @@ class AnnotationCommandScannerTest {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
             () -> AnnotationCommandScanner.register(framework.registry(), new MixedRouteCommands()));
 
-        assertEquals("annotated command method cannot use both @Command and @Route: mixed", exception.getMessage());
+        assertEquals("annotated command method cannot mix command route annotations: mixed", exception.getMessage());
     }
 
     @Test
@@ -159,6 +159,18 @@ class AnnotationCommandScannerTest {
     void registersClassCommandWithMethodSubcommand() {
         CommandFramework framework = CommandFramework.create();
 
+        AnnotationCommandScanner.register(framework.registry(), new ServerCommands());
+
+        CommandResult result = framework.dispatch(source(), "server reload");
+
+        assertEquals(Optional.of("reloaded"), result.reply());
+        assertEquals("Usage: server reload", framework.help("server reload"));
+    }
+
+    @Test
+    void registersClassCommandWithMethodSubRoute() {
+        CommandFramework framework = CommandFramework.create();
+
         AnnotationCommandScanner.register(framework.registry(), new UserCommands());
 
         CommandResult result = framework.dispatch(source(), "user rank set Ada admin");
@@ -167,7 +179,7 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void registersClassCommandAndSubcommandAliases() {
+    void registersClassCommandAndSubRouteAliases() {
         CommandFramework framework = CommandFramework.create();
 
         AnnotationCommandScanner.register(framework.registry(), new AliasedUserCommands());
@@ -176,6 +188,28 @@ class AnnotationCommandScannerTest {
 
         assertEquals(Optional.of("Ada=admin"), result.reply());
         assertEquals("Usage: user rank set <target:String> <rank:String>", framework.help("u roles put"));
+    }
+
+    @Test
+    void rejectsSubcommandDslAndPointsToSubRoute() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new DslSubcommandCommands()));
+
+        assertEquals("@Subcommand only accepts one literal; use @SubRoute for route DSL: rank set <target:String>",
+            exception.getMessage());
+    }
+
+    @Test
+    void rejectsCommandDslAndPointsToRoute() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new DslCommandCommands()));
+
+        assertEquals("@Command only accepts one literal; use @Route for route DSL: ban <target:String>",
+            exception.getMessage());
     }
 
     @Test
@@ -487,9 +521,17 @@ class AnnotationCommandScannerTest {
         }
     }
 
+    @Command("server")
+    static final class ServerCommands {
+        @Subcommand("reload")
+        CommandResult reload() {
+            return Results.success("reloaded");
+        }
+    }
+
     @Command("user")
     static final class UserCommands {
-        @Subcommand("rank set <target:String> <rank:String>")
+        @SubRoute("rank set <target:String> <rank:String>")
         CommandResult setRank(@RouteCtx CommandContext route) {
             return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
         }
@@ -498,10 +540,25 @@ class AnnotationCommandScannerTest {
     @Command("user")
     @Alias("u")
     static final class AliasedUserCommands {
-        @Subcommand("rank set <target:String> <rank:String>")
+        @SubRoute("rank set <target:String> <rank:String>")
         @Alias({"roles put"})
         CommandResult setRank(@RouteCtx CommandContext route) {
             return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
+        }
+    }
+
+    @Command("user")
+    static final class DslSubcommandCommands {
+        @Subcommand("rank set <target:String>")
+        CommandResult rank() {
+            return Results.silent();
+        }
+    }
+
+    static final class DslCommandCommands {
+        @Command("ban <target:String>")
+        CommandResult ban(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
         }
     }
 

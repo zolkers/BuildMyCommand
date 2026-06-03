@@ -1,20 +1,14 @@
 <component name="LanguageInjectionConfiguration">
     <injection language="BuildMyCommandRoute" injector-id="java">
-        <display-name>BuildMyCommand annotation command pattern</display-name>
-        <place><![CDATA[
-            psiAnnotation("dev.riege.buildmycommand.annotation.Command")
-        ]]></place>
-    </injection>
-    <injection language="BuildMyCommandRoute" injector-id="java">
         <display-name>BuildMyCommand annotation route DSL</display-name>
         <place><![CDATA[
             psiAnnotation("dev.riege.buildmycommand.annotation.Route")
         ]]></place>
     </injection>
     <injection language="BuildMyCommandRoute" injector-id="java">
-        <display-name>BuildMyCommand annotation subcommand DSL</display-name>
+        <display-name>BuildMyCommand annotation subroute DSL</display-name>
         <place><![CDATA[
-            psiAnnotation("dev.riege.buildmycommand.annotation.Subcommand")
+            psiAnnotation("dev.riege.buildmycommand.annotation.SubRoute")
         ]]></place>
     </injection>
     <injection language="BuildMyCommandRoute" injector-id="java">
