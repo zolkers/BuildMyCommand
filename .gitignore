@@ -5,6 +5,14 @@ out/
 
 **/build/
 
+.env
+.env.*
+gradle.properties
+local.properties
+*.asc
+*.gpg
+*.key
+
 .idea/*
 !.idea/
 !.idea/externalDependencies.xml

@@ -99,6 +99,66 @@ Before the first release, verify the `io.github.zolkers` namespace in Sonatype C
 | `signingInMemoryKey` | ASCII-armored GPG private key used to sign publications. |
 | `signingInMemoryKeyPassword` | Password for the in-memory signing key. |
 
+## Local Credential Setup
+
+Never commit Maven Central credentials. Store them in the Gradle user home file:
+
+| OS | File |
+| --- | --- |
+| Windows | `C:\Users\<you>\.gradle\gradle.properties` |
+| macOS/Linux | `~/.gradle/gradle.properties` |
+| Custom Gradle home | `$GRADLE_USER_HOME/gradle.properties` |
+
+Use the setup scripts to write or update the safe local file.
+
+With explicit username/password on Windows:
+
+```powershell
+.\scripts\setup-maven-central-credentials.ps1 `
+  -Username "central-token-username" `
+  -Password "central-token-password"
+```
+
+With the base64 value of `username:password` on Windows:
+
+```powershell
+.\scripts\setup-maven-central-credentials.ps1 `
+  -TokenBase64 "BASE64_USERNAME_COLON_PASSWORD"
+```
+
+With explicit username/password on macOS/Linux:
+
+```bash
+./scripts/setup-maven-central-credentials.sh \
+  --username "central-token-username" \
+  --password "central-token-password"
+```
+
+With the base64 value of `username:password` on macOS/Linux:
+
+```bash
+./scripts/setup-maven-central-credentials.sh \
+  --token-base64 "BASE64_USERNAME_COLON_PASSWORD"
+```
+
+If you also want local signing credentials, pass an ASCII-armored private key file and its password:
+
+```powershell
+.\scripts\setup-maven-central-credentials.ps1 `
+  -TokenBase64 "BASE64_USERNAME_COLON_PASSWORD" `
+  -SigningInMemoryKeyFile "$HOME\private-signing-key.asc" `
+  -SigningInMemoryKeyPassword "key-password"
+```
+
+```bash
+./scripts/setup-maven-central-credentials.sh \
+  --token-base64 "BASE64_USERNAME_COLON_PASSWORD" \
+  --signing-in-memory-key-file "$HOME/private-signing-key.asc" \
+  --signing-in-memory-key-password "key-password"
+```
+
+The scripts do not print secret values. They only print the file path and property names that were updated.
+
 Recommended CI environment variables:
 
 ```text
