@@ -40,7 +40,7 @@ public record MinecraftCommandRegistrationPlan(
         Objects.requireNonNull(adapter, "adapter");
         return new MinecraftCommandRegistrationPlan(
             backend,
-            adapter.registrationLabels(),
+            adapter.rootLabels(),
             GENERATIONS.incrementAndGet(),
             backend.reloadSafe()
         );

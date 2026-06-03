@@ -72,7 +72,7 @@ class MinecraftCommandBridgeTest {
         );
 
         assertEquals(MinecraftAdapterMode.NATIVE_COMMAND, adapter.mode());
-        assertEquals(List.of("ban", "block"), adapter.registrationLabels());
+        assertEquals(List.of("ban", "block"), adapter.rootLabels());
         assertTrue(adapter.honorsCaseInsensitiveLiterals());
         assertTrue(adapter.honorsCaseInsensitiveOptions());
         assertEquals(1, result.numericResult());
@@ -194,11 +194,11 @@ class MinecraftCommandBridgeTest {
             sender -> permissionSource(sender.permissions())
         );
 
-        assertEquals(List.of("home", "h"), adapter.registrationLabels());
+        assertEquals(List.of("home", "h"), adapter.rootLabels());
         assertEquals(new AdapterRegistrationLabels(
             List.of("home"),
             List.of("home", "h")
-        ), adapter.adapterRegistrationLabels());
+        ), adapter.registrationLabels());
         assertEquals(new AdapterCapabilities(false, true, true), adapter.capabilities());
         assertEquals("minecraft-native", adapter.config().adapterId());
         assertEquals("minecraft", adapter.runtime().platform().id());

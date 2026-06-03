@@ -30,7 +30,7 @@ public final class VelocityCommandRegistration {
     }
 
     public List<String> labels() {
-        return adapter.registrationLabels();
+        return adapter.rootLabels();
     }
 
     public VelocitySimpleCommand command() {

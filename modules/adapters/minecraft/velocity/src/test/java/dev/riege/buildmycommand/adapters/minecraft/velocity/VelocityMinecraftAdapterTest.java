@@ -44,7 +44,7 @@ class VelocityMinecraftAdapterTest {
             }
         );
 
-        assertEquals(List.of("proxy", "px"), adapter.registrationLabels());
+        assertEquals(List.of("proxy", "px"), adapter.rootLabels());
     }
 
     @Test

@@ -45,7 +45,7 @@ class PaperMinecraftAdapterTest {
         );
 
         assertEquals("warp set", PaperMinecraftAdapter.commandInput("warp", new String[] {"set"}).normalizedInput());
-        assertEquals(List.of("warp", "w"), adapter.registrationLabels());
+        assertEquals(List.of("warp", "w"), adapter.rootLabels());
     }
 
     @Test

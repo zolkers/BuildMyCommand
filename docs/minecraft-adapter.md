@@ -30,6 +30,8 @@ The platform modules keep native Paper, Bukkit, BungeeCord, and Velocity jars at
 
 `BrigadierCommandAdapter<N>` projects the BuildMyCommand graph into Mojang Brigadier nodes and can register directly into any `CommandDispatcher<N>` through `adapter.registration().register(dispatcher)`. It keeps BuildMyCommand as the source of truth: Brigadier executors call back into `CommandFramework.dispatch`, and Brigadier suggestions call back into the framework suggestion engine. Minecraft mod loaders that expose a dispatcher, including Fabric, Forge, and NeoForge, should consume this adapter directly from their command registration event.
 
+This mirrors the clean part of Imperat's Brigadier integration: a dedicated Brigadier manager wraps the native source, maps framework argument metadata to Brigadier argument types, projects the internal command tree, and sends execution plus suggestions back through the framework dispatcher. BuildMyCommand keeps that model in `adapters/brigadier`, while Minecraft modules only exist when platform APIs add lifecycle, ownership, or non-Brigadier command behavior.
+
 `MinecraftBackendProfile` and `MinecraftBackendProfiles` describe capabilities and edge cases per backend. These profiles are tested so adapters do not silently forget platform-specific constraints.
 
 Spigot, Paper, BungeeCord, and Velocity expose native command adapter factories. Paper, Velocity, Fabric, Forge, NeoForge, Sponge, and Minestom can consume the shared Brigadier adapter through their native registration hooks instead of duplicating parsing, permission checks, suggestions, or dispatch behavior.

@@ -47,7 +47,7 @@ public final class MinestomMinecraftAdapter {
         MinecraftNativeCommandAdapter<Object> adapter
     ) {
         Objects.requireNonNull(adapter, "adapter");
-        List<String> labels = adapter.registrationLabels();
+        List<String> labels = adapter.rootLabels();
         if (labels.isEmpty()) {
             throw new IllegalStateException("Minestom registration requires at least one command label");
         }

@@ -64,7 +64,7 @@ public final class BungeeMinecraftAdapter {
 
     public static BungeeNativeCommand nativeCommand(MinecraftNativeCommandAdapter<CommandSender> adapter) {
         Objects.requireNonNull(adapter, "adapter");
-        List<String> labels = adapter.registrationLabels();
+        List<String> labels = adapter.rootLabels();
         if (labels.isEmpty()) {
             throw new IllegalStateException("Bungee registration requires at least one command label");
         }

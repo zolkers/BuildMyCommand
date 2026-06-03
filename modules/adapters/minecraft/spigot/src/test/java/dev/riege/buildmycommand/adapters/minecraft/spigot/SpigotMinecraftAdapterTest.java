@@ -40,7 +40,7 @@ class SpigotMinecraftAdapterTest {
             }
         );
 
-        assertEquals(List.of("home", "h"), adapter.registrationLabels());
+        assertEquals(List.of("home", "h"), adapter.rootLabels());
     }
 
     @Test

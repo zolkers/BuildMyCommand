@@ -5,9 +5,11 @@ import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,6 +61,30 @@ class CommandAdapterContractTest {
             java.util.List.of("ban"),
             java.util.List.of("ban", "block")
         ), adapter.registrationLabels());
+        assertEquals(AdapterMatchingPolicy.strict(), adapter.matchingPolicy());
+    }
+
+    @Test
+    void adapterInterfaceForcesSuggestionAndMatchingContracts() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .caseInsensitiveOptions()
+            .build();
+        framework.registry()
+            .command("ping", command -> command
+                .alias("p")
+                .executes(ctx -> Results.success("pong")));
+        IAdapter<NativeSource, NativeInput, RenderedResult> adapter = new ContractAdapter(framework);
+
+        List<Suggestion> richSuggestions = adapter.suggestRich(
+            new NativeSource("1", "Ada"),
+            new NativeInput("!P", 2),
+            2
+        );
+
+        assertEquals(List.of("ping"), adapter.suggest(new NativeSource("1", "Ada"), new NativeInput("!P", 2), 2));
+        assertEquals(List.of("ping"), richSuggestions.stream().map(Suggestion::value).toList());
+        assertEquals(new AdapterMatchingPolicy(true, true, true), adapter.matchingPolicy());
     }
 
     @Test

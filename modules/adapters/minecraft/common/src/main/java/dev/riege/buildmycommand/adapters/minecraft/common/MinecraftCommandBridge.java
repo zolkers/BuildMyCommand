@@ -86,7 +86,12 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
     public List<String> suggest(S source, MinecraftInvocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
         Objects.requireNonNull(source, "source");
-        return runtime.framework().suggestRich(input(source, invocation)).stream()
+        return suggest(source, invocation, invocation.cursor());
+    }
+
+    @Override
+    public List<String> suggest(S source, MinecraftInvocation invocation, int cursor) {
+        return suggestRich(source, invocation, cursor).stream()
             .map(dev.riege.buildmycommand.api.Suggestion::value)
             .toList();
     }

@@ -44,7 +44,7 @@ class BungeeMinecraftAdapterTest {
             }
         );
 
-        assertEquals(List.of("server", "srv"), adapter.registrationLabels());
+        assertEquals(List.of("server", "srv"), adapter.rootLabels());
     }
 
     @Test
