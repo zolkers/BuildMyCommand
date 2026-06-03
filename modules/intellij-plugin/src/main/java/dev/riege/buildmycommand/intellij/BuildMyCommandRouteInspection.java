@@ -1,15 +1,25 @@
 package dev.riege.buildmycommand.intellij;
 
 import com.intellij.codeInspection.AbstractBaseJavaLocalInspectionTool;
+import com.intellij.codeInspection.LocalQuickFix;
+import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.codeInspection.ProblemsHolder;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.JavaElementVisitor;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
+import com.intellij.psi.PsiExpression;
+import com.intellij.psi.PsiExpressionList;
 import com.intellij.psi.PsiLiteralExpression;
+import com.intellij.psi.PsiMethodCallExpression;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiNameValuePair;
 import com.intellij.psi.PsiParameter;
+import com.intellij.psi.PsiReferenceExpression;
 import org.jetbrains.annotations.NotNull;
 
 public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalInspectionTool {
@@ -29,6 +39,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "@Subcommand only accepts one literal; use @SubRoute for route DSL";
     static final String ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL =
         "@RouteCtx is only valid on @Route/@SubRoute methods";
+    static final String PERMISSION_BOOLEAN_EXPRESSION =
+        "@Permission accepts one permission node; use @Require for boolean expressions";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
@@ -37,6 +49,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     private static final String FLAG = "dev.riege.buildmycommand.annotation.Flag";
     private static final String COMMAND = "dev.riege.buildmycommand.annotation.Command";
     private static final String SUBCOMMAND = "dev.riege.buildmycommand.annotation.Subcommand";
+    private static final String PERMISSION = "dev.riege.buildmycommand.annotation.Permission";
+    private static final String REQUIRE = "dev.riege.buildmycommand.annotation.Require";
     private static final String COMMAND_CONTEXT = "dev.riege.buildmycommand.api.CommandContext";
 
     @Override
@@ -96,17 +110,46 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
 
             @Override
             public void visitLiteralExpression(@NotNull PsiLiteralExpression expression) {
-                if (!BuildMyCommandRouteLiteralMatcher.isRouteLiteral(expression)) {
+                if (BuildMyCommandRouteLiteralMatcher.isRouteLiteral(expression)) {
+                    TextRange range = BuildMyCommandRouteLiteralMatcher.contentRange(expression);
+                    String route = expression.getText().substring(range.getStartOffset(), range.getEndOffset());
+                    for (BuildMyCommandRouteDsl.Issue issue : BuildMyCommandRouteDsl.validate(route)) {
+                        holder.registerProblem(
+                            expression,
+                            TextRange.create(range.getStartOffset() + issue.start(), range.getStartOffset() + issue.end()),
+                            issue.message()
+                        );
+                    }
+                    return;
+                }
+                inspectAccessLiteral(expression, holder);
+            }
+
+            private void inspectAccessLiteral(PsiLiteralExpression expression, ProblemsHolder holder) {
+                if (!(expression.getValue() instanceof String value)) {
+                    return;
+                }
+                AccessLiteral accessLiteral = accessLiteral(expression);
+                if (accessLiteral == AccessLiteral.NONE) {
                     return;
                 }
                 TextRange range = BuildMyCommandRouteLiteralMatcher.contentRange(expression);
-                String route = expression.getText().substring(range.getStartOffset(), range.getEndOffset());
-                for (BuildMyCommandRouteDsl.Issue issue : BuildMyCommandRouteDsl.validate(route)) {
+                if (accessLiteral == AccessLiteral.PERMISSION && BuildMyCommandRequirementDsl.looksBoolean(value)) {
                     holder.registerProblem(
                         expression,
-                        TextRange.create(range.getStartOffset() + issue.start(), range.getStartOffset() + issue.end()),
-                        issue.message()
+                        range,
+                        PERMISSION_BOOLEAN_EXPRESSION,
+                        new ConvertPermissionToRequireFix()
                     );
+                }
+                if (accessLiteral == AccessLiteral.REQUIREMENT) {
+                    for (BuildMyCommandRequirementDsl.Issue issue : BuildMyCommandRequirementDsl.validate(value)) {
+                        holder.registerProblem(
+                            expression,
+                            TextRange.create(range.getStartOffset() + issue.start(), range.getStartOffset() + issue.end()),
+                            issue.message()
+                        );
+                    }
                 }
             }
         };
@@ -160,6 +203,50 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         return findAnnotation(annotations, qualifiedName) != null;
     }
 
+    private static AccessLiteral accessLiteral(PsiLiteralExpression expression) {
+        PsiElement parent = expression.getParent();
+        PsiAnnotation annotation = parentAnnotation(expression);
+        if (annotation != null) {
+            if (hasAnnotationName(annotation, PERMISSION)) {
+                return AccessLiteral.PERMISSION;
+            }
+            if (hasAnnotationName(annotation, REQUIRE)) {
+                return AccessLiteral.REQUIREMENT;
+            }
+        }
+        if (!(parent instanceof PsiExpressionList arguments) || !(arguments.getParent() instanceof PsiMethodCallExpression call)) {
+            return AccessLiteral.NONE;
+        }
+        PsiExpression[] expressions = arguments.getExpressions();
+        if (expressions.length == 0 || expressions[0] != expression) {
+            return AccessLiteral.NONE;
+        }
+        PsiReferenceExpression methodExpression = call.getMethodExpression();
+        String method = methodExpression.getReferenceName();
+        if ("permission".equals(method)) {
+            return AccessLiteral.PERMISSION;
+        }
+        if ("requirement".equals(method)) {
+            return AccessLiteral.REQUIREMENT;
+        }
+        return AccessLiteral.NONE;
+    }
+
+    private static PsiAnnotation parentAnnotation(PsiElement element) {
+        PsiElement current = element.getParent();
+        while (current != null && !(current instanceof PsiAnnotation) && !(current instanceof PsiExpressionList)) {
+            current = current.getParent();
+        }
+        return current instanceof PsiAnnotation annotation ? annotation : null;
+    }
+
+    private static boolean hasAnnotationName(PsiAnnotation annotation, String qualifiedName) {
+        String shortName = qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
+        String actual = annotation.getQualifiedName();
+        String referenceName = annotation.getNameReferenceElement().getReferenceName();
+        return qualifiedName.equals(actual) || shortName.equals(actual) || shortName.equals(referenceName);
+    }
+
     private static PsiAnnotation findAnnotation(PsiAnnotation[] annotations, String qualifiedName) {
         String shortName = qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
         for (PsiAnnotation annotation : annotations) {
@@ -189,5 +276,32 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
             || trimmed.contains("[")
             || trimmed.contains("]")
             || trimmed.contains("|");
+    }
+
+    private enum AccessLiteral {
+        NONE,
+        PERMISSION,
+        REQUIREMENT
+    }
+
+    @CoverageGenerated
+    private static final class ConvertPermissionToRequireFix implements LocalQuickFix {
+        @Override
+        public @NotNull String getFamilyName() {
+            return "Use @Require";
+        }
+
+        @Override
+        public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
+            PsiElement element = descriptor.getPsiElement();
+            PsiElement parent = element.getParent();
+            if (!(parent instanceof PsiNameValuePair pair) || !(pair.getParent() instanceof PsiAnnotation annotation)) {
+                return;
+            }
+            String replacementText = annotation.getText().replaceFirst("Permission", "Require");
+            PsiAnnotation replacement = JavaPsiFacade.getElementFactory(project)
+                .createAnnotationFromText(replacementText, annotation);
+            annotation.replace(replacement);
+        }
     }
 }

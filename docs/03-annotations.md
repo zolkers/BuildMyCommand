@@ -65,7 +65,8 @@ When using `@Route` or `@SubRoute`, prefer `@RouteCtx`. Mixing route DSL and rep
 | `@Permission` | One simple permission node. | `@Permission("admin.reload")` |
 | `@Require` | Boolean/logical requirement expression. | `@Require("staff || owner")` |
 
-Future IntelliJ inspections should warn when `@Permission` contains boolean operators and suggest `@Require`.
+The IntelliJ plugin warns when `@Permission` contains boolean operators and suggests moving complex access logic to
+`@Require`.
 
 ## Middleware Annotation
 

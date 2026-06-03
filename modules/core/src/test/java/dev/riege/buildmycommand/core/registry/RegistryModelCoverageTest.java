@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import dev.riege.buildmycommand.core.CommandFramework;
+import dev.riege.buildmycommand.core.requirement.RequirementExpression;
 import dev.riege.buildmycommand.core.route.ArgumentToken;
 import dev.riege.buildmycommand.core.route.RoutePatternParser;
 import dev.riege.buildmycommand.core.support.Validators;
@@ -464,6 +465,48 @@ class RegistryModelCoverageTest {
         RegistryCommandNode emptyRequirementTerm = new RegistryCommandNode("empty", null, null, List.of(), ctx -> Results.silent(),
             List.of(), List.of(), new CommandMetadata.Builder().requirement("a && ").build(), Map.of());
         assertEquals(Optional.of("a && "), CommandPermissions.deniedPermission(source(Set.of("a")), List.of(emptyRequirementTerm)));
+    }
+
+    @Test
+    void commandRequirementsEvaluateBooleanExpressionsWithPrecedenceNegationAndParentheses() {
+        RegistryCommandNode required = new RegistryCommandNode("secure", null, null, List.of(), ctx -> Results.silent(),
+            List.of(), List.of(), new CommandMetadata.Builder()
+                .requirement("staff && (!banned || owner)")
+                .build(), Map.of());
+        RegistryCommandNode malformed = new RegistryCommandNode("malformed", null, null, List.of(), ctx -> Results.silent(),
+            List.of(), List.of(), new CommandMetadata.Builder()
+                .requirement("staff && (owner || )")
+                .build(), Map.of());
+
+        assertEquals(Optional.empty(), CommandPermissions.deniedPermission(source(Set.of("staff")), List.of(required)));
+        assertEquals(Optional.empty(), CommandPermissions.deniedPermission(source(Set.of("staff", "banned", "owner")),
+            List.of(required)));
+        assertEquals(Optional.of("staff && (!banned || owner)"),
+            CommandPermissions.deniedPermission(source(Set.of("staff", "banned")), List.of(required)));
+        assertEquals(Optional.of("staff && (owner || )"),
+            CommandPermissions.deniedPermission(source(Set.of("staff", "owner")), List.of(malformed)));
+    }
+
+    @Test
+    void requirementExpressionCoversValidationEdgesAndNullContracts() throws Exception {
+        assertTrue(RequirementExpression.evaluate("staff", permission -> permission.equals("staff")));
+        assertTrue(RequirementExpression.evaluate(" staff && (!banned || owner) ",
+            permission -> Set.of("staff").contains(permission)));
+        assertTrue(RequirementExpression.evaluate("staff && (banned || owner)",
+            permission -> Set.of("staff", "owner").contains(permission)));
+        assertFalse(RequirementExpression.evaluate("staff && banned",
+            permission -> Set.of("staff").contains(permission)));
+        assertFalse(RequirementExpression.evaluate("staff &&", permission -> true));
+        assertFalse(RequirementExpression.evaluate("staff && (owner || )", permission -> true));
+        assertFalse(RequirementExpression.evaluate("staff owner", permission -> true));
+        assertFalse(RequirementExpression.evaluate("staff!owner", permission -> true));
+        assertFalse(RequirementExpression.evaluate(")", permission -> true));
+        assertThrows(NullPointerException.class, () -> RequirementExpression.evaluate(null, permission -> true));
+        assertThrows(NullPointerException.class, () -> RequirementExpression.evaluate("staff", null));
+
+        Constructor<RequirementExpression> constructor = RequirementExpression.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertNotNull(constructor.newInstance());
     }
 
     @Test

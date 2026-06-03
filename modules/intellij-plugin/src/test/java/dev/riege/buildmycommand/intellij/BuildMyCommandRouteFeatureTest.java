@@ -31,6 +31,7 @@ import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.testFramework.fixtures.BasePlatformTestCase;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.URL;
@@ -252,6 +253,42 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertNotNull(file);
     }
 
+    public void testInspectionReportsRequirementAndPermissionDslProblems() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @Permission("staff || owner")
+                @Require("staff && (owner || )")
+                void annotated() {
+                }
+
+                void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
+                    registry.route("admin reload")
+                        .permission(12)
+                        .permission("admin.reload && staff")
+                        .permission("admin.simple", "ignored")
+                        .requirement("staff && (!banned || owner)")
+                        .executes(ctx -> dev.riege.buildmycommand.api.Results.silent());
+                    registry.command("admin", command -> command
+                        .permission("admin.root || owner")
+                        .requirement("staff && (owner || )"));
+                }
+            }
+            """);
+
+        RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
+        JavaElementVisitor visitor = (JavaElementVisitor) new BuildMyCommandRouteInspection().buildVisitor(holder, true);
+        for (PsiMethod method : PsiTreeUtil.findChildrenOfType(file, PsiMethod.class)) {
+            visitor.visitMethod(method);
+        }
+        for (PsiLiteralExpression literal : PsiTreeUtil.findChildrenOfType(file, PsiLiteralExpression.class)) {
+            visitor.visitLiteralExpression(literal);
+        }
+
+        assertTrue(holder.messages.contains("@Permission accepts one permission node; use @Require for boolean expressions"));
+        assertTrue(holder.messages.contains("Requirement expression is missing an operand"));
+        assertFalse(holder.messages.contains("staff && (!banned || owner)"));
+    }
+
     public void testImplicitUsageProviderMarksCommandAnnotationsAsUsed() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -389,6 +426,29 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertNotNull(constructor.newInstance());
     }
 
+    public void testRequirementDslValidationCoversValidAndMalformedInputs() throws Exception {
+        assertEquals(List.of(), BuildMyCommandRequirementDsl.validate("staff && (!banned || owner)"));
+        assertTrue(BuildMyCommandRequirementDsl.looksBoolean("staff || owner"));
+        assertTrue(BuildMyCommandRequirementDsl.looksBoolean("!banned"));
+        assertTrue(BuildMyCommandRequirementDsl.looksBoolean("(staff)"));
+        assertFalse(BuildMyCommandRequirementDsl.looksBoolean("admin.reload"));
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("staff &&"), BuildMyCommandRequirementDsl.MISSING_OPERAND);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("staff owner"), BuildMyCommandRequirementDsl.MISSING_OPERATOR);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("staff && (owner || )"),
+            BuildMyCommandRequirementDsl.MISSING_OPERAND);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("staff!owner"),
+            BuildMyCommandRequirementDsl.MISSING_OPERATOR);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("!"), BuildMyCommandRequirementDsl.MISSING_OPERAND);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("(staff"), BuildMyCommandRequirementDsl.UNCLOSED_GROUP);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("staff)"), BuildMyCommandRequirementDsl.UNEXPECTED_GROUP_END);
+        assertRequirementIssue(BuildMyCommandRequirementDsl.validate("&& staff"), BuildMyCommandRequirementDsl.MISSING_OPERAND);
+
+        Constructor<BuildMyCommandRequirementDsl> constructor =
+            BuildMyCommandRequirementDsl.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertNotNull(constructor.newInstance());
+    }
+
     public void testAnnotatorPrivateTokenMappingCoversGreedyAndFallback() throws Exception {
         Method keyForToken = BuildMyCommandRouteAnnotator.class.getDeclaredMethod("keyForToken", Object.class);
         keyForToken.setAccessible(true);
@@ -517,6 +577,10 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
     }
 
     private static void assertIssue(List<BuildMyCommandRouteDsl.Issue> issues, String message) {
+        assertTrue(message, issues.stream().anyMatch(issue -> message.equals(issue.message())));
+    }
+
+    private static void assertRequirementIssue(List<BuildMyCommandRequirementDsl.Issue> issues, String message) {
         assertTrue(message, issues.stream().anyMatch(issue -> message.equals(issue.message())));
     }
 

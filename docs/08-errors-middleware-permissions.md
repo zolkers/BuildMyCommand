@@ -44,6 +44,18 @@ It maps to `CommandSource.hasPermission("admin.reload")`.
 
 Use it when access logic is more expressive than one permission node.
 
+Requirement expressions are evaluated by the runtime before parsing command arguments.
+
+| Syntax | Meaning |
+| --- | --- |
+| `staff` | Source must have `staff`. |
+| `staff && mod.punish` | Source must have both permissions. |
+| `staff || owner` | Source needs either permission. |
+| `!banned` | Source must not have `banned`. |
+| `staff && (!banned || owner)` | Parentheses control grouping. |
+
+Malformed requirement expressions fail closed: the command is treated as denied rather than allowed.
+
 | Use | Annotation |
 | --- | --- |
 | One permission | `@Permission("mod.punish")` |

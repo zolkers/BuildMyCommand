@@ -12,6 +12,10 @@ Adapters connect BuildMyCommand to a host platform. They translate native users/
 | `adapters-brigadier` | Register a BuildMyCommand graph into Brigadier. |
 | `adapters-minecraft-common` | Shared Minecraft adapter contracts and profiles. |
 
+Platform-specific Minecraft modules are thin factories/registration helpers over the common adapter contract. Paper,
+Spigot, Bungee, Velocity, Minestom, and Sponge integrations should still enter the framework through `IAdapter` or
+`CommandAdapter` so dispatch, suggestions, permissions, and case policy stay consistent.
+
 ## Core Contracts
 
 | Type | Responsibility |
@@ -24,6 +28,17 @@ Adapters connect BuildMyCommand to a host platform. They translate native users/
 | `AdapterRenderer` | `CommandResult` -> native reply/result. |
 | `AdapterConfig` | Adapter behavior settings. |
 | `AdapterCapabilities` | What the host supports: permissions, rich suggestions, native registration, etc. |
+
+Every production adapter should expose the same contract surface:
+
+| Contract method | Required behavior |
+| --- | --- |
+| `mapSource(...)` | Map identity, locale, permissions, reply behavior, and native unwrap data. |
+| `mapInput(...)` | Preserve raw input, normalized command text, cursor, prefix, and platform metadata. |
+| `dispatch(...)` | Call the framework with mapped input. |
+| `suggestRich(...)` / `suggest(...)` | Delegate to the framework suggestion engine with the correct cursor. |
+| `render(...)` | Convert success, failure, and silent results without changing status semantics. |
+| `execute(...)` | Dispatch then render. |
 
 ## Adapter Flow
 

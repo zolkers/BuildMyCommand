@@ -1,9 +1,7 @@
 package dev.riege.buildmycommand.core.registry;
 
-
-import dev.riege.buildmycommand.core.route.*;
-import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.core.requirement.RequirementExpression;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,21 +82,6 @@ public final class CommandPermissions {
     }
 
     private static boolean matchesRequirement(CommandSource source, String expression) {
-        String[] orParts = expression.split("\\|\\|");
-        for (String orPart : orParts) {
-            boolean andResult = true;
-            String[] andParts = orPart.split("&&");
-            for (String permission : andParts) {
-                String trimmed = permission.trim();
-                if (trimmed.isEmpty() || !source.hasPermission(trimmed)) {
-                    andResult = false;
-                    break;
-                }
-            }
-            if (andResult) {
-                return true;
-            }
-        }
-        return false;
+        return RequirementExpression.evaluate(expression, source::hasPermission);
     }
 }

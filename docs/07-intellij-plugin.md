@@ -13,7 +13,7 @@ The IntelliJ plugin exists to make route DSL strings feel like real code instead
 | Route inspections | Supported |
 | Required plugin declaration | Supported through setup task/script |
 | Implicit usage for command annotations | Supported |
-| Requirement/permission DSL highlighting | Planned/recommended next step |
+| Requirement/permission DSL validation | Supported |
 
 ## Install Locally
 
@@ -46,6 +46,7 @@ Shell alternatives:
 | `modules/intellij-plugin/src/main/resources/textmate/...` | TextMate grammar for route DSL. |
 | `modules/intellij-plugin/src/main/resources/colorSchemes/...` | Light/Darcula route color schemes. |
 | `BuildMyCommandRouteDsl` | Parser/validator model used by inspections/tests. |
+| `BuildMyCommandRequirementDsl` | Validator for `@Require` and builder `.requirement(...)` expressions. |
 | `BuildMyCommandRouteInspection` | Reports route DSL issues. |
 | `BuildMyCommandRouteAnnotator` | Adds editor annotations/highlighting. |
 | `BuildMyCommandImplicitUsageProvider` | Prevents annotated command classes/methods from being marked unused. |
@@ -72,14 +73,12 @@ Shell alternatives:
 | `cmd [--silent|-]` | Invalid short flag alias. |
 | `cmd <>` | Invalid argument declaration. |
 
-## Recommended Next Plugin Rule
-
-`@Require("staff || owner")` and `@Permission("admin.reload")` should get dedicated support.
+## Requirement And Permission Rules
 
 | Annotation | Plugin behavior |
 | --- | --- |
-| `@Require` | Inject boolean requirement DSL: identifiers, `&&`, `||`, `!`, parentheses. |
-| `@Permission` | Treat as one permission node. Warn on boolean operators. |
+| `@Require` | Validates boolean requirement DSL: identifiers, `&&`, `||`, `!`, parentheses. |
+| `@Permission` | Treats the value as one permission node. Warns on boolean operators and offers `@Require`. |
 | Builder `.requirement(...)` | Same as `@Require`. |
 | Builder `.permission(...)` | Same as `@Permission`. |
 
