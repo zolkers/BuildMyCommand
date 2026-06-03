@@ -8,6 +8,7 @@ import dev.riege.buildmycommand.annotation.CommandGroup;
 import dev.riege.buildmycommand.annotation.Description;
 import dev.riege.buildmycommand.annotation.Example;
 import dev.riege.buildmycommand.annotation.Hidden;
+import dev.riege.buildmycommand.annotation.Middleware;
 import dev.riege.buildmycommand.annotation.Permission;
 import dev.riege.buildmycommand.annotation.Require;
 import dev.riege.buildmycommand.annotation.Route;
@@ -263,7 +264,8 @@ public final class AnnotationCommandCompiler {
             Optional.empty(),
             List.of(),
             Optional.empty(),
-            Optional.empty()
+            Optional.empty(),
+            List.of()
         );
     }
 
@@ -298,6 +300,7 @@ public final class AnnotationCommandCompiler {
             || owner.isAnnotationPresent(Example.class)
             || owner.isAnnotationPresent(Cooldown.class)
             || owner.isAnnotationPresent(Require.class)
+            || owner.isAnnotationPresent(Middleware.class)
             || owner.isAnnotationPresent(CommandGroup.class);
     }
 
@@ -327,7 +330,8 @@ public final class AnnotationCommandCompiler {
             usage == null ? Optional.empty() : Optional.of(validateMetadata(usage.value(), "usage")),
             examples,
             cooldownDuration,
-            requirement == null ? Optional.empty() : Optional.of(validateMetadata(requirement.value(), "requirement"))
+            requirement == null ? Optional.empty() : Optional.of(validateMetadata(requirement.value(), "requirement")),
+            MethodCommandBinder.annotatedMiddlewares(owner)
         );
     }
 
@@ -501,6 +505,7 @@ public final class AnnotationCommandCompiler {
                 metadata.examples().forEach(builder::example);
                 metadata.cooldown().ifPresent(builder::cooldown);
                 metadata.requirement().ifPresent(builder::requirement);
+                metadata.middlewares().forEach(builder::middleware);
                 group.ifPresent(builder::group);
             });
         }
@@ -610,6 +615,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
         }
 
@@ -622,6 +628,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
         }
     }
@@ -679,6 +686,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            metadata.middlewares().forEach(builder::middleware);
         }
     }
 

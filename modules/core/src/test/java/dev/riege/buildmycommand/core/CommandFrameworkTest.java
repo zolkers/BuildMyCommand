@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandMessage;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.MessageLevel;
 import dev.riege.buildmycommand.api.Suggestion;
@@ -14,6 +15,7 @@ import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.api.Arguments;
 import dev.riege.buildmycommand.api.CommandErrorHandler;
 import dev.riege.buildmycommand.api.Commands;
+import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandLifecycleListener;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
@@ -21,6 +23,7 @@ import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.middleware.CooldownMiddleware;
+import dev.riege.buildmycommand.core.middleware.MiddlewareChain;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -442,6 +445,22 @@ class CommandFrameworkTest {
 
         assertEquals(CommandResult.Status.FAILURE, result.status());
         assertEquals(Optional.of("Missing required argument: message"), result.reply());
+    }
+
+    @Test
+    void failsWhenArgumentPrefixCannotBeParsedBeforeSubcommands() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("rank", command -> command
+            .argument("level", Integer.class)
+            .subcommand("set", set -> set.executes(ctx -> Results.success("set")))
+            .executes(ctx -> Results.success(String.valueOf(ctx.arg("level", Integer.class)))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "rank nope");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Invalid integer for argument level: nope"), result.reply());
     }
 
     @Test
@@ -1802,6 +1821,137 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void commandMetadataMiddlewareWrapsMatchedPathAfterGlobalMiddleware() {
+        List<String> events = new ArrayList<>();
+        CommandMiddleware global = (context, command, path, next) -> {
+            events.add("global:" + String.join("/", path));
+            CommandResult result = next.proceed(context);
+            events.add("global-after");
+            return result;
+        };
+        CommandMiddleware root = (context, command, path, next) -> {
+            events.add("root:" + command.literal());
+            CommandResult result = next.proceed(context);
+            events.add("root-after");
+            return result;
+        };
+        CommandMiddleware leaf = (context, command, path, next) -> {
+            events.add("leaf:" + context.arg("target", String.class));
+            CommandResult result = next.proceed(context);
+            events.add("leaf-after");
+            return result;
+        };
+        CommandFramework framework = CommandFramework.builder()
+            .middleware(global)
+            .build();
+
+        framework.registry().command("admin", command -> command
+            .middleware(root)
+            .subcommand("ban", ban -> ban
+                .middleware(leaf)
+                .argument("target", String.class)
+                .executes(ctx -> {
+                    events.add("executor");
+                    return Results.success("ok");
+                }))
+            .subcommand("status", status -> status.executes(ctx -> Results.success("status"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "admin ban Ada");
+        CommandResult sibling = framework.dispatch(new CommandSource() {
+        }, "admin status");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(CommandResult.Status.SUCCESS, sibling.status());
+        assertEquals(List.of(
+            "global:admin/ban",
+            "root:ban",
+            "leaf:Ada",
+            "executor",
+            "leaf-after",
+            "root-after",
+            "global-after",
+            "global:admin/status",
+            "root:status",
+            "root-after",
+            "global-after"
+        ), events);
+    }
+
+    @Test
+    void routeBuilderMiddlewareAppliesOnlyToExecutableRoute() {
+        List<String> events = new ArrayList<>();
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("admin reload")
+            .middleware((context, command, path, next) -> {
+                events.add("reload:" + String.join("/", path));
+                return next.proceed(context);
+            })
+            .executes(ctx -> Results.success("reload"));
+        framework.registry()
+            .route("admin status")
+            .executes(ctx -> Results.success("status"));
+
+        assertEquals(Optional.of("reload"), framework.dispatch(new CommandSource() {
+        }, "admin reload").reply());
+        assertEquals(Optional.of("status"), framework.dispatch(new CommandSource() {
+        }, "admin status").reply());
+        assertEquals(List.of("reload:admin/reload"), events);
+    }
+
+    @Test
+    void middlewareChainLegacyExecuteUsesGlobalMiddlewareOnly() {
+        List<String> events = new ArrayList<>();
+        CommandMiddleware global = (context, command, path, next) -> {
+            events.add("global:" + String.join("/", path));
+            CommandResult result = next.proceed(context);
+            events.add("global-after");
+            return result;
+        };
+        MiddlewareChain chain = new MiddlewareChain(List.of(global));
+        CommandContext context = new CommandContext(new CommandSource() {
+        }, CommandInput.raw(new CommandSource() {
+        }, "ping"), Map.of());
+        CommandNode command = Commands.literal("ping")
+            .handler(ctx -> Results.success("unreachable"))
+            .build();
+
+        CommandResult result = chain.execute(context, command, List.of("ping"), nextContext -> {
+            events.add("terminal");
+            return Results.success("ok");
+        });
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("ok"), result.reply());
+        assertEquals(List.of("global:ping", "terminal", "global-after"), events);
+    }
+
+    @Test
+    void manualCommandNodeMetadataMiddlewareIsPreservedThroughRegistryImport() {
+        List<String> events = new ArrayList<>();
+        CommandMiddleware middleware = (context, command, path, next) -> {
+            events.add("manual:" + String.join("/", path));
+            return next.proceed(context);
+        };
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().register(Commands.literal("manual")
+            .metadata(new CommandMetadata.Builder().middleware(middleware).build())
+            .handler(ctx -> Results.success("ok"))
+            .build());
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "manual");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("ok"), result.reply());
+        assertEquals(List.of("manual:manual"), events);
+        assertEquals(1, framework.graph().roots().get(0).metadata().middlewares().size());
+    }
+
+    @Test
     void cooldownDenyRepeatedCommandForSameSourceAndCommandPath() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-02T10:00:00Z"));
         AtomicInteger executions = new AtomicInteger();
@@ -1861,6 +2011,19 @@ class CommandFrameworkTest {
         assertEquals(Optional.of("boom: executor exploded"), executorResult.reply());
         assertEquals(CommandResult.Status.FAILURE, middlewareResult.status());
         assertEquals(Optional.of("boom: middleware exploded"), middlewareResult.reply());
+    }
+
+    @Test
+    void customErrorHandlerFallsBackToDefaultDispatchFailures() {
+        CommandFramework framework = CommandFramework.builder()
+            .errorHandler((context, command, path, error) -> Results.failure("handled"))
+            .build();
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "missing");
+
+        assertEquals(CommandResult.Status.FAILURE, result.status());
+        assertEquals(Optional.of("Unknown command: missing"), result.reply());
     }
 
     @Test

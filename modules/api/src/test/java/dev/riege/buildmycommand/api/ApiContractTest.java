@@ -267,6 +267,9 @@ class ApiContractTest {
     @Test
     void commandMetadataBuilderValidatesAndSnapshotsValues() {
         List<String> examples = new ArrayList<>(List.of("one", "two"));
+        List<CommandMiddleware> middlewares = new ArrayList<>();
+        CommandMiddleware middleware = (context, command, path, next) -> next.proceed(context);
+        middlewares.add(middleware);
         CommandMetadata metadata = new CommandMetadata.Builder()
             .hidden()
             .usage("/ban <target>")
@@ -275,8 +278,10 @@ class ApiContractTest {
             .cooldown(Duration.ofSeconds(5))
             .requirement("staff")
             .group("moderation")
+            .middlewares(middlewares)
             .build();
         examples.add("mutated");
+        middlewares.clear();
 
         assertTrue(metadata.hidden());
         assertEquals(Optional.of("/ban <target>"), metadata.usage());
@@ -284,6 +289,7 @@ class ApiContractTest {
         assertEquals(Optional.of(Duration.ofSeconds(5)), metadata.cooldown());
         assertEquals(Optional.of("staff"), metadata.requirement());
         assertEquals(Optional.of("moderation"), metadata.group());
+        assertEquals(List.of(middleware), metadata.middlewares());
         assertEquals(CommandMetadata.empty(), new CommandMetadata.Builder().build());
 
         assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().usage(null));
@@ -291,12 +297,16 @@ class ApiContractTest {
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().example(""));
         assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().examples(null));
         assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().cooldown(null));
+        assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().middleware(null));
+        assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().middlewares(null));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().cooldown(Duration.ZERO));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().cooldown(Duration.ofSeconds(-1)));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().requirement(" "));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().group(" "));
         assertThrows(NullPointerException.class, () -> new CommandMetadata(false, null, List.of(), Optional.empty(),
-            Optional.empty(), Optional.empty()));
+            Optional.empty(), Optional.empty(), List.of()));
+        assertThrows(NullPointerException.class, () -> new CommandMetadata(false, Optional.empty(), List.of(),
+            Optional.empty(), Optional.empty(), Optional.empty(), null));
     }
 
     @Test
@@ -435,6 +445,8 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").cooldown(Duration.ofSeconds(1)));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").requirement("r"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").group("g"));
+        assertThrows(UnsupportedOperationException.class, () -> registry.route("x").middleware((context, command,
+            path, next) -> next.proceed(context)));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").argumentSuggestions("a", ctx ->
             List.of()));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").optionSuggestions("o", ctx ->
@@ -448,6 +460,8 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, () -> builder.cooldown(Duration.ofSeconds(1)));
         assertThrows(UnsupportedOperationException.class, () -> builder.requirement("r"));
         assertThrows(UnsupportedOperationException.class, () -> builder.group("g"));
+        assertThrows(UnsupportedOperationException.class, () -> builder.middleware((context, command, path, next) ->
+            next.proceed(context)));
         assertThrows(UnsupportedOperationException.class, () -> builder.argumentSuggestions("a", ctx -> List.of()));
         assertThrows(UnsupportedOperationException.class, () -> builder.optionSuggestions("o", ctx -> List.of()));
         assertSame(delegatingBuilder, delegatingBuilder.argumentSuggestions("a", "named", ctx -> List.of()));

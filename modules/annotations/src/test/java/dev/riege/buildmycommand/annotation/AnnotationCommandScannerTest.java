@@ -3,6 +3,7 @@ package dev.riege.buildmycommand.annotation;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
@@ -338,6 +339,7 @@ class AnnotationCommandScannerTest {
         assertTargets(Cooldown.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Hidden.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Require.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Middleware.class, ElementType.METHOD, ElementType.TYPE);
     }
 
     @Test
@@ -370,6 +372,67 @@ class AnnotationCommandScannerTest {
               description Reload leaf
               permission admin.reload
               require admin.root""", framework.schema());
+    }
+
+    @Test
+    void annotationMiddlewareAppliesToClassAndMethodCommandsInPathOrder() {
+        MIDDLEWARE_EVENTS.clear();
+        CommandFramework framework = CommandFramework.builder()
+            .middleware((context, command, path, next) -> {
+                MIDDLEWARE_EVENTS.add("global:" + String.join("/", path));
+                return next.proceed(context);
+            })
+            .build();
+
+        AnnotationCommandScanner.register(framework.registry(), new MiddlewareAnnotatedCommands());
+
+        CommandResult ban = framework.dispatch(source(), "secure ban Ada");
+        CommandResult status = framework.dispatch(source(), "secure status");
+
+        assertEquals(Optional.of("banned Ada"), ban.reply());
+        assertEquals(Optional.of("ok"), status.reply());
+        assertEquals(List.of(
+            "global:secure/ban",
+            "class:secure/ban",
+            "method:secure/ban",
+            "executor:ban",
+            "method-after",
+            "class-after",
+            "global:secure/status",
+            "class:secure/status",
+            "executor:status",
+            "class-after"
+        ), MIDDLEWARE_EVENTS);
+    }
+
+    @Test
+    void annotationMiddlewareAppliesToContainerRouteClasses() {
+        MIDDLEWARE_EVENTS.clear();
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new RouteMiddlewareCommands());
+
+        CommandResult result = framework.dispatch(source(), "audit Ada");
+
+        assertEquals(Optional.of("audit Ada"), result.reply());
+        assertEquals(List.of("class:audit", "executor:route", "class-after"), MIDDLEWARE_EVENTS);
+    }
+
+    @Test
+    void rejectsAnnotationMiddlewareWithoutNoArgConstructor() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BrokenMiddlewareCommands()));
+
+        assertEquals(true, exception.getMessage().startsWith("command middleware must declare a no-arg constructor: "));
+    }
+
+    @Test
+    void rejectsAnnotationMiddlewareThatFailsConstruction() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(),
+                new ThrowingMiddlewareCommands()));
+
+        assertEquals(true, exception.getMessage().startsWith("cannot instantiate command middleware: "));
     }
 
     @Test
@@ -499,6 +562,8 @@ class AnnotationCommandScannerTest {
         assertNotNull(target, annotation.getName());
         assertEquals(Set.of(expectedTargets), Set.of(target.value()));
     }
+
+    private static final List<String> MIDDLEWARE_EVENTS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     static final class ModerationCommands {
         @Command("ban")
@@ -769,6 +834,89 @@ class AnnotationCommandScannerTest {
         @Permission("admin.reload")
         CommandResult reload() {
             return Results.success("reloaded");
+        }
+    }
+
+    @Command("secure")
+    @Middleware(ClassLevelMiddleware.class)
+    static final class MiddlewareAnnotatedCommands {
+        @Subcommand("ban")
+        @Middleware(MethodLevelMiddleware.class)
+        CommandResult ban(@Arg("target") String target) {
+            MIDDLEWARE_EVENTS.add("executor:ban");
+            return Results.success("banned " + target);
+        }
+
+        @Subcommand("status")
+        CommandResult status() {
+            MIDDLEWARE_EVENTS.add("executor:status");
+            return Results.success("ok");
+        }
+    }
+
+    @Middleware(ClassLevelMiddleware.class)
+    static final class RouteMiddlewareCommands {
+        @Route("audit <target:String>")
+        CommandResult audit(@RouteCtx CommandContext route) {
+            MIDDLEWARE_EVENTS.add("executor:route");
+            return Results.success("audit " + route.arg("target", String.class));
+        }
+    }
+
+    static final class BrokenMiddlewareCommands {
+        @Command("bad")
+        @Middleware(BrokenConstructorMiddleware.class)
+        CommandResult bad() {
+            return Results.silent();
+        }
+    }
+
+    static final class ThrowingMiddlewareCommands {
+        @Command("bad")
+        @Middleware(ThrowingConstructorMiddleware.class)
+        CommandResult bad() {
+            return Results.silent();
+        }
+    }
+
+    static final class ClassLevelMiddleware implements CommandMiddleware {
+        @Override
+        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
+            MIDDLEWARE_EVENTS.add("class:" + String.join("/", commandPath));
+            CommandResult result = next.proceed(context);
+            MIDDLEWARE_EVENTS.add("class-after");
+            return result;
+        }
+    }
+
+    static final class MethodLevelMiddleware implements CommandMiddleware {
+        @Override
+        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
+            MIDDLEWARE_EVENTS.add("method:" + String.join("/", commandPath));
+            CommandResult result = next.proceed(context);
+            MIDDLEWARE_EVENTS.add("method-after");
+            return result;
+        }
+    }
+
+    static final class BrokenConstructorMiddleware implements CommandMiddleware {
+        BrokenConstructorMiddleware(String ignored) {
+        }
+
+        @Override
+        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
+            return next.proceed(context);
+        }
+    }
+
+    static final class ThrowingConstructorMiddleware implements CommandMiddleware {
+        ThrowingConstructorMiddleware() {
+            throw new IllegalStateException("boom");
+        }
+
+        @Override
+        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
+            return next.proceed(context);
         }
     }
 

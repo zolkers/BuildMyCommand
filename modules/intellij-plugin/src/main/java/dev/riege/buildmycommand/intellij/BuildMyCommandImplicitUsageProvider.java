@@ -38,6 +38,7 @@ public final class BuildMyCommandImplicitUsageProvider implements ImplicitUsageP
         "dev.riege.buildmycommand.annotation.Example",
         "dev.riege.buildmycommand.annotation.Cooldown",
         "dev.riege.buildmycommand.annotation.Require",
+        "dev.riege.buildmycommand.annotation.Middleware",
         "dev.riege.buildmycommand.annotation.Hidden",
         "dev.riege.buildmycommand.annotation.Suggest",
         "dev.riege.buildmycommand.annotation.Default",

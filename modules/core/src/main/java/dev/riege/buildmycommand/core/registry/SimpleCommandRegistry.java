@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandLifecycleListener;
 import dev.riege.buildmycommand.api.CommandMetadata;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.Results;
@@ -316,6 +317,12 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         @Override
+        public RouteBuilder middleware(CommandMiddleware middleware) {
+            metadata.middleware(middleware);
+            return this;
+        }
+
+        @Override
         public RouteBuilder argumentSuggestions(String name, SuggestionProvider provider) {
             return argumentSuggestions(name, null, provider);
         }
@@ -409,6 +416,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             builtMetadata.cooldown().ifPresent(builder::cooldown);
             builtMetadata.requirement().ifPresent(builder::requirement);
             builtMetadata.group().ifPresent(builder::group);
+            builtMetadata.middlewares().forEach(builder::middleware);
             argumentSuggestions.forEach((name, provider) ->
                 builder.argumentSuggestions(name, providerName(provider), provider));
             optionSuggestions.forEach((name, provider) ->

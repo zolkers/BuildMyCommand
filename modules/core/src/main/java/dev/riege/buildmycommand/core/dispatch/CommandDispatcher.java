@@ -10,6 +10,7 @@ import dev.riege.buildmycommand.api.CommandException;
 import dev.riege.buildmycommand.api.CommandExceptionContext;
 import dev.riege.buildmycommand.api.CommandExceptionHandler;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
@@ -110,11 +111,15 @@ public final class CommandDispatcher {
         List<String> commandPath = match.matchedNodes().stream()
             .map(RegistryCommandNode::literal)
             .toList();
+        List<CommandMiddleware> commandMiddleware = match.matchedNodes().stream()
+            .flatMap(node -> node.metadata().middlewares().stream())
+            .toList();
         try {
             return middlewareChain.execute(
                 context,
                 commandSnapshot,
                 commandPath,
+                commandMiddleware,
                 nextContext -> match.command().executor().execute(nextContext)
             );
         } catch (Error error) {

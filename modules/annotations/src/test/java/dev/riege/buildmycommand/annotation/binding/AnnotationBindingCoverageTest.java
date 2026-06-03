@@ -12,6 +12,7 @@ import dev.riege.buildmycommand.annotation.Example;
 import dev.riege.buildmycommand.annotation.Flag;
 import dev.riege.buildmycommand.annotation.Greedy;
 import dev.riege.buildmycommand.annotation.Hidden;
+import dev.riege.buildmycommand.annotation.Middleware;
 import dev.riege.buildmycommand.annotation.Option;
 import dev.riege.buildmycommand.annotation.OptionalArg;
 import dev.riege.buildmycommand.annotation.Permission;
@@ -25,6 +26,7 @@ import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
@@ -325,7 +327,7 @@ class AnnotationBindingCoverageTest {
         Method privateMethod = InvocationCommands.class.getDeclaredMethod("privateCommand");
         MethodCommandBinder.BoundMethod inaccessible = new MethodCommandBinder.BoundMethod(target, privateMethod,
             List.of(), new MethodCommandBinder.CommandMetadata(false, Optional.empty(), List.of(), Optional.empty(),
-            Optional.empty()));
+            Optional.empty(), List.of()));
         IllegalStateException illegalAccess = assertThrows(IllegalStateException.class,
             () -> inaccessible.invoke(context(Map.of())));
         assertEquals("cannot invoke annotated command method: privateCommand", illegalAccess.getMessage());
@@ -422,6 +424,7 @@ class AnnotationBindingCoverageTest {
         assertRootCommand(new RootCooldownCommands());
         assertRootCommand(new RootRequireCommands());
         assertRootCommand(new RootGroupOnlyCommands());
+        assertRootCommand(new RootMiddlewareCommands());
         assertFalse(AnnotationCommandCompiler.compile(new RootWithoutMetadataCommands()).rootCommand().isPresent());
     }
 
@@ -495,7 +498,8 @@ class AnnotationBindingCoverageTest {
                 Optional.of("root node"),
                 List.of("root node"),
                 Optional.of(Duration.ofSeconds(1)),
-                Optional.of("node.use")
+                Optional.of("node.use"),
+                List.of()
             )
         );
 
@@ -1193,7 +1197,19 @@ class AnnotationBindingCoverageTest {
     }
 
     @Command("root")
+    @Middleware(TestMiddleware.class)
+    static final class RootMiddlewareCommands {
+    }
+
+    @Command("root")
     static final class RootWithoutMetadataCommands {
+    }
+
+    static final class TestMiddleware implements CommandMiddleware {
+        @Override
+        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
+            return next.proceed(context);
+        }
     }
 
     private static final class RecordingRegistry implements CommandRegistry {
@@ -1285,6 +1301,12 @@ class AnnotationBindingCoverageTest {
         }
 
         @Override
+        public CommandRegistry.RouteBuilder middleware(CommandMiddleware middleware) {
+            events.add("middleware:" + middleware.getClass().getSimpleName());
+            return this;
+        }
+
+        @Override
         public CommandRegistry.RouteBuilder argumentSuggestions(
             String name,
             String providerName,
@@ -1367,6 +1389,12 @@ class AnnotationBindingCoverageTest {
         @Override
         public CommandRegistry.CommandBuilder group(String group) {
             events.add("group:" + group);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder middleware(CommandMiddleware middleware) {
+            events.add("middleware:" + middleware.getClass().getSimpleName());
             return this;
         }
 

@@ -12,7 +12,8 @@ public record CommandMetadata(
     List<String> examples,
     Optional<Duration> cooldown,
     Optional<String> requirement,
-    Optional<String> group
+    Optional<String> group,
+    List<CommandMiddleware> middlewares
 ) {
     public CommandMetadata {
         usage = Objects.requireNonNull(usage, "usage");
@@ -20,11 +21,12 @@ public record CommandMetadata(
         cooldown = Objects.requireNonNull(cooldown, "cooldown");
         requirement = Objects.requireNonNull(requirement, "requirement");
         group = Objects.requireNonNull(group, "group");
+        middlewares = List.copyOf(Objects.requireNonNull(middlewares, "middlewares"));
     }
 
     public static CommandMetadata empty() {
         return new CommandMetadata(false, Optional.empty(), List.of(), Optional.empty(), Optional.empty(),
-            Optional.empty());
+            Optional.empty(), List.of());
     }
 
     public static final class Builder {
@@ -34,6 +36,7 @@ public record CommandMetadata(
         private Duration cooldown;
         private String requirement;
         private String group;
+        private final List<CommandMiddleware> middlewares = new ArrayList<>();
 
         public Builder hidden() {
             hidden = true;
@@ -75,6 +78,17 @@ public record CommandMetadata(
             return this;
         }
 
+        public Builder middleware(CommandMiddleware middleware) {
+            middlewares.add(Objects.requireNonNull(middleware, "middleware"));
+            return this;
+        }
+
+        public Builder middlewares(List<CommandMiddleware> middlewares) {
+            Objects.requireNonNull(middlewares, "middlewares");
+            middlewares.forEach(this::middleware);
+            return this;
+        }
+
         public CommandMetadata build() {
             return new CommandMetadata(
                 hidden,
@@ -82,7 +96,8 @@ public record CommandMetadata(
                 examples,
                 Optional.ofNullable(cooldown),
                 Optional.ofNullable(requirement),
-                Optional.ofNullable(group)
+                Optional.ofNullable(group),
+                middlewares
             );
         }
 

@@ -22,11 +22,24 @@ public final class MiddlewareChain {
         List<String> commandPath,
         CommandMiddleware.Chain terminal
     ) {
+        return execute(context, command, commandPath, List.of(), terminal);
+    }
+
+    public CommandResult execute(
+        CommandContext context,
+        CommandNode command,
+        List<String> commandPath,
+        List<CommandMiddleware> commandMiddleware,
+        CommandMiddleware.Chain terminal
+    ) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(command, "command");
         Objects.requireNonNull(commandPath, "commandPath");
+        Objects.requireNonNull(commandMiddleware, "commandMiddleware");
         Objects.requireNonNull(terminal, "terminal");
-        return proceed(0, context, command, List.copyOf(commandPath), terminal);
+        List<CommandMiddleware> executionMiddleware = new java.util.ArrayList<>(middleware);
+        executionMiddleware.addAll(commandMiddleware);
+        return proceed(0, context, command, List.copyOf(commandPath), List.copyOf(executionMiddleware), terminal);
     }
 
     private CommandResult proceed(
@@ -34,17 +47,18 @@ public final class MiddlewareChain {
         CommandContext context,
         CommandNode command,
         List<String> commandPath,
+        List<CommandMiddleware> executionMiddleware,
         CommandMiddleware.Chain terminal
     ) {
-        if (index >= middleware.size()) {
+        if (index >= executionMiddleware.size()) {
             return Objects.requireNonNull(terminal.proceed(context), "command result");
         }
-        CommandMiddleware current = middleware.get(index);
+        CommandMiddleware current = executionMiddleware.get(index);
         CommandResult result = current.execute(
             context,
             command,
             commandPath,
-            oneShot(nextContext -> proceed(index + 1, nextContext, command, commandPath, terminal))
+            oneShot(nextContext -> proceed(index + 1, nextContext, command, commandPath, executionMiddleware, terminal))
         );
         return Objects.requireNonNull(result, "command result");
     }

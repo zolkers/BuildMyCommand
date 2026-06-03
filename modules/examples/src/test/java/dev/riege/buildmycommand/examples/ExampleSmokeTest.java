@@ -10,6 +10,7 @@ import dev.riege.buildmycommand.examples.adapters.BrigadierAdapterExample;
 import dev.riege.buildmycommand.examples.adapters.SimpleAdapterExample;
 import dev.riege.buildmycommand.examples.adapters.TerminalAdapterExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationGroupExample;
+import dev.riege.buildmycommand.examples.annotations.AnnotationMiddlewareExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationParameterExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteSubcommandExample;
@@ -120,6 +121,14 @@ class ExampleSmokeTest {
         assertSuccess(AnnotationGroupExample.create().dispatch(source("staff", "admin.reload"), "adm reload"),
             "Reloaded");
         assertSuccess(AnnotationGroupExample.create().dispatch(source("staff"), "admin status"), "OK");
+        assertSuccess(AnnotationMiddlewareExample.create().dispatch(source("staff"), "moderation warn Ada spam"),
+            "Warned Ada: spam [moderation/warn]");
+        assertEquals(CommandResult.Status.FAILURE,
+            AnnotationMiddlewareExample.create().dispatch(source(), "moderation warn Ada spam").status());
+        assertEquals(Optional.of("Missing permission: staff [moderation/warn]"),
+            AnnotationMiddlewareExample.create().dispatch(source(), "moderation warn Ada spam").reply());
+        assertSuccess(AnnotationMiddlewareExample.dispatch("moderation status"),
+            "Moderation online [moderation/status]");
         assertSuccess(AnnotationRouteExample.create().dispatch(source("mod.punish"), "mod punish Ada spam -d 30 -s"),
             "Punished Ada for 30m silent=true: spam");
         assertSuccess(AnnotationRouteSubcommandExample.dispatch("u roles put Ada admin -s"),

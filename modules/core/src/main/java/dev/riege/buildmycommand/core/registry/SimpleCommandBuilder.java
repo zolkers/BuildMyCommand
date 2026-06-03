@@ -4,6 +4,7 @@ package dev.riege.buildmycommand.core.registry;
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.CommandMetadata;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.SuggestionProvider;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
@@ -82,6 +83,12 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     @Override
     public CommandRegistry.CommandBuilder group(String group) {
         metadata.group(group);
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder middleware(CommandMiddleware middleware) {
+        metadata.middleware(middleware);
         return this;
     }
 

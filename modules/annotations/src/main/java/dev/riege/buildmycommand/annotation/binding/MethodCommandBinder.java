@@ -8,6 +8,7 @@ import dev.riege.buildmycommand.annotation.Example;
 import dev.riege.buildmycommand.annotation.Flag;
 import dev.riege.buildmycommand.annotation.Greedy;
 import dev.riege.buildmycommand.annotation.Hidden;
+import dev.riege.buildmycommand.annotation.Middleware;
 import dev.riege.buildmycommand.annotation.Option;
 import dev.riege.buildmycommand.annotation.OptionalArg;
 import dev.riege.buildmycommand.annotation.Require;
@@ -16,11 +17,14 @@ import dev.riege.buildmycommand.annotation.Suggest;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
 
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -367,8 +371,46 @@ public final class MethodCommandBinder {
             usage == null ? Optional.empty() : Optional.of(metadata(usage.value(), "usage")),
             examples,
             cooldownDuration,
-            requirement == null ? Optional.empty() : Optional.of(metadata(requirement.value(), "requirement"))
+            requirement == null ? Optional.empty() : Optional.of(metadata(requirement.value(), "requirement")),
+            annotatedMiddlewares(owner, method)
         );
+    }
+
+    private static List<CommandMiddleware> annotatedMiddlewares(Class<?> owner, Method method) {
+        List<CommandMiddleware> middlewares = new ArrayList<>();
+        if (!owner.isAnnotationPresent(dev.riege.buildmycommand.annotation.Command.class)
+            && !owner.isAnnotationPresent(dev.riege.buildmycommand.annotation.Subcommand.class)) {
+            middlewares.addAll(annotatedMiddlewares(owner));
+        }
+        middlewares.addAll(annotatedMiddlewares(method));
+        return List.copyOf(middlewares);
+    }
+
+    static List<CommandMiddleware> annotatedMiddlewares(AnnotatedElement element) {
+        Middleware annotation = element.getAnnotation(Middleware.class);
+        if (annotation == null) {
+            return List.of();
+        }
+        List<CommandMiddleware> middlewares = new ArrayList<>();
+        for (Class<? extends CommandMiddleware> type : annotation.value()) {
+            middlewares.add(instantiateMiddleware(type));
+        }
+        return List.copyOf(middlewares);
+    }
+
+    private static CommandMiddleware instantiateMiddleware(Class<? extends CommandMiddleware> type) {
+        try {
+            Constructor<? extends CommandMiddleware> constructor = type.getDeclaredConstructor();
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+            return constructor.newInstance();
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalArgumentException("command middleware must declare a no-arg constructor: "
+                + type.getName(), exception);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalArgumentException("cannot instantiate command middleware: " + type.getName(), exception);
+        }
     }
 
     private static String metadata(String value, String label) {
@@ -420,13 +462,15 @@ public final class MethodCommandBinder {
         Optional<String> usage,
         List<String> examples,
         Optional<Duration> cooldown,
-        Optional<String> requirement
+        Optional<String> requirement,
+        List<CommandMiddleware> middlewares
     ) {
         public CommandMetadata {
             usage = Objects.requireNonNull(usage, "usage");
             examples = List.copyOf(Objects.requireNonNull(examples, "examples"));
             cooldown = Objects.requireNonNull(cooldown, "cooldown");
             requirement = Objects.requireNonNull(requirement, "requirement");
+            middlewares = List.copyOf(Objects.requireNonNull(middlewares, "middlewares"));
         }
     }
 
