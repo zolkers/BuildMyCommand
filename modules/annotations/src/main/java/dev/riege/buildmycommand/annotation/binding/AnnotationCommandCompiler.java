@@ -48,6 +48,7 @@ public final class AnnotationCommandCompiler {
         List<String> rootAliases = rootAlias == null ? List.of() : List.of(rootAlias.value());
         List<CompiledCommand> compiled = new ArrayList<>();
         collectCommands(commands, owner, owner.getAnnotation(Command.class), rootAliases, group, List.of(), compiled);
+        validateSuggestionProviders(compiled);
 
         return new CompiledCommands(classCasePolicy, rootCommand, compiled);
     }
@@ -408,6 +409,28 @@ public final class AnnotationCommandCompiler {
         return builder.append(')').toString();
     }
 
+    private static void validateSuggestionProviders(List<CompiledCommand> compiled) {
+        List<RouteStep> routeSteps = compiled.stream()
+            .filter(command -> command.kind() == RegistrationKind.ROUTE)
+            .flatMap(command -> RouteParser.parse(command.route()).steps().stream())
+            .toList();
+        compiled.stream()
+            .flatMap(command -> command.metadata().suggestions().stream())
+            .map(MethodCommandBinder.SuggestionBinding::name)
+            .distinct()
+            .filter(suggestion -> routeSteps.stream().noneMatch(step -> routeStepNameMatches(step, suggestion)))
+            .findFirst()
+            .ifPresent(suggestion -> {
+                throw new IllegalArgumentException("@Suggest provider does not match a route argument or option: "
+                    + suggestion);
+            });
+    }
+
+    private static boolean routeStepNameMatches(RouteStep step, String name) {
+        return step instanceof ArgumentRouteStep argument && argument.name().equals(name)
+            || step instanceof OptionRouteStep option && option.name().equals(name);
+    }
+
     public record CompiledCommands(
         CasePolicy classCasePolicy,
         Optional<RootCommand> rootCommand,
@@ -585,20 +608,13 @@ public final class AnnotationCommandCompiler {
         ) {
             List<RouteStep> steps = RouteParser.parse(route).steps();
             for (MethodCommandBinder.SuggestionBinding suggestion : suggestions) {
-                boolean applied = false;
                 for (RouteStep step : steps) {
                     if (step instanceof ArgumentRouteStep argument && argument.name().equals(suggestion.name())) {
                         builder.argumentSuggestions(suggestion.name(), suggestion.name(), suggestion.provider());
-                        applied = true;
                     }
                     if (step instanceof OptionRouteStep option && option.name().equals(suggestion.name())) {
                         builder.optionSuggestions(suggestion.name(), suggestion.name(), suggestion.provider());
-                        applied = true;
                     }
-                }
-                if (!applied) {
-                    throw new IllegalArgumentException("@Suggest provider does not match a route argument or option: "
-                        + suggestion.name());
                 }
             }
         }

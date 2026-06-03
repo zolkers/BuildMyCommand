@@ -69,6 +69,27 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void classCommandSubRouteSuggestionsApplyOnlyToMatchingLeaves() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new WeccClassCommands());
+
+        assertEquals(Optional.of("pong"), framework.dispatch(source(), "wecc ping").reply());
+        assertEquals(Optional.of("bang Ada"), framework.dispatch(source(), "wecc bang Ada").reply());
+        assertEquals(List.of("Ada", "Alex"), framework.suggest(sourceWithMetadata("players", List.of("Ada", "Alex")),
+            "wecc bang A", 11));
+        assertEquals(List.of(), framework.suggest(sourceWithMetadata("players", List.of("Ada", "Alex")),
+            "wecc ping ", 10));
+        assertEquals("""
+            command wecc
+              child bang
+              child ping
+            command wecc bang
+              argument target:String required suggest=target
+            command wecc ping""", framework.schema());
+    }
+
+    @Test
     void classCommandSubRoutesAndNestedGroupsCompose() {
         CommandFramework framework = CommandFramework.create();
 
@@ -377,6 +398,29 @@ class AnnotationCommandScannerTest {
         @SuggestAliases(false)
         CommandResult bang(@RouteCtx CommandContext route) {
             return Results.success("bang " + route.arg("target", String.class));
+        }
+    }
+
+    @Command("wecc")
+    static final class WeccClassCommands {
+        @SubRoute("ping")
+        CommandResult ping(@RouteCtx CommandContext route) {
+            return Results.success("pong");
+        }
+
+        @SubRoute("bang|b <target:String>")
+        @SuggestAliases(false)
+        CommandResult bang(@RouteCtx CommandContext route) {
+            return Results.success("bang " + route.arg("target", String.class));
+        }
+
+        @Suggest("target")
+        SuggestionSet players(SuggestionContext context) {
+            List<?> players = context.sourceMetadata("players")
+                .filter(List.class::isInstance)
+                .map(List.class::cast)
+                .orElse(List.of());
+            return SuggestionSet.of(players.stream().map(String::valueOf).toList()).filteringCurrentToken();
         }
     }
 
