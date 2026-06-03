@@ -22,6 +22,9 @@ import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiReferenceExpression;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalInspectionTool {
     static final String ROUTE_CONTEXT_REQUIRED =
         "Route DSL methods must declare exactly one @RouteCtx CommandContext parameter";
@@ -43,6 +46,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "Deep @Subcommand nesting is supported but @SubRoute route DSL is recommended for command paths";
     static final String PATH_LITERAL_ONLY =
         "Builder path() only accepts literal segments; use subRoute() for route DSL arguments, options, or aliases";
+    static final String SUGGEST_TARGET_NOT_FOUND =
+        "@Suggest name does not match any @Route/@SubRoute argument or option in this class";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
@@ -50,6 +55,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     private static final String SUBCOMMAND = "dev.riege.buildmycommand.annotation.Subcommand";
     private static final String PERMISSION = "dev.riege.buildmycommand.annotation.Permission";
     private static final String REQUIRE = "dev.riege.buildmycommand.annotation.Require";
+    private static final String SUGGEST = "dev.riege.buildmycommand.annotation.Suggest";
     private static final String COMMAND_CONTEXT = "dev.riege.buildmycommand.api.CommandContext";
 
     @Override
@@ -91,6 +97,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 if (subRoute && !hasCommandTreeOwner(method)) {
                     holder.registerProblem(method.getNameIdentifier(), SUB_ROUTE_OWNER_REQUIRED);
                 }
+                inspectSuggestBinding(method, holder);
                 if (!route && !subRoute) {
                     inspectRouteContextOutsideRouteDsl(method, holder);
                     return;
@@ -163,6 +170,39 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 holder.registerProblem(parameter, ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL);
             }
         }
+    }
+
+    private static void inspectSuggestBinding(PsiMethod method, ProblemsHolder holder) {
+        PsiAnnotation suggest = findAnnotation(method.getModifierList().getAnnotations(), SUGGEST);
+        if (suggest == null) {
+            return;
+        }
+        String value = annotationValue(suggest);
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        PsiClass owner = method.getContainingClass();
+        if (owner == null) {
+            return;
+        }
+        Set<String> available = routeBindingNames(owner);
+        if (!available.isEmpty() && !available.contains(value)) {
+            holder.registerProblem(suggest, SUGGEST_TARGET_NOT_FOUND);
+        }
+    }
+
+    private static Set<String> routeBindingNames(PsiClass owner) {
+        Set<String> names = new HashSet<>();
+        for (PsiMethod method : owner.getMethods()) {
+            routeValue(method, ROUTE).ifPresent(route -> names.addAll(BuildMyCommandRouteDsl.bindingNames(route)));
+            routeValue(method, SUB_ROUTE).ifPresent(route -> names.addAll(BuildMyCommandRouteDsl.bindingNames(route)));
+        }
+        return Set.copyOf(names);
+    }
+
+    private static java.util.Optional<String> routeValue(PsiMethod method, String annotationName) {
+        PsiAnnotation annotation = findAnnotation(method.getModifierList().getAnnotations(), annotationName);
+        return annotation == null ? java.util.Optional.empty() : java.util.Optional.ofNullable(annotationValue(annotation));
     }
 
     private static Iterable<BuildMyCommandRouteDsl.Issue> routeIssues(PsiLiteralExpression expression, String route) {

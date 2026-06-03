@@ -134,6 +134,10 @@ class IntellijPluginResourcesTest {
         assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Greedy arguments must use String")));
         assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Unknown option type: Unknown")));
         assertTrue(issues.stream().anyMatch(issue -> issue.message().equals("Duplicate alias: -d")));
+        assertTrue(BuildMyCommandRouteDsl.bindingNames(
+            "ban <target:String> [reason:String...] [--duration:Integer|-d] [--silent|-s]"
+        ).containsAll(List.of("target", "reason", "duration", "silent")));
+        assertTrue(BuildMyCommandRouteDsl.bindingNames("<> [] [--]").isEmpty());
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.intellij.lexer.Lexer;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.JavaElementVisitor;
+import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -22,6 +23,7 @@ import com.intellij.psi.PsiExpression;
 import com.intellij.psi.PsiExpressionList;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiMethodCallExpression;
+import com.intellij.psi.PsiModifierList;
 import com.intellij.psi.PsiNameValuePair;
 import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiReferenceExpression;
@@ -403,6 +405,88 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertFalse(holder.messages.contains("staff && (!banned || owner)"));
     }
 
+    public void testInspectionReportsSuggestNamesThatDoNotMatchRouteBindings() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @Route("global <target:String> [--mode:String|-m]")
+                void global(@RouteCtx dev.riege.buildmycommand.api.CommandContext route) {
+                }
+
+                @Suggest("target")
+                java.util.List<String> validRouteSuggestion() {
+                    return java.util.List.of();
+                }
+
+                @Suggest("mode")
+                dev.riege.buildmycommand.api.SuggestionSet validOptionSuggestion() {
+                    return dev.riege.buildmycommand.api.SuggestionSet.empty();
+                }
+
+                @Suggest("missing")
+                java.util.List<String> invalidSuggestion() {
+                    return java.util.List.of();
+                }
+
+                @Suggest("")
+                java.util.List<String> blankSuggestion() {
+                    return java.util.List.of();
+                }
+
+                static final class UtilitySuggestions {
+                    @Suggest("externalProvider")
+                    java.util.List<String> providerOnlySuggestion() {
+                        return java.util.List.of();
+                    }
+                }
+
+                @dev.riege.buildmycommand.annotation.Command("wecc")
+                static final class WeccCommands {
+                    @SubRoute("bang|b <target:String>")
+                    dev.riege.buildmycommand.api.CommandResult bang(@RouteCtx dev.riege.buildmycommand.api.CommandContext route) {
+                        return dev.riege.buildmycommand.api.Results.silent();
+                    }
+
+                    @Suggest("target")
+                    java.util.List<String> validSubRouteSuggestion() {
+                        return java.util.List.of();
+                    }
+
+                    @Suggest("wat")
+                    java.util.List<String> invalidSubRouteSuggestion() {
+                        return java.util.List.of();
+                    }
+                }
+            }
+            """);
+
+        RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
+        JavaElementVisitor visitor = (JavaElementVisitor) new BuildMyCommandRouteInspection().buildVisitor(holder, true);
+        for (PsiMethod method : PsiTreeUtil.findChildrenOfType(file, PsiMethod.class)) {
+            visitor.visitMethod(method);
+        }
+
+        assertTrue(holder.messages.contains("@Suggest name does not match any @Route/@SubRoute argument or option in this class"));
+        assertEquals(2, holder.messages.stream()
+            .filter(BuildMyCommandRouteInspection.SUGGEST_TARGET_NOT_FOUND::equals)
+            .count());
+    }
+
+    public void testSuggestInspectionIgnoresProviderMethodsWithoutContainingClass() throws Exception {
+        PsiElement file = myFixture.configureByText("Demo.java", "final class Demo {}");
+        RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
+        Method inspect = BuildMyCommandRouteInspection.class.getDeclaredMethod(
+            "inspectSuggestBinding",
+            PsiMethod.class,
+            ProblemsHolder.class
+        );
+        inspect.setAccessible(true);
+
+        inspect.invoke(null, providerWithSuggestValue(literalWithParent(null)), holder);
+        inspect.invoke(null, providerWithSuggestValue(null), holder);
+
+        assertTrue(holder.messages.isEmpty());
+    }
+
     public void testImplicitUsageProviderMarksCommandAnnotationsAsUsed() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -676,6 +760,32 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 case "getText" -> "\"route\"";
                 case "getValue" -> "route";
                 case "getParent" -> parent;
+                default -> null;
+            }
+        );
+    }
+
+    private static PsiMethod providerWithSuggestValue(PsiLiteralExpression value) {
+        PsiAnnotation suggest = (PsiAnnotation) Proxy.newProxyInstance(
+            PsiAnnotation.class.getClassLoader(),
+            new Class<?>[] {PsiAnnotation.class},
+            (proxy, method, args) -> switch (method.getName()) {
+                case "getQualifiedName" -> "dev.riege.buildmycommand.annotation.Suggest";
+                case "findDeclaredAttributeValue" -> value;
+                default -> null;
+            }
+        );
+        PsiModifierList modifierList = (PsiModifierList) Proxy.newProxyInstance(
+            PsiModifierList.class.getClassLoader(),
+            new Class<?>[] {PsiModifierList.class},
+            (proxy, method, args) -> "getAnnotations".equals(method.getName()) ? new PsiAnnotation[] {suggest} : null
+        );
+        return (PsiMethod) Proxy.newProxyInstance(
+            PsiMethod.class.getClassLoader(),
+            new Class<?>[] {PsiMethod.class},
+            (proxy, method, args) -> switch (method.getName()) {
+                case "getModifierList" -> modifierList;
+                case "getContainingClass" -> null;
                 default -> null;
             }
         );

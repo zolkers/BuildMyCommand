@@ -88,6 +88,48 @@ final class BuildMyCommandRouteDsl {
         return List.of();
     }
 
+    static Set<String> bindingNames(String route) {
+        Set<String> names = new HashSet<>();
+        for (String token : route.split("\\s+")) {
+            if (token.startsWith("<") && token.endsWith(">")) {
+                addArgumentName(token.substring(1, token.length() - 1), names);
+            } else if (token.startsWith("[") && token.endsWith("]")) {
+                String body = token.substring(1, token.length() - 1);
+                if (body.startsWith("--")) {
+                    addOptionName(body, names);
+                } else {
+                    addArgumentName(body, names);
+                }
+            }
+        }
+        return Set.copyOf(names);
+    }
+
+    private static void addArgumentName(String body, Set<String> names) {
+        int separator = body.indexOf(':');
+        String name = separator < 0 ? body : body.substring(0, separator);
+        if (!name.isBlank()) {
+            names.add(name);
+        }
+    }
+
+    private static void addOptionName(String body, Set<String> names) {
+        String withoutPrefix = body.substring(2);
+        int end = withoutPrefix.length();
+        int typeSeparator = withoutPrefix.indexOf(':');
+        int aliasSeparator = withoutPrefix.indexOf('|');
+        if (typeSeparator >= 0) {
+            end = Math.min(end, typeSeparator);
+        }
+        if (aliasSeparator >= 0) {
+            end = Math.min(end, aliasSeparator);
+        }
+        String name = withoutPrefix.substring(0, end);
+        if (!name.isBlank()) {
+            names.add(name);
+        }
+    }
+
     private static void validateArgument(String body, int offset, List<Issue> issues) {
         String greedyType = null;
         if (body.endsWith("...")) {
