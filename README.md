@@ -1,89 +1,92 @@
 # BuildMyCommand
 
-BuildMyCommand is a modular Java command framework for applications, CLIs, Minecraft servers, Discord bots, and IDE-aware command DSLs.
+BuildMyCommand is a modular Java command framework for applications, terminals, bots, and Minecraft-like platforms. It gives you one command model, one parsing/runtime layer, one adapter contract, and multiple ways to declare commands.
 
-Every declaration style compiles to the same public command model:
-
-- `modules/api`: stable command contracts, sources, results, metadata, suggestions, middleware, and manual command nodes.
-- `modules/core`: registration, dispatch, parsing, matching policy, help, schema, lifecycle, and middleware execution.
-- `modules/dsl`: route DSL parsing, canonicalization, validation, aliases, options, and conflict analysis.
-- `modules/annotations`: annotation scanner/compiler for route and method-based command declarations.
-- `modules/adapters/core`: generic adapter SDK for first-party and custom adapters.
-- `modules/adapters/brigadier`: Mojang Brigadier tree projection, suggestions, aliases, permissions, and dispatch bridge.
-- `modules/adapters/terminal`: terminal adapter and legacy terminal package shim.
-- `modules/adapters/discord`: non-Minecraft adapter proving platform independence.
-- `modules/adapters/minecraft`: Minecraft adapter family and platform modules.
-- `modules/intellij-plugin`: route DSL injection, highlighting, completion, inspections, theme resources, and install scripts.
-- `modules/testkit`: fluent command testing helpers.
-
-Start with [Getting Started](docs/getting-started.md), then use the focused guides under `docs/`.
-
-## Quick Example
+The recommended style is **annotation routes**:
 
 ```java
-@Route("moderation punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
-@Description("Punish a user")
-@Permission("mod.punish")
-CommandResult punish(
-    @RouteCtx CommandContext route
-) {
-    String target = route.arg("target", String.class);
-    String reason = route.arg("reason", String.class);
-    int minutes = route.option("duration", Integer.class).orElse(60);
-    return Results.success(target + " punished for " + minutes + "m: " + reason);
-}
-```
-
-## Matching Policy
-
-Matching is strict by default. Platforms that need friendlier casing can opt in explicitly:
-
-```java
-CommandFramework framework = CommandFramework.builder()
-    .caseInsensitiveLiterals()
-    .caseInsensitiveOptions()
-    .build();
-```
-
-Literal matching covers command names, subcommands, and aliases. Option matching covers long and short options. Argument values are never case-normalized.
-
-Annotation-first command sets can opt in from the declaration side:
-
-```java
-@CaseInsensitive
-final class ModerationCommands {
-    @Route("ban <target:String> [--silent|-s]")
-    CommandResult ban(@RouteCtx CommandContext route) {
-        String target = route.arg("target", String.class);
-        boolean silent = route.flag("silent");
-        return Results.success(target + ":" + silent);
+@Command("moderation")
+static final class ModerationCommands {
+    @SubRoute("punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
+    @Description("Punish a player")
+    @Permission("mod.punish")
+    CommandResult punish(@RouteCtx CommandContext ctx) {
+        String target = ctx.arg("target", String.class);
+        String reason = ctx.arg("reason", String.class);
+        int duration = ctx.option("duration", Integer.class).orElse(60);
+        boolean silent = ctx.flag("silent");
+        return Results.success("Punished " + target + " for " + duration + "m silent=" + silent + ": " + reason);
     }
 }
 ```
 
-## Build
+`@Route` and `@SubRoute` are preferred because the command shape is visible in one place, deeply nested commands stay readable, aliases and options stay close to the path, and the IntelliJ plugin can highlight/inspect the DSL.
 
-```powershell
-.\gradlew.bat test
+## Modules
+
+Artifacts are published with group `dev.riege.buildmycommand` and version `0.0.1`.
+
+| Artifact | Gradle project | Purpose |
+| --- | --- | --- |
+| `api` | `:api` | Public contracts: command graph, context, results, metadata, middleware, exceptions. |
+| `core` | `:core` | Runtime registry, parser, dispatcher, help, suggestions, permissions, lifecycle. |
+| `annotations` | `:annotations` | `@Route`, `@SubRoute`, `@Command`, `@Permission`, `@Require`, scanners and binders. |
+| `dsl` | `:dsl` | Route DSL parser model used by core and tooling. |
+| `schema` | `:schema` | Schema/export helpers for command metadata. |
+| `testkit` | `:testkit` | Test utilities for framework users. |
+| `adapters-core` | `:adapters:core` | `IAdapter`, source/input/rendering contracts, generic adapter runtime. |
+| `adapters-terminal` | `:adapters:terminal` | Terminal adapter. |
+| `adapters-discord` | `:adapters:discord` | Discord-style adapter foundation. |
+| `adapters-brigadier` | `:adapters:brigadier` | Generic Mojang Brigadier bridge. |
+| `adapters-minecraft-common` | `:adapters:minecraft:common` | Shared Minecraft adapter contracts and capability model. |
+| `adapters-minecraft-spigot` | `:adapters:minecraft:spigot` | Spigot integration layer. |
+| `adapters-minecraft-paper` | `:adapters:minecraft:paper` | Paper integration layer. |
+| `adapters-minecraft-bungee` | `:adapters:minecraft:bungee` | BungeeCord integration layer. |
+| `adapters-minecraft-velocity` | `:adapters:minecraft:velocity` | Velocity integration layer. |
+| `adapters-minecraft-minestom` | `:adapters:minecraft:minestom` | Minestom integration layer. |
+| `adapters-minecraft-sponge` | `:adapters:minecraft:sponge` | Sponge integration layer. |
+
+## Install
+
+```kotlin
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("dev.riege.buildmycommand:api:0.0.1")
+    implementation("dev.riege.buildmycommand:core:0.0.1")
+    implementation("dev.riege.buildmycommand:annotations:0.0.1")
+}
 ```
 
-Useful verification commands:
+Add only the adapter modules you need:
 
-```powershell
-.\gradlew.bat clean check
-.\gradlew.bat :intellij-plugin:buildPlugin
+```kotlin
+implementation("dev.riege.buildmycommand:adapters-terminal:0.0.1")
+implementation("dev.riege.buildmycommand:adapters-brigadier:0.0.1")
+implementation("dev.riege.buildmycommand:adapters-minecraft-paper:0.0.1")
 ```
 
 ## Documentation
 
-- [Core Concepts](docs/core-concepts.md)
-- [Route DSL](docs/route-dsl.md)
-- [Annotations](docs/annotations.md)
-- [Builder API](docs/builder-api.md)
-- [Manual API](docs/manual-api.md)
-- [Suggestions](docs/suggestions.md)
-- [Errors And Middleware](docs/errors-and-middleware.md)
-- [Adapter SDK](docs/adapter-sdk.md)
-- [Testing](docs/testing.md)
-- [IntelliJ Plugin](docs/intellij-plugin.md)
-- [Minecraft Adapter](docs/minecraft-adapter.md)
+| File | Read when |
+| --- | --- |
+| [01 Getting Started](docs/01-getting-started.md) | You want the shortest path to a working command. |
+| [02 Route And SubRoute](docs/02-route-and-subroute.md) | You want the recommended command declaration style. |
+| [03 Annotations](docs/03-annotations.md) | You need every annotation, target, and interaction explained. |
+| [04 Builder API](docs/04-builder-api.md) | You need dynamic/programmatic command trees. |
+| [05 Adapters](docs/05-adapters.md) | You want to plug the framework into another runtime. |
+| [06 Minecraft](docs/06-minecraft.md) | You target Brigadier or Minecraft server/proxy platforms. |
+| [07 IntelliJ Plugin](docs/07-intellij-plugin.md) | You want DSL highlighting, inspections, and setup scripts. |
+| [08 Errors, Middleware, Permissions](docs/08-errors-middleware-permissions.md) | You need execution policies, guards, and failure handling. |
+| [09 Testing](docs/09-testing.md) | You want to test commands/adapters safely. |
+| [10 Publishing](docs/10-publishing.md) | You want Maven Central or IntelliJ Marketplace release notes. |
+
+## Build
+
+```powershell
+.\gradlew.bat check
+```
+
+The repository enforces 100% JaCoCo coverage per publishable module, plus lightweight style/static checks.
