@@ -5,6 +5,7 @@ import dev.riege.buildmycommand.core.parse.*;
 import dev.riege.buildmycommand.core.registry.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class SchemaExporter {
     public String schema(SimpleCommandRegistry registry) {
@@ -40,7 +41,7 @@ public final class SchemaExporter {
             .ifPresent(requirement -> CommandFormatting.appendLine(builder, "  require " + requirement));
         for (RegistryArgumentSpec argument : command.arguments()) {
             String suggestions = argument.suggestionProviderOptional()
-                .flatMap(ignored -> java.util.Optional.ofNullable(argument.suggestionProviderName()))
+                .flatMap(ignored -> Optional.ofNullable(argument.suggestionProviderName()))
                 .map(name -> " suggest=" + name)
                 .orElse("");
             CommandFormatting.appendLine(builder, "  argument " + argument.name() + ":"
@@ -52,7 +53,7 @@ public final class SchemaExporter {
                 .map(value -> " alias=" + value)
                 .orElse("");
             String suggestions = option.suggestionProviderOptional()
-                .flatMap(ignored -> java.util.Optional.ofNullable(option.suggestionProviderName()))
+                .flatMap(ignored -> Optional.ofNullable(option.suggestionProviderName()))
                 .map(name -> " suggest=" + name)
                 .orElse("");
             CommandFormatting.appendLine(builder, "  option " + option.name() + ":"

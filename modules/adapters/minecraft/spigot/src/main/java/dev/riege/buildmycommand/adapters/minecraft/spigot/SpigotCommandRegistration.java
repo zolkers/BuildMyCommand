@@ -10,6 +10,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -115,8 +116,8 @@ public final class SpigotCommandRegistration {
                 commands.remove(label, command);
                 commands.remove(fallbackLabel, command);
                 commands.remove(command.getName(), command);
-                commands.remove(command.getName().toLowerCase(java.util.Locale.ROOT), command);
-                commands.remove(fallbackLabel.toLowerCase(java.util.Locale.ROOT), command);
+                commands.remove(command.getName().toLowerCase(Locale.ROOT), command);
+                commands.remove(fallbackLabel.toLowerCase(Locale.ROOT), command);
             }
         } catch (IllegalAccessException ignored) {
             // Bukkit does not expose removal on CommandMap; best effort keeps this facade server-friendly.

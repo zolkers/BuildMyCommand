@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -235,7 +236,7 @@ public final class ArgumentParserRegistry {
     }
 
     private static List<Suggestion> enumSuggestions(Class<?> type, ArgumentParseContext context) {
-        return java.util.Arrays.stream(type.getEnumConstants())
+        return Arrays.stream(type.getEnumConstants())
             .map(constant -> new Suggestion(
                 ((Enum<?>) constant).name(),
                 Optional.empty(),

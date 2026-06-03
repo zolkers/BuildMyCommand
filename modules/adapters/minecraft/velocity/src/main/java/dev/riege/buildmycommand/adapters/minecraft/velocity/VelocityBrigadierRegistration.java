@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegist
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlans;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -76,7 +77,7 @@ public final class VelocityBrigadierRegistration {
             registered.add(meta);
             labels.addAll(root.registrationLabels());
         }
-        return java.util.Collections.unmodifiableSet(labels);
+        return Collections.unmodifiableSet(labels);
     }
 
     public VelocityBrigadierRegistration unregister(CommandManager commandManager) {

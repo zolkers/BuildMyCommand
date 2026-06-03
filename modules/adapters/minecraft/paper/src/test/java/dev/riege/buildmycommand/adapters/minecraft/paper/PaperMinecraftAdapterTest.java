@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -154,7 +155,7 @@ class PaperMinecraftAdapterTest {
                     && args.length > 0
                     && args[0] instanceof com.mojang.brigadier.tree.LiteralCommandNode<?> node
                 ) {
-                    if (args.length == 2 && args[1] instanceof java.util.Collection<?> aliases) {
+                    if (args.length == 2 && args[1] instanceof Collection<?> aliases) {
                         registered.add(node.getLiteral() + " aliases=" + aliases);
                         LinkedHashSet<String> labels = new LinkedHashSet<>();
                         labels.add(node.getLiteral());

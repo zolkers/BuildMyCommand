@@ -1,5 +1,7 @@
 package dev.riege.buildmycommand.annotation;
 
+import dev.riege.buildmycommand.api.ArgumentParseContext;
+import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
@@ -244,7 +246,7 @@ class AnnotationCommandScannerTest {
         assertEquals(List.of(
             new Suggestion("Ada", Optional.of("online"), 8, 8, SuggestionType.ARGUMENT, 10),
             new Suggestion("Bob", Optional.empty(), 8, 8, SuggestionType.ARGUMENT, 0)
-        ), framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(permittedSource("perm.visible"), "visible ")));
+        ), framework.suggestRich(CommandInput.raw(permittedSource("perm.visible"), "visible ")));
         assertEquals("""
             command visible
               description Show player info
@@ -278,7 +280,7 @@ class AnnotationCommandScannerTest {
         AnnotationCommandScanner.register(framework.registry(), new NullSuggestionCommands());
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(source(), "nulls ")));
+            () -> framework.suggestRich(CommandInput.raw(source(), "nulls ")));
 
         assertEquals("suggestion provider players returned null at index 1", exception.getMessage());
     }
@@ -289,7 +291,7 @@ class AnnotationCommandScannerTest {
         AnnotationCommandScanner.register(framework.registry(), new MixedSuggestionCommands());
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> framework.suggestRich(dev.riege.buildmycommand.api.CommandInput.raw(source(), "mixed ")));
+            () -> framework.suggestRich(CommandInput.raw(source(), "mixed ")));
 
         assertEquals("suggestion provider players returned mixed element at index 1", exception.getMessage());
     }
@@ -545,7 +547,7 @@ class AnnotationCommandScannerTest {
             return Results.success(target);
         }
 
-        List<Suggestion> players(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+        List<Suggestion> players(ArgumentParseContext context) {
             return List.of(
                 new Suggestion("Ada", Optional.of("online"), context.replacementStart(), context.replacementEnd(),
                     context.suggestionType(), 10),
@@ -573,7 +575,7 @@ class AnnotationCommandScannerTest {
             return List.of("Ada");
         }
 
-        List<String> players(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+        List<String> players(ArgumentParseContext context) {
             return List.of(context.rawToken());
         }
     }

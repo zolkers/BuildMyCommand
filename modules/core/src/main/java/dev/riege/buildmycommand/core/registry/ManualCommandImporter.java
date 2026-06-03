@@ -4,6 +4,7 @@ package dev.riege.buildmycommand.core.registry;
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.ArgumentSpec;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.FlagSpec;
@@ -69,7 +70,7 @@ public final class ManualCommandImporter {
         node.executor().ifPresent(builder::executes);
     }
 
-    private static void applyMetadata(SimpleCommandBuilder builder, dev.riege.buildmycommand.api.CommandMetadata metadata) {
+    private static void applyMetadata(SimpleCommandBuilder builder, CommandMetadata metadata) {
         if (metadata.hidden()) {
             builder.hidden();
         }

@@ -80,7 +80,7 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
         Objects.requireNonNull(commandLine, "commandLine");
 
         return runtime.framework().suggestRich(input(source, commandLine, cursor)).stream()
-            .map(dev.riege.buildmycommand.api.Suggestion::value)
+            .map(Suggestion::value)
             .toList();
     }
 
@@ -93,7 +93,7 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
     @Override
     public List<String> suggest(S source, MinecraftInvocation invocation, int cursor) {
         return suggestRich(source, invocation, cursor).stream()
-            .map(dev.riege.buildmycommand.api.Suggestion::value)
+            .map(Suggestion::value)
             .toList();
     }
 

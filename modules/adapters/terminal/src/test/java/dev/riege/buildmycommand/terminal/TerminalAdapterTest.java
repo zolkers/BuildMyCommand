@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -85,7 +86,7 @@ class TerminalAdapterTest {
         adapter.runLoop(source());
 
         assertEquals(line("Pong") + line("Pong"), text(captured));
-        assertEquals(java.util.List.of(), adapter.history());
+        assertEquals(List.of(), adapter.history());
     }
 
     @Test
@@ -99,7 +100,7 @@ class TerminalAdapterTest {
 
         adapter.runLoop(source());
 
-        assertEquals(java.util.List.of("quiet"), adapter.history());
+        assertEquals(List.of("quiet"), adapter.history());
     }
 
     @Test
@@ -109,7 +110,7 @@ class TerminalAdapterTest {
         framework.registry().command("pong", command -> command.executes(ctx -> Results.silent()));
         TerminalAdapter adapter = TerminalAdapter.attach(framework);
 
-        assertEquals(java.util.List.of("ping"), adapter.complete(source(), "pi", 2));
+        assertEquals(List.of("ping"), adapter.complete(source(), "pi", 2));
     }
 
     @Test
@@ -146,8 +147,8 @@ class TerminalAdapterTest {
         assertEquals("terminal", input.platform().id());
         assertEquals("ping", input.normalizedInput());
         assertEquals(new AdapterRegistrationLabels(
-            java.util.List.of("ping"),
-            java.util.List.of("ping", "p")
+            List.of("ping"),
+            List.of("ping", "p")
         ), sdkAdapter.registrationLabels());
         assertEquals(line("terminal"), text(captured));
     }

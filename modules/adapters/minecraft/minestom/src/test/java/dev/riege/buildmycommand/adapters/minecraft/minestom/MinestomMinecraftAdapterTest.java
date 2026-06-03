@@ -6,6 +6,8 @@ import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -30,8 +32,8 @@ class MinestomMinecraftAdapterTest {
 
         assertEquals("minestom", command.getName());
         assertArrayEquals(new String[] {"ms"}, command.getAliases());
-        assertEquals(java.util.List.of("minestom", "ms"), registration.labels());
-        assertEquals(java.util.List.of("minestom", "ms"), registration.plan().rootLiterals());
+        assertEquals(List.of("minestom", "ms"), registration.labels());
+        assertEquals(List.of("minestom", "ms"), registration.plan().rootLiterals());
         assertTrue(registration.exactLiteralMatching());
     }
 
@@ -43,7 +45,7 @@ class MinestomMinecraftAdapterTest {
         BrigadierCommandAdapter<Object> bridge = MinestomMinecraftAdapter.brigadierBridge(framework);
 
         assertEquals("minecraft-minestom-brigadier", bridge.config().adapterId());
-        assertEquals(java.util.List.of("minestom", "ms"), bridge.registrationLabels().rootLabels());
+        assertEquals(List.of("minestom", "ms"), bridge.registrationLabels().rootLabels());
     }
 
     @Test

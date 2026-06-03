@@ -5,6 +5,7 @@ import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.core.parse.*;
 import dev.riege.buildmycommand.core.registry.*;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
@@ -41,7 +42,7 @@ public final class SuggestionEngine {
     }
 
     public List<String> suggest(CommandSource source, String input, int cursor) {
-        return suggestRich(new CommandInput(source, input, cursor, "", dev.riege.buildmycommand.api.CommandPlatform.test()))
+        return suggestRich(new CommandInput(source, input, cursor, "", CommandPlatform.test()))
             .stream()
             .map(Suggestion::value)
             .toList();

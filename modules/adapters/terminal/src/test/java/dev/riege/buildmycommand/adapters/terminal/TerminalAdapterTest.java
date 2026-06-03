@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,8 +35,8 @@ class TerminalAdapterTest {
         assertEquals("terminal", input.platform().id());
         assertEquals("ping", input.normalizedInput());
         assertEquals(new AdapterRegistrationLabels(
-            java.util.List.of("ping"),
-            java.util.List.of("ping", "p")
+            List.of("ping"),
+            List.of("ping", "p")
         ), sdkAdapter.registrationLabels());
         assertEquals(line("terminal"), text(captured));
     }
@@ -54,8 +55,8 @@ class TerminalAdapterTest {
         adapter.runLoop(source());
 
         assertEquals(line("Pong"), text(captured));
-        assertEquals(java.util.List.of("ping"), adapter.history());
-        assertEquals(java.util.List.of("ping"), adapter.complete(source(), "pi", 2));
+        assertEquals(List.of("ping"), adapter.history());
+        assertEquals(List.of("ping"), adapter.complete(source(), "pi", 2));
     }
 
     private static ByteArrayInputStream input(String value) {

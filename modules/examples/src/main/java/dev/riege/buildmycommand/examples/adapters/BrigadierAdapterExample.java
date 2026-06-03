@@ -6,6 +6,8 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
+import java.util.Set;
+
 public final class BrigadierAdapterExample {
     private BrigadierAdapterExample() {
     }
@@ -25,7 +27,7 @@ public final class BrigadierAdapterExample {
         return dispatcher;
     }
 
-    public record NativeSource(java.util.Set<String> permissions) {
+    public record NativeSource(Set<String> permissions) {
         CommandSource source() {
             return new CommandSource() {
                 @Override

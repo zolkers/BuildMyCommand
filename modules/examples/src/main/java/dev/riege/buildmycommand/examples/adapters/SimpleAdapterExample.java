@@ -10,6 +10,7 @@ import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.Optional;
+import java.util.Set;
 
 public final class SimpleAdapterExample {
     private static final CommandPlatform PLATFORM = new CommandPlatform("chat", "Chat", true, true, true);
@@ -44,7 +45,7 @@ public final class SimpleAdapterExample {
             .build();
     }
 
-    public record ChatUser(String name, java.util.Set<String> permissions) {
+    public record ChatUser(String name, Set<String> permissions) {
     }
 
     public record ChatMessage(String raw) {

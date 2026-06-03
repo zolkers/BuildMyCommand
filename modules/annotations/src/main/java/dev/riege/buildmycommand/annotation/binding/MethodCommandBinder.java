@@ -562,7 +562,7 @@ public final class MethodCommandBinder {
             if (!optional && defaultValue == null) {
                 return context.arg(name, type);
             }
-            java.util.Optional<?> value = context.optionalArg(name, type);
+            Optional<?> value = context.optionalArg(name, type);
             return value.isPresent() ? value.get() : parsedDefault();
         }
     }

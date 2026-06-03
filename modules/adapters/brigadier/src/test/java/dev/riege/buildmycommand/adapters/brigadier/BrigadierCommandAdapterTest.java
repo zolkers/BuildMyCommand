@@ -16,6 +16,8 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,7 +139,7 @@ class BrigadierCommandAdapterTest {
 
         CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
 
-        assertEquals(java.util.Set.of("ping", "p"), bridge.registration().register(dispatcher));
+        assertEquals(Set.of("ping", "p"), bridge.registration().register(dispatcher));
         assertNotNull(dispatcher.getRoot().getChild("ping"));
         assertNotNull(dispatcher.getRoot().getChild("p"));
         assertEquals("ping", dispatcher.getRoot().getChild("p").getRedirect().getName());
@@ -197,8 +199,8 @@ class BrigadierCommandAdapterTest {
         bridge.registration().register(dispatcher);
 
         assertEquals(List.of("give", "grant"), suggestions(dispatcher, "g"));
-        assertEquals(java.util.Set.of("--silent", "-s", "--amount", "-a"),
-            java.util.Set.copyOf(suggestions(dispatcher, "give Ada -")));
+        assertEquals(Set.of("--silent", "-s", "--amount", "-a"),
+            Set.copyOf(suggestions(dispatcher, "give Ada -")));
     }
 
     @Test
@@ -254,7 +256,7 @@ class BrigadierCommandAdapterTest {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static CommandContext<NativeSource> brigadierContext(NativeSource source, String input) {
-        return new CommandContext(source, input, java.util.Map.of(), null, null, java.util.List.of(),
+        return new CommandContext(source, input, Map.of(), null, null, List.of(),
             StringRange.at(0), null, null, false);
     }
 

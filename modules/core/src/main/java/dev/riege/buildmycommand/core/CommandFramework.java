@@ -14,6 +14,7 @@ import dev.riege.buildmycommand.core.parse.OptionParser;
 import dev.riege.buildmycommand.core.registry.ManualCommandImporter;
 import dev.riege.buildmycommand.core.registry.SimpleCommandRegistry;
 import dev.riege.buildmycommand.api.ArgumentParser;
+import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandErrorHandler;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
@@ -94,7 +95,7 @@ public final class CommandFramework {
     public List<String> rootLabels() {
         return registry.roots().stream()
             .flatMap(command -> {
-                List<String> labels = new java.util.ArrayList<>();
+                List<String> labels = new ArrayList<>();
                 labels.add(command.literal());
                 labels.addAll(command.aliases());
                 return labels.stream();
@@ -227,7 +228,7 @@ public final class CommandFramework {
         }
 
         private static CommandResult rethrow(
-            dev.riege.buildmycommand.api.CommandContext context,
+            CommandContext context,
             CommandNode command,
             List<String> path,
             Throwable error

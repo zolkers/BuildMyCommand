@@ -1,10 +1,12 @@
 package dev.riege.buildmycommand.examples.suggestions;
 
+import dev.riege.buildmycommand.api.ArgumentParseResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class SuggestionExample {
     private SuggestionExample() {
@@ -13,12 +15,12 @@ public final class SuggestionExample {
     public static CommandFramework create() {
         CommandFramework framework = CommandFramework.builder()
             .suggestionProvider(OnlinePlayer.class, context -> List.of("Ada", "Alex", "Steve").stream()
-                .filter(name -> name.toLowerCase(java.util.Locale.ROOT)
-                    .startsWith(context.rawToken().toLowerCase(java.util.Locale.ROOT)))
+                .filter(name -> name.toLowerCase(Locale.ROOT)
+                    .startsWith(context.rawToken().toLowerCase(Locale.ROOT)))
                 .toList())
             .argumentParser(OnlinePlayer.class, (rawToken, context) -> rawToken.isBlank()
-                ? dev.riege.buildmycommand.api.ArgumentParseResult.failure("player is required")
-                : dev.riege.buildmycommand.api.ArgumentParseResult.success(new OnlinePlayer(rawToken)))
+                ? ArgumentParseResult.failure("player is required")
+                : ArgumentParseResult.success(new OnlinePlayer(rawToken)))
             .build();
         framework.registry()
             .route("message <target:OnlinePlayer> <text:String...>")

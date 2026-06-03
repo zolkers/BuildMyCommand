@@ -4,10 +4,13 @@ package dev.riege.buildmycommand.core.registry;
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
+import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandLifecycleListener;
+import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
 
 import java.time.Duration;
@@ -250,8 +253,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         private final RoutePattern route;
         private String description;
         private String permission;
-        private final dev.riege.buildmycommand.api.CommandMetadata.Builder metadata =
-            new dev.riege.buildmycommand.api.CommandMetadata.Builder();
+        private final CommandMetadata.Builder metadata = new CommandMetadata.Builder();
         private final Map<String, SuggestionProvider> argumentSuggestions = new LinkedHashMap<>();
         private final Map<String, SuggestionProvider> optionSuggestions = new LinkedHashMap<>();
 
@@ -392,7 +394,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             if (permission != null) {
                 builder.permission(permission);
             }
-            dev.riege.buildmycommand.api.CommandMetadata builtMetadata = metadata.build();
+            CommandMetadata builtMetadata = metadata.build();
             if (builtMetadata.hidden()) {
                 builder.hidden();
             }
@@ -429,13 +431,13 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
     private record NamedSuggestionProvider(String name, SuggestionProvider delegate) implements SuggestionProvider {
         @Override
-        public java.util.List<String> suggestions(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+        public List<String> suggestions(ArgumentParseContext context) {
             return delegate.suggestions(context);
         }
 
         @Override
-        public java.util.List<dev.riege.buildmycommand.api.Suggestion> richSuggestions(
-            dev.riege.buildmycommand.api.ArgumentParseContext context
+        public List<Suggestion> richSuggestions(
+            ArgumentParseContext context
         ) {
             return delegate.richSuggestions(context);
         }

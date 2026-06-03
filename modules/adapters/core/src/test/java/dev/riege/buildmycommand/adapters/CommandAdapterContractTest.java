@@ -58,8 +58,8 @@ class CommandAdapterContractTest {
         assertEquals("Contract Test", adapter.config().displayName());
         assertEquals("contract", adapter.runtime().platform().id());
         assertEquals(new AdapterRegistrationLabels(
-            java.util.List.of("ban"),
-            java.util.List.of("ban", "block")
+            List.of("ban"),
+            List.of("ban", "block")
         ), adapter.registrationLabels());
         assertEquals(AdapterMatchingPolicy.strict(), adapter.matchingPolicy());
     }

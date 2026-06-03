@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class VelocityMinecraftAdapter {
     private VelocityMinecraftAdapter() {
@@ -40,8 +41,8 @@ public final class VelocityMinecraftAdapter {
             }
 
             @Override
-            public <T> java.util.Optional<T> unwrap(Class<T> type) {
-                return type.isInstance(source) ? java.util.Optional.of(type.cast(source)) : java.util.Optional.empty();
+            public <T> Optional<T> unwrap(Class<T> type) {
+                return type.isInstance(source) ? Optional.of(type.cast(source)) : Optional.empty();
             }
 
             @Override

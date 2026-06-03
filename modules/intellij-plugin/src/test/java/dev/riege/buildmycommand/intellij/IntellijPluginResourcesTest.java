@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -180,7 +181,7 @@ class IntellijPluginResourcesTest {
             if (tokenText.equals(text)) {
                 TextAttributesKey[] highlights = highlighter.getTokenHighlights(lexer.getTokenType());
                 assertTrue(
-                    java.util.Arrays.stream(highlights).anyMatch(highlight -> highlight.getExternalName().equals(key)),
+                    Arrays.stream(highlights).anyMatch(highlight -> highlight.getExternalName().equals(key)),
                     "Expected " + text + " to use " + key
                 );
                 lexer.advance();

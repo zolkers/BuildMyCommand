@@ -2,6 +2,11 @@ package dev.riege.buildmycommand.core.route;
 
 
 import dev.riege.buildmycommand.core.registry.SimpleCommandBuilder;
+import dev.riege.buildmycommand.dsl.ArgumentRouteStep;
+import dev.riege.buildmycommand.dsl.OptionRouteStep;
+import dev.riege.buildmycommand.dsl.RouteOptionKind;
+import dev.riege.buildmycommand.dsl.RouteParser;
+import dev.riege.buildmycommand.dsl.RouteType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -14,7 +19,7 @@ public final class RoutePatternParser {
      * Compatibility facade for core callers; public DSL parsing lives in the :dsl module.
      */
     public static RoutePattern parse(String pattern) {
-        dev.riege.buildmycommand.dsl.RoutePattern parsed = dev.riege.buildmycommand.dsl.RouteParser.parse(pattern);
+        dev.riege.buildmycommand.dsl.RoutePattern parsed = RouteParser.parse(pattern);
         List<RouteStep> steps = new ArrayList<>();
         for (dev.riege.buildmycommand.dsl.RouteStep step : parsed.steps()) {
             steps.add(convertStep(step));
@@ -27,16 +32,16 @@ public final class RoutePatternParser {
         if (step instanceof dev.riege.buildmycommand.dsl.LiteralRouteStep literal) {
             return new LiteralRouteStep(literal.value(), literal.aliases());
         }
-        if (step instanceof dev.riege.buildmycommand.dsl.ArgumentRouteStep argument) {
+        if (step instanceof ArgumentRouteStep argument) {
             return new ElementRouteStep(convertArgument(argument));
         }
-        if (step instanceof dev.riege.buildmycommand.dsl.OptionRouteStep option) {
+        if (step instanceof OptionRouteStep option) {
             return new ElementRouteStep(new OptionRouteElement(convertOption(option)));
         }
         throw new IllegalArgumentException("unknown route step: " + step);
     }
 
-    private static RouteElement convertArgument(dev.riege.buildmycommand.dsl.ArgumentRouteStep argument) {
+    private static RouteElement convertArgument(ArgumentRouteStep argument) {
         Class<?> type = runtimeType(argument.type());
         return switch (argument.kind()) {
             case REQUIRED -> builder -> builder.argument(argument.name(), typedClass(type));
@@ -47,15 +52,15 @@ public final class RoutePatternParser {
         };
     }
 
-    private static RouteElement convertOption(dev.riege.buildmycommand.dsl.OptionRouteStep option) {
+    private static RouteElement convertOption(OptionRouteStep option) {
         Class<?> type = runtimeType(option.type());
-        if (option.kind() == dev.riege.buildmycommand.dsl.RouteOptionKind.FLAG) {
+        if (option.kind() == RouteOptionKind.FLAG) {
             return builder -> builder.flag(option.name(), option.alias());
         }
         return builder -> builder.option(option.name(), typedClass(type), option.alias());
     }
 
-    private static Class<?> runtimeType(dev.riege.buildmycommand.dsl.RouteType type) {
+    private static Class<?> runtimeType(RouteType type) {
         if (type.inlineEnum()) {
             throw new IllegalArgumentException("inline enum route types are supported by DSL analysis only: "
                 + type.displayName());

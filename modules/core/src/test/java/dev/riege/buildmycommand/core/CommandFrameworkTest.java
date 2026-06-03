@@ -17,6 +17,7 @@ import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.CommandLifecycleListener;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
+import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.middleware.CooldownMiddleware;
@@ -1348,8 +1349,7 @@ class CommandFrameworkTest {
     @Test
     void flagSpecRejectsNonBooleanBooleanFlags() {
         assertThrows(IllegalArgumentException.class,
-            () -> new dev.riege.buildmycommand.api.FlagSpec<>("dry", String.class, null,
-                dev.riege.buildmycommand.api.FlagSpec.Kind.FLAG));
+            () -> new FlagSpec<>("dry", String.class, null, FlagSpec.Kind.FLAG));
     }
 
     @Test

@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.FlagSpec;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public final class DiscordSlashCommandSync {
     public List<DiscordSlashCommand> commands(CommandGraph graph) {
@@ -37,7 +38,7 @@ public final class DiscordSlashCommandSync {
         List<DiscordSlashOption> flags = node.flags().stream()
             .map(DiscordSlashCommandSync::flag)
             .toList();
-        return java.util.stream.Stream.concat(arguments.stream(), flags.stream()).toList();
+        return Stream.concat(arguments.stream(), flags.stream()).toList();
     }
 
     private static DiscordSlashOption argument(ArgumentSpec<?> argument) {

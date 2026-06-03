@@ -7,6 +7,8 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
+import java.util.Set;
+
 public final class MinecraftBrigadierExample {
     private MinecraftBrigadierExample() {
     }
@@ -29,6 +31,6 @@ public final class MinecraftBrigadierExample {
         );
     }
 
-    public record FakeStack(java.util.Set<String> permissions) {
+    public record FakeStack(Set<String> permissions) {
     }
 }

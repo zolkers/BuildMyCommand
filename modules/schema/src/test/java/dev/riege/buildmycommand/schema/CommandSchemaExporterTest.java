@@ -5,6 +5,7 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,8 +46,8 @@ class CommandSchemaExporterTest {
         RouteInspection inspection = new RouteInspector().inspect(framework, "adm user delete Ada");
         String mermaid = new CommandSchemaExporter().exportMermaid(framework);
 
-        assertEquals(java.util.List.of("adm", "user", "delete", "Ada"), inspection.tokens());
-        assertEquals(java.util.List.of("admin", "user", "delete"), inspection.matchedPath());
+        assertEquals(List.of("adm", "user", "delete", "Ada"), inspection.tokens());
+        assertEquals(List.of("admin", "user", "delete"), inspection.matchedPath());
         assertTrue(inspection.executable());
         assertTrue(mermaid.contains("graph TD"));
         assertTrue(mermaid.contains("[\"admin user delete\"]"));

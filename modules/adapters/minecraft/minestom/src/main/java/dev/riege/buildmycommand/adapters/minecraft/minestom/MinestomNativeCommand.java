@@ -4,6 +4,7 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommand
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public final class MinestomNativeCommand {
@@ -41,14 +42,14 @@ public final class MinestomNativeCommand {
         result.message().ifPresent(message -> MinestomMinecraftAdapter.commandSource(sender).reply(message));
     }
 
-    public java.util.List<String> suggest(Object sender, String[] args) {
+    public List<String> suggest(Object sender, String[] args) {
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
             MinestomMinecraftAdapter.commandInput(name, Objects.requireNonNull(args, "args"))
         );
     }
 
-    public java.util.List<String> aliases() {
+    public List<String> aliases() {
         return Arrays.asList(getAliases());
     }
 

@@ -7,6 +7,8 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
+import java.util.Set;
+
 public final class MinecraftNativeAdapterExample {
     private MinecraftNativeAdapterExample() {
     }
@@ -27,11 +29,11 @@ public final class MinecraftNativeAdapterExample {
             }
         );
         return adapter.execute(
-            new FakeSender(java.util.Set.of("home.set")),
+            new FakeSender(Set.of("home.set")),
             MinecraftInvocation.labelAndArgs("h", new String[] {"set", "base"}, 1)
         );
     }
 
-    public record FakeSender(java.util.Set<String> permissions) {
+    public record FakeSender(Set<String> permissions) {
     }
 }

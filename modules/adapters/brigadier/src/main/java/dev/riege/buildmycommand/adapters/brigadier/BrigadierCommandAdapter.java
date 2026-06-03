@@ -20,6 +20,7 @@ import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.ArrayList;
@@ -149,7 +150,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         builder.suggests((context, suggestionsBuilder) -> {
             CommandSource source = sourceMapper.apply(context.getSource());
             CommandInput input = input(source, context.getInput(), context.getInput().length());
-            for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
+            for (Suggestion suggestion : framework.suggestRich(input)) {
                 suggestionsBuilder.suggest(suggestion.value(),
                     suggestion.tooltip().map(LiteralMessage::new).orElse(null));
             }
@@ -179,7 +180,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         builder.suggests((context, suggestionsBuilder) -> {
             CommandSource source = sourceMapper.apply(context.getSource());
             CommandInput input = input(source, context.getInput(), context.getInput().length());
-            for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
+            for (Suggestion suggestion : framework.suggestRich(input)) {
                 suggestionsBuilder.suggest(suggestion.value(),
                     suggestion.tooltip().map(LiteralMessage::new).orElse(null));
             }
