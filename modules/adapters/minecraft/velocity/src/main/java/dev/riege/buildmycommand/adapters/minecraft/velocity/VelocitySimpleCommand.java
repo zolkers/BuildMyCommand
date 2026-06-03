@@ -1,7 +1,9 @@
 package dev.riege.buildmycommand.adapters.minecraft.velocity;
 
 import com.velocitypowered.api.command.SimpleCommand;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import net.kyori.adventure.text.Component;
 
@@ -10,15 +12,15 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public final class VelocitySimpleCommand implements SimpleCommand {
-    private final MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter;
+    private final IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter;
 
     public VelocitySimpleCommand(
-        MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter
+        IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
     }
 
-    public MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter() {
+    public IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
@@ -35,9 +37,11 @@ public final class VelocitySimpleCommand implements SimpleCommand {
     @Override
     public List<String> suggest(Invocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
+        MinecraftInvocation input = VelocityMinecraftAdapter.simpleCommandInput(invocation.alias(), invocation.arguments());
         return adapter.suggest(
             invocation.source(),
-            VelocityMinecraftAdapter.simpleCommandInput(invocation.alias(), invocation.arguments())
+            input,
+            input.cursor()
         );
     }
 
@@ -49,6 +53,6 @@ public final class VelocitySimpleCommand implements SimpleCommand {
     @Override
     public boolean hasPermission(Invocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        return adapter.canUseRootLabel(invocation.source(), invocation.alias());
+        return MinecraftAdapterContracts.canUseRootLabel(adapter, invocation.source(), invocation.alias());
     }
 }

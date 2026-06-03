@@ -47,7 +47,7 @@ public final class MinecraftNativeCommandAdapter<S>
     }
 
     public List<String> rootLabels() {
-        return bridge.rootLabels();
+        return MinecraftAdapterContracts.rootLabels(this);
     }
 
     @Override
@@ -120,7 +120,7 @@ public final class MinecraftNativeCommandAdapter<S>
     }
 
     public boolean canUseRootLabel(S source, String label) {
-        return bridge.canUseRootLabel(source, label);
+        return MinecraftAdapterContracts.canUseRootLabel(this, source, label);
     }
 
     public boolean honorsCaseInsensitiveLiterals() {

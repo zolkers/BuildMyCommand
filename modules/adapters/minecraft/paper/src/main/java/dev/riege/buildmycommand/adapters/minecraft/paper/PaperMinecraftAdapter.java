@@ -1,11 +1,13 @@
 package dev.riege.buildmycommand.adapters.minecraft.paper;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotMinecraftAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotNativeCommand;
@@ -61,14 +63,14 @@ public final class PaperMinecraftAdapter {
 
     public static SpigotNativeCommand nativeCommand(
         String label,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return SpigotMinecraftAdapter.nativeCommand(label, adapter);
     }
 
     public static PaperNativeCommandRegistration nativeRegistration(
         String fallbackPrefix,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new PaperNativeCommandRegistration(fallbackPrefix, adapter);
     }

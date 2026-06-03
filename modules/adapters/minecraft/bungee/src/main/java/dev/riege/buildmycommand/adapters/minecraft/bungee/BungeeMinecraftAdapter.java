@@ -1,9 +1,12 @@
 package dev.riege.buildmycommand.adapters.minecraft.bungee;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -62,9 +65,11 @@ public final class BungeeMinecraftAdapter {
         return commandAdapter(framework, BungeeMinecraftAdapter::commandSource);
     }
 
-    public static BungeeNativeCommand nativeCommand(MinecraftNativeCommandAdapter<CommandSender> adapter) {
+    public static BungeeNativeCommand nativeCommand(
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
+    ) {
         Objects.requireNonNull(adapter, "adapter");
-        List<String> labels = adapter.rootLabels();
+        List<String> labels = MinecraftAdapterContracts.rootLabels(adapter);
         if (labels.isEmpty()) {
             throw new IllegalStateException("Bungee registration requires at least one command label");
         }
@@ -77,7 +82,7 @@ public final class BungeeMinecraftAdapter {
 
     public static BungeeCommandRegistration registration(
         Plugin plugin,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new BungeeCommandRegistration(plugin, adapter);
     }

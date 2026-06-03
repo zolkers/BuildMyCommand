@@ -1,11 +1,13 @@
 package dev.riege.buildmycommand.adapters.minecraft.velocity;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -59,14 +61,14 @@ public final class VelocityMinecraftAdapter {
     }
 
     public static VelocitySimpleCommand simpleCommand(
-        MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter
+        IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new VelocitySimpleCommand(adapter);
     }
 
     public static VelocityCommandRegistration simpleRegistration(
         Object plugin,
-        MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter
+        IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new VelocityCommandRegistration(plugin, adapter);
     }

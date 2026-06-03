@@ -1,7 +1,10 @@
 package dev.riege.buildmycommand.adapters.minecraft.spigot;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -16,12 +19,12 @@ import java.util.Objects;
 
 public final class SpigotCommandRegistration {
     private final String fallbackPrefix;
-    private final MinecraftNativeCommandAdapter<CommandSender> adapter;
+    private final IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter;
     private final Map<String, SpigotNativeCommand> registered = new LinkedHashMap<>();
 
     public SpigotCommandRegistration(
         String fallbackPrefix,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         this.fallbackPrefix = requireText(fallbackPrefix, "fallbackPrefix");
         this.adapter = Objects.requireNonNull(adapter, "adapter");
@@ -31,12 +34,12 @@ public final class SpigotCommandRegistration {
         return fallbackPrefix;
     }
 
-    public MinecraftNativeCommandAdapter<CommandSender> adapter() {
+    public IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
     public List<String> labels() {
-        return adapter.rootLabels();
+        return MinecraftAdapterContracts.rootLabels(adapter);
     }
 
     public MinecraftCommandRegistrationPlan plan() {

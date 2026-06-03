@@ -1,6 +1,8 @@
 package dev.riege.buildmycommand.adapters.minecraft.paper;
 
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotCommandRegistration;
 import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotNativeCommand;
 import org.bukkit.command.CommandMap;
@@ -14,7 +16,7 @@ public final class PaperNativeCommandRegistration {
 
     public PaperNativeCommandRegistration(
         String fallbackPrefix,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         this(new SpigotCommandRegistration(fallbackPrefix, adapter));
     }
@@ -31,7 +33,7 @@ public final class PaperNativeCommandRegistration {
         return spigotFallback.fallbackPrefix();
     }
 
-    public MinecraftNativeCommandAdapter<CommandSender> adapter() {
+    public IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return spigotFallback.adapter();
     }
 

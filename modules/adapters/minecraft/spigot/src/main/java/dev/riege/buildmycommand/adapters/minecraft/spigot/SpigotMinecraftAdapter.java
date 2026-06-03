@@ -1,9 +1,11 @@
 package dev.riege.buildmycommand.adapters.minecraft.spigot;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -34,14 +36,14 @@ public final class SpigotMinecraftAdapter {
 
     public static SpigotNativeCommand nativeCommand(
         String label,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new SpigotNativeCommand(label, adapter);
     }
 
     public static SpigotCommandRegistration registration(
         String fallbackPrefix,
-        MinecraftNativeCommandAdapter<CommandSender> adapter
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new SpigotCommandRegistration(fallbackPrefix, adapter);
     }

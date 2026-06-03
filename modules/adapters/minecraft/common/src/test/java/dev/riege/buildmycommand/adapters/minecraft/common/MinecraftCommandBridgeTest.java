@@ -1,12 +1,19 @@
 package dev.riege.buildmycommand.adapters.minecraft.common;
 
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
+import dev.riege.buildmycommand.adapters.AdapterConfig;
+import dev.riege.buildmycommand.adapters.AdapterMatchingPolicy;
 import dev.riege.buildmycommand.adapters.AdapterRegistrationLabels;
+import dev.riege.buildmycommand.adapters.AdapterRenderer;
+import dev.riege.buildmycommand.adapters.AdapterRuntime;
 import dev.riege.buildmycommand.adapters.CommandAdapter;
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +103,19 @@ class MinecraftCommandBridgeTest {
         );
 
         assertEquals(List.of("kick", "boot"), plan.rootLiterals());
+        assertEquals(List.of("kick", "boot"), plan.rootLabels());
+    }
+
+    @Test
+    void registrationPlanAcceptsGenericAdapterContract() {
+        IAdapter<FakeSender, MinecraftInvocation, MinecraftRenderedResult> adapter =
+            new ContractOnlyMinecraftAdapter(List.of("kick"), List.of("kick", "boot"));
+
+        MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlan.fromNativeAdapter(
+            MinecraftBackendProfiles.spigot(),
+            adapter
+        );
+
         assertEquals(List.of("kick", "boot"), plan.rootLabels());
     }
 
@@ -333,5 +353,85 @@ class MinecraftCommandBridgeTest {
                 return permissions.contains(permission);
             }
         };
+    }
+
+    private static final class ContractOnlyMinecraftAdapter
+        implements IAdapter<FakeSender, MinecraftInvocation, MinecraftRenderedResult> {
+        private final AdapterRegistrationLabels labels;
+        private final AdapterRuntime runtime = new AdapterRuntime(CommandFramework.create(), CommandPlatform.test());
+        private final AdapterConfig config = AdapterConfig.of(
+            "contract-only-minecraft",
+            "Contract Only Minecraft",
+            new AdapterCapabilities(false, true, true)
+        );
+
+        private ContractOnlyMinecraftAdapter(List<String> roots, List<String> allLabels) {
+            this.labels = new AdapterRegistrationLabels(roots, allLabels);
+        }
+
+        @Override
+        public AdapterRuntime runtime() {
+            return runtime;
+        }
+
+        @Override
+        public AdapterConfig config() {
+            return config;
+        }
+
+        @Override
+        public AdapterCapabilities capabilities() {
+            return config.capabilities();
+        }
+
+        @Override
+        public AdapterMatchingPolicy matchingPolicy() {
+            return AdapterMatchingPolicy.strict();
+        }
+
+        @Override
+        public AdapterRegistrationLabels registrationLabels() {
+            return labels;
+        }
+
+        @Override
+        public AdapterRenderer<MinecraftRenderedResult> renderer() {
+            return MinecraftResultRenderer.defaultRenderer()::render;
+        }
+
+        @Override
+        public CommandSource mapSource(FakeSender nativeSource) {
+            return permissionSource(nativeSource.permissions());
+        }
+
+        @Override
+        public CommandInput mapInput(FakeSender nativeSource, MinecraftInvocation nativeInput) {
+            return CommandInput.raw(mapSource(nativeSource), nativeInput.normalizedInput());
+        }
+
+        @Override
+        public CommandResult dispatch(FakeSender nativeSource, MinecraftInvocation nativeInput) {
+            return Results.silent();
+        }
+
+        @Override
+        public List<Suggestion> suggestRich(FakeSender nativeSource, MinecraftInvocation nativeInput, int cursor) {
+            return List.of();
+        }
+
+        @Override
+        public List<String> suggest(FakeSender nativeSource, MinecraftInvocation nativeInput, int cursor) {
+            return List.of();
+        }
+
+        @Override
+        public MinecraftRenderedResult render(CommandResult result) {
+            return renderer().render(result);
+        }
+
+        @Override
+        public MinecraftRenderedResult execute(FakeSender nativeSource, MinecraftInvocation nativeInput) {
+            return render(dispatch(nativeSource, nativeInput));
+        }
     }
 }

@@ -1,5 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.common;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,12 +37,12 @@ public record MinecraftCommandRegistrationPlan(
 
     public static MinecraftCommandRegistrationPlan fromNativeAdapter(
         MinecraftBackendProfile backend,
-        MinecraftNativeCommandAdapter<?> adapter
+        IAdapter<?, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         Objects.requireNonNull(adapter, "adapter");
         return new MinecraftCommandRegistrationPlan(
             backend,
-            adapter.rootLabels(),
+            MinecraftAdapterContracts.rootLabels(adapter),
             GENERATIONS.incrementAndGet(),
             backend.reloadSafe()
         );

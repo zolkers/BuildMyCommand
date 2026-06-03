@@ -1,7 +1,10 @@
 package dev.riege.buildmycommand.adapters.minecraft.bungee;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.plugin.PluginManager;
@@ -11,10 +14,13 @@ import java.util.Objects;
 
 public final class BungeeCommandRegistration {
     private final Plugin plugin;
-    private final MinecraftNativeCommandAdapter<CommandSender> adapter;
+    private final IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter;
     private BungeeNativeCommand registeredCommand;
 
-    public BungeeCommandRegistration(Plugin plugin, MinecraftNativeCommandAdapter<CommandSender> adapter) {
+    public BungeeCommandRegistration(
+        Plugin plugin,
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
+    ) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.adapter = Objects.requireNonNull(adapter, "adapter");
     }
@@ -23,12 +29,12 @@ public final class BungeeCommandRegistration {
         return plugin;
     }
 
-    public MinecraftNativeCommandAdapter<CommandSender> adapter() {
+    public IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
     public List<String> labels() {
-        return adapter.rootLabels();
+        return MinecraftAdapterContracts.rootLabels(adapter);
     }
 
     public MinecraftCommandRegistrationPlan plan() {

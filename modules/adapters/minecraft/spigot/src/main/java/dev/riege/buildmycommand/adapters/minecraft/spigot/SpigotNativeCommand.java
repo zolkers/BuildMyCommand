@@ -1,7 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.spigot;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -12,14 +12,17 @@ import java.util.List;
 import java.util.Objects;
 
 public final class SpigotNativeCommand extends Command implements CommandExecutor, TabCompleter {
-    private final MinecraftNativeCommandAdapter<CommandSender> adapter;
+    private final IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter;
 
-    public SpigotNativeCommand(String label, MinecraftNativeCommandAdapter<CommandSender> adapter) {
+    public SpigotNativeCommand(
+        String label,
+        IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
+    ) {
         super(requireLabel(label));
         this.adapter = Objects.requireNonNull(adapter, "adapter");
     }
 
-    public MinecraftNativeCommandAdapter<CommandSender> adapter() {
+    public IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
@@ -42,9 +45,12 @@ public final class SpigotNativeCommand extends Command implements CommandExecuto
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         Objects.requireNonNull(command, "command");
+        MinecraftInvocation invocation =
+            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(alias), Objects.requireNonNull(args, "args"));
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
-            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(alias), Objects.requireNonNull(args, "args"))
+            invocation,
+            invocation.cursor()
         );
     }
 

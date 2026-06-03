@@ -2,20 +2,23 @@ package dev.riege.buildmycommand.adapters.minecraft.velocity;
 
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 
 import java.util.List;
 import java.util.Objects;
 
 public final class VelocityCommandRegistration {
     private final Object plugin;
-    private final MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter;
+    private final IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter;
     private CommandMeta registeredMeta;
     private VelocitySimpleCommand registeredCommand;
 
     public VelocityCommandRegistration(
         Object plugin,
-        MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter
+        IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         this.plugin = plugin;
         this.adapter = Objects.requireNonNull(adapter, "adapter");
@@ -25,12 +28,12 @@ public final class VelocityCommandRegistration {
         return plugin;
     }
 
-    public MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> adapter() {
+    public IAdapter<com.velocitypowered.api.command.CommandSource, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
     public List<String> labels() {
-        return adapter.rootLabels();
+        return MinecraftAdapterContracts.rootLabels(adapter);
     }
 
     public VelocitySimpleCommand command() {

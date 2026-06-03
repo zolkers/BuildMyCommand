@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.minestom;
 
-import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.IAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 
 import java.util.Arrays;
@@ -10,19 +11,19 @@ import java.util.Objects;
 public final class MinestomNativeCommand {
     private final String name;
     private final String[] aliases;
-    private final MinecraftNativeCommandAdapter<Object> adapter;
+    private final IAdapter<Object, MinecraftInvocation, MinecraftRenderedResult> adapter;
 
     public MinestomNativeCommand(
         String name,
         String[] aliases,
-        MinecraftNativeCommandAdapter<Object> adapter
+        IAdapter<Object, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         this.name = requireLabel(name);
         this.aliases = Objects.requireNonNull(aliases, "aliases").clone();
         this.adapter = Objects.requireNonNull(adapter, "adapter");
     }
 
-    public MinecraftNativeCommandAdapter<Object> adapter() {
+    public IAdapter<Object, MinecraftInvocation, MinecraftRenderedResult> adapter() {
         return adapter;
     }
 
@@ -43,9 +44,12 @@ public final class MinestomNativeCommand {
     }
 
     public List<String> suggest(Object sender, String[] args) {
+        MinecraftInvocation invocation =
+            MinestomMinecraftAdapter.commandInput(name, Objects.requireNonNull(args, "args"));
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
-            MinestomMinecraftAdapter.commandInput(name, Objects.requireNonNull(args, "args"))
+            invocation,
+            invocation.cursor()
         );
     }
 

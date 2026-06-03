@@ -1,11 +1,14 @@
 package dev.riege.buildmycommand.adapters.minecraft.minestom;
 
+import dev.riege.buildmycommand.adapters.IAdapter;
 import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftAdapterContracts;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 import java.util.List;
@@ -58,10 +61,10 @@ public final class MinestomMinecraftAdapter {
     }
 
     public static MinestomNativeCommand nativeCommand(
-        MinecraftNativeCommandAdapter<Object> adapter
+        IAdapter<Object, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         Objects.requireNonNull(adapter, "adapter");
-        List<String> labels = adapter.rootLabels();
+        List<String> labels = MinecraftAdapterContracts.rootLabels(adapter);
         if (labels.isEmpty()) {
             throw new IllegalStateException("Minestom registration requires at least one command label");
         }
@@ -73,7 +76,7 @@ public final class MinestomMinecraftAdapter {
     }
 
     public static MinestomCommandRegistration registration(
-        MinecraftNativeCommandAdapter<Object> adapter
+        IAdapter<Object, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
         return new MinestomCommandRegistration(profile(), adapter);
     }
