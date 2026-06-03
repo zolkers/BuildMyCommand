@@ -24,7 +24,7 @@ static final class ModerationCommands {
 
 ## Modules
 
-Artifacts are published with group `dev.riege.buildmycommand` and version `0.0.1`.
+Artifacts are prepared for Maven Central with group `io.github.zolkers` and version `0.0.1`.
 
 | Artifact | Gradle project | Purpose |
 | --- | --- | --- |
@@ -54,18 +54,18 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.riege.buildmycommand:api:0.0.1")
-    implementation("dev.riege.buildmycommand:core:0.0.1")
-    implementation("dev.riege.buildmycommand:annotations:0.0.1")
+    implementation("io.github.zolkers:api:0.0.1")
+    implementation("io.github.zolkers:core:0.0.1")
+    implementation("io.github.zolkers:annotations:0.0.1")
 }
 ```
 
 Add only the adapter modules you need:
 
 ```kotlin
-implementation("dev.riege.buildmycommand:adapters-terminal:0.0.1")
-implementation("dev.riege.buildmycommand:adapters-brigadier:0.0.1")
-implementation("dev.riege.buildmycommand:adapters-minecraft-paper:0.0.1")
+implementation("io.github.zolkers:adapters-terminal:0.0.1")
+implementation("io.github.zolkers:adapters-brigadier:0.0.1")
+implementation("io.github.zolkers:adapters-minecraft-paper:0.0.1")
 ```
 
 ## Documentation

@@ -1,11 +1,16 @@
 import java.math.BigDecimal
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import org.gradle.api.plugins.BasePluginExtension
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
 
 plugins {
     java
     jacoco
+    id("com.vanniktech.maven.publish") version "0.36.0" apply false
 }
 
-group = "dev.riege.buildmycommand"
+group = "io.github.zolkers"
 version = "0.0.1"
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
@@ -83,21 +88,33 @@ tasks.register<Exec>("installIntellijPluginLocal") {
 }
 
 val adapterAggregatorProjects = setOf(":adapters", ":adapters:minecraft")
+val nonPublishedProjects = setOf(":examples", ":intellij-plugin")
+val publishableProjectExclusions = adapterAggregatorProjects + nonPublishedProjects
 
 subprojects {
     if (path in adapterAggregatorProjects) {
         return@subprojects
     }
 
+    group = if (path == ":adapters:core") "${rootProject.group}.adapters" else rootProject.group
+    version = rootProject.version
+    val artifact = path.removePrefix(":").replace(':', '-')
+
     apply(plugin = "java")
     apply(plugin = "jacoco")
+
+    configure<BasePluginExtension> {
+        archivesName.set(artifact)
+    }
 
     java {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
         }
-        withSourcesJar()
-        withJavadocJar()
+        if (path in publishableProjectExclusions) {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
 
     tasks.withType<JavaCompile>().configureEach {
@@ -139,5 +156,62 @@ subprojects {
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
 
-    apply(from = rootProject.file("gradle/publishing.gradle.kts"))
+    if (path !in publishableProjectExclusions) {
+        val repositoryUrl = "https://github.com/zolkers/BuildMyCommand"
+        val signingConfigured = providers.gradleProperty("signingInMemoryKey").isPresent
+            || providers.environmentVariable("ORG_GRADLE_PROJECT_signingInMemoryKey").isPresent
+            || providers.gradleProperty("signing.secretKeyRingFile").isPresent
+            || providers.environmentVariable("ORG_GRADLE_PROJECT_signing.secretKeyRingFile").isPresent
+
+        apply(plugin = "com.vanniktech.maven.publish")
+
+        configure<MavenPublishBaseExtension> {
+            coordinates(rootProject.group.toString(), artifact, rootProject.version.toString())
+            publishToMavenCentral()
+            if (signingConfigured) {
+                signAllPublications()
+            }
+
+            pom {
+                name.set("BuildMyCommand $artifact")
+                description.set("A modular Java command framework module.")
+                inceptionYear.set("2026")
+                url.set(repositoryUrl)
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                        distribution.set("repo")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("zolkers")
+                        name.set("Zolkers")
+                        url.set("https://github.com/zolkers")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:https://github.com/zolkers/BuildMyCommand.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/zolkers/BuildMyCommand.git")
+                    url.set(repositoryUrl)
+                }
+            }
+        }
+
+        configure<PublishingExtension> {
+            publications.withType(MavenPublication::class.java).configureEach {
+                groupId = rootProject.group.toString()
+                artifactId = artifact
+                version = rootProject.version.toString()
+            }
+
+            repositories {
+                maven {
+                    name = "buildDirectory"
+                    url = layout.buildDirectory.dir("repo").get().asFile.toURI()
+                }
+            }
+        }
+    }
 }

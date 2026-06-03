@@ -15,9 +15,9 @@ This page gets a command running quickly while explaining the minimum concepts y
 
 ```kotlin
 dependencies {
-    implementation("dev.riege.buildmycommand:api:0.0.1")
-    implementation("dev.riege.buildmycommand:core:0.0.1")
-    implementation("dev.riege.buildmycommand:annotations:0.0.1")
+    implementation("io.github.zolkers:api:0.0.1")
+    implementation("io.github.zolkers:core:0.0.1")
+    implementation("io.github.zolkers:annotations:0.0.1")
 }
 ```
 
