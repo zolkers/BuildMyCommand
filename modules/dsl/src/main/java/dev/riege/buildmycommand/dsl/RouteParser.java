@@ -50,10 +50,8 @@ public final class RouteParser {
             steps.add(step);
         }
 
-        if (rootLiteral == null) {
-            throw new IllegalArgumentException("route pattern must start with a literal");
-        }
-        return new RoutePattern(rootLiteral.value(), rootLiteral.aliases(), steps);
+        LiteralToken root = Objects.requireNonNull(rootLiteral, "rootLiteral");
+        return new RoutePattern(root.value(), root.aliases(), steps);
     }
 
     static String validateLiteral(String literal, String label) {
@@ -80,10 +78,6 @@ public final class RouteParser {
 
     private static LiteralToken parseLiteralToken(String token) {
         String[] parts = token.split("\\|", -1);
-        if (parts.length == 0) {
-            throw new IllegalArgumentException("invalid route literal: " + token);
-        }
-
         String literal = validateLiteral(parts[0], "route literal");
         List<String> aliases = new ArrayList<>();
         for (int index = 1; index < parts.length; index++) {

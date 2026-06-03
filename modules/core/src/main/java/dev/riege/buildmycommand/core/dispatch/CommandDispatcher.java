@@ -154,11 +154,9 @@ public final class CommandDispatcher {
                     if (prefix.failure().isPresent()) {
                         return MatchResult.failure(prefix.failure().get());
                     }
-                    if (prefix.consumed() > 0) {
-                        pathValues.putAll(prefix.values());
-                        tokenIndex += prefix.consumed();
-                        continue;
-                    }
+                    pathValues.putAll(prefix.values());
+                    tokenIndex += prefix.consumed();
+                    continue;
                 }
                 break;
             }

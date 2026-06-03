@@ -3,6 +3,7 @@ package dev.riege.buildmycommand.adapters.brigadier;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
@@ -11,16 +12,21 @@ import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.ArgumentParseResult;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -140,6 +146,11 @@ class BrigadierCommandAdapterTest {
         CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
 
         assertEquals(Set.of("ping", "p"), bridge.registration().register(dispatcher));
+        assertEquals(bridge, bridge.registration().adapter());
+        assertEquals(List.of("ping", "p"), bridge.registration().labels());
+        assertEquals(List.of("ping", "p"), bridge.registration().projectedRoots().get(0).registrationLabels());
+        assertEquals(List.of("ping"), bridge.rootLiterals());
+        assertEquals(false, bridge.caseInsensitiveLiterals());
         assertNotNull(dispatcher.getRoot().getChild("ping"));
         assertNotNull(dispatcher.getRoot().getChild("p"));
         assertEquals("ping", dispatcher.getRoot().getChild("p").getRedirect().getName());
@@ -185,6 +196,88 @@ class BrigadierCommandAdapterTest {
 
         assertEquals(List.of("admin"), suggestions(dispatcher, "A"));
         assertEquals(List.of("ban"), suggestions(dispatcher, "admin B"));
+    }
+
+    @Test
+    void argumentNodesDelegateSuggestionsWithTooltipsToFramework() throws Exception {
+        CommandFramework framework = CommandFramework.builder()
+            .argumentParser(Target.class, new dev.riege.buildmycommand.api.ArgumentParser<>() {
+                @Override
+                public ArgumentParseResult<Target> parse(String rawToken, dev.riege.buildmycommand.api.ArgumentParseContext context) {
+                    return ArgumentParseResult.success(new Target(rawToken));
+                }
+
+                @Override
+                public List<Suggestion> suggestions(dev.riege.buildmycommand.api.ArgumentParseContext context) {
+                    return List.of(new Suggestion(
+                        "Ada",
+                        Optional.of("Online"),
+                        context.replacementStart(),
+                        context.replacementEnd(),
+                        SuggestionType.ARGUMENT,
+                        0
+                    ));
+                }
+            })
+            .build();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry().command("message", message -> message
+            .argument("target", Target.class)
+            .executes(ctx -> Results.success("ok")));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        com.mojang.brigadier.suggestion.Suggestion suggestion =
+            dispatcher.getCompletionSuggestions(dispatcher.parse("message A", new NativeSource()))
+                .get()
+                .getList()
+                .get(0);
+        assertEquals("Ada", suggestion.getText());
+        assertEquals("Online", suggestion.getTooltip().getString());
+    }
+
+    @Test
+    void greedyArgumentsUseGreedyBrigadierArgumentType() {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        AtomicReference<String> executed = new AtomicReference<>();
+        framework.registry().command("say", say -> say
+            .greedyArgument("message", String.class)
+            .executes(ctx -> {
+                executed.set(ctx.arg("message", String.class));
+                return Results.success("ok");
+            }));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(1, assertDoesNotThrow(() -> dispatcher.execute("say hello world", new NativeSource())));
+        assertEquals("hello world", executed.get());
+    }
+
+    @Test
+    void buildsRecursiveArgumentBranchesAndOptionalGreedyArguments() {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        AtomicReference<String> executed = new AtomicReference<>();
+        framework.registry().command("pair", pair -> pair
+            .argument("left", String.class)
+            .argument("right", String.class)
+            .executes(ctx -> {
+                executed.set(ctx.arg("left", String.class) + ":" + ctx.arg("right", String.class));
+                return Results.success("ok");
+            }));
+        framework.registry().command("note", note -> note
+            .optionalGreedyArgument("message", String.class)
+            .executes(ctx -> Results.success(ctx.argOr("message", "empty"))));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(1, assertDoesNotThrow(() -> dispatcher.execute("pair a b", new NativeSource())));
+        assertEquals("a:b", executed.get());
+        assertEquals(1, assertDoesNotThrow(() -> dispatcher.execute("note hello world", new NativeSource())));
     }
 
     @Test
@@ -241,6 +334,41 @@ class BrigadierCommandAdapterTest {
         assertEquals(0, bridge.execute(new NativeSource(), "quiet"));
     }
 
+    @Test
+    void rejectsNullConstructionAndRegistrationInputs() {
+        CommandFramework framework = CommandFramework.create();
+        CommandPlatform platform = new CommandPlatform("brigadier", "Brigadier", false, true, true);
+        AdapterConfig config = new AdapterConfig("brigadier", "Brigadier", AdapterCapabilities.from(platform));
+
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(null, NativeSource::source));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, null));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, NativeSource::source,
+            null, config));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, NativeSource::source,
+            platform, null));
+        assertThrows(NullPointerException.class, () -> new BrigadierRegistration<NativeSource>(null));
+        assertThrows(NullPointerException.class, () -> new BrigadierRoot<NativeSource>(null, List.of(), List.of()));
+        assertThrows(NullPointerException.class, () -> new BrigadierRoot<>(
+            LiteralArgumentBuilder.<NativeSource>literal("root").build(),
+            null,
+            List.of()
+        ));
+        assertThrows(NullPointerException.class, () -> new BrigadierRoot<>(
+            LiteralArgumentBuilder.<NativeSource>literal("root").build(),
+            List.of(),
+            null
+        ));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, NativeSource::source)
+            .registration()
+            .register(null));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, source -> null)
+            .mapSource(new NativeSource()));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, NativeSource::source)
+            .mapSource(null));
+        assertThrows(NullPointerException.class, () -> BrigadierCommandAdapter.create(framework, NativeSource::source)
+            .mapInput(new NativeSource(), null));
+    }
+
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {
         return assertInstanceOf(LiteralCommandNode.class, parent.getChild(name));
     }
@@ -273,5 +401,8 @@ class BrigadierCommandAdapterTest {
                 }
             };
         }
+    }
+
+    private record Target(String name) {
     }
 }

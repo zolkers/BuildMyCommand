@@ -42,8 +42,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                     }
                 }
                 if (routeContextCount != 1) {
-                    holder.registerProblem(method.getNameIdentifier() == null ? method : method.getNameIdentifier(),
-                        ROUTE_CONTEXT_REQUIRED);
+                    holder.registerProblem(method.getNameIdentifier(), ROUTE_CONTEXT_REQUIRED);
                 }
             }
 

@@ -17,12 +17,14 @@ import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -160,6 +162,8 @@ class MinecraftCommandBridgeTest {
     void reconstructsPlatformInvocationsForSlashBrigadierAndArgsArrayBackends() {
         assertEquals("ban Alex griefing",
             MinecraftInvocation.slash("/ban Alex griefing", 7).normalizedInput());
+        assertEquals("ban Alex",
+            MinecraftInvocation.slash("ban Alex", 7).normalizedInput());
         assertEquals("ban Alex griefing",
             MinecraftInvocation.labelAndArgs("ban", new String[] {"Alex", "griefing"}, 1).normalizedInput());
         assertEquals("ban ",
@@ -215,6 +219,7 @@ class MinecraftCommandBridgeTest {
             List.of("msg", "tell")
         ), adapter.registrationLabels());
         assertEquals(Optional.of("minecraft"), rendered.reply());
+        assertEquals(CommandResult.Status.SUCCESS, adapter.renderer().render(rendered).status());
     }
 
     @Test
@@ -269,6 +274,7 @@ class MinecraftCommandBridgeTest {
         assertEquals(Optional.of("Unknown command: missing"), failure.message());
         assertEquals(0, silent.numericResult());
         assertEquals(Optional.empty(), silent.message());
+        assertEquals(Optional.empty(), MinecraftRenderedResult.of(0, null).message());
     }
 
     @Test
@@ -343,6 +349,135 @@ class MinecraftCommandBridgeTest {
         assertEquals("paper 1.21.8 (api 1.21.8-R0.1-SNAPSHOT)", runtime.displayName());
     }
 
+    @Test
+    void commonValueObjectsRejectInvalidInputsAndClampCursors() {
+        assertThrows(NullPointerException.class, () -> new MinecraftInvocation(null, "ban", "ban", List.of(), 0));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftInvocation("", " ", "ban", List.of(), 0));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftInvocation("", "ban", " ", List.of(), 0));
+        assertThrows(NullPointerException.class, () -> new MinecraftInvocation("", "ban", "ban", null, 0));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftInvocation("", "ban", "ban", List.of(), -1));
+        assertThrows(NullPointerException.class, () -> MinecraftInvocation.slash(null, 0));
+        assertThrows(NullPointerException.class, () -> MinecraftInvocation.labelAndArgs("ban", null, 0));
+        assertThrows(IllegalArgumentException.class, () -> MinecraftInvocation.labelAndArgs(" ", new String[] {}, 0));
+        assertThrows(IllegalArgumentException.class, () -> MinecraftInvocation.labelAndArgs("ban", new String[] {}, -1));
+        assertEquals(3, MinecraftInvocation.slash("/ban", 99).cursor());
+        assertEquals(0, MinecraftInvocation.slash("/ban", 0).cursor());
+        assertEquals(Optional.empty(), MinecraftInvocation.labelAndArgs("ban", new String[] {}, 0).currentArgPrefix());
+        assertEquals(Optional.of(""), MinecraftInvocation.slash("/ban ", 5).currentArgPrefix());
+
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftRenderedResult(-1, "nope"));
+        assertThrows(NullPointerException.class, () -> new MinecraftBackendProfile(null, "Backend", Set.of(), Set.of(), true));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftBackendProfile(" ", "Backend", Set.of(), Set.of(), true));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftBackendProfile("id", " ", Set.of(), Set.of(), true));
+        assertThrows(NullPointerException.class, () -> new MinecraftBackendProfile("id", "Backend", null, Set.of(), true));
+        assertThrows(NullPointerException.class, () -> new MinecraftBackendProfile("id", "Backend", Set.of(), null, true));
+        assertThrows(NullPointerException.class, () -> new MinecraftRuntimeDescriptor(null, "1.20", "api", Set.of()));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftRuntimeDescriptor("paper", " ", "api", Set.of()));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftRuntimeDescriptor("paper", "1.20", " ", Set.of()));
+        assertThrows(NullPointerException.class, () -> new MinecraftRuntimeDescriptor("paper", "1.20", "api", null));
+        assertThrows(NullPointerException.class, () -> new MinecraftRuntimeDescriptor("paper", "1.20", "api", Set.of())
+            .supports(null));
+        assertThrows(NullPointerException.class, () -> new MinecraftSourceDescriptor(null, "Alex", new Object()));
+        assertTrue(new MinecraftSourceDescriptor(MinecraftSourceKind.CONSOLE, null, null).name().isEmpty());
+        assertTrue(new MinecraftSourceDescriptor(MinecraftSourceKind.CONSOLE, null, null).nativeHandleOptional().isEmpty());
+        assertThrows(NullPointerException.class, () -> new MinecraftCommandRegistrationPlan(null, List.of("ban"), 0, true));
+        assertThrows(NullPointerException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.paper(), null, 0, true));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.paper(),
+            List.of("ban"),
+            -1,
+            true));
+    }
+
+    @Test
+    void bridgeAndNativeAdapterExposeNullContractsAndDelegates() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry()
+            .route("root child")
+            .permission("root.child")
+            .executes(ctx -> Results.success("child"));
+        MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(framework, sender -> permissionSource(sender.permissions()));
+        MinecraftNativeCommandAdapter<FakeSender> nativeAdapter = new MinecraftNativeCommandAdapter<>(
+            bridge,
+            MinecraftResultRenderer.defaultRenderer()
+        );
+
+        assertThrows(NullPointerException.class, () -> new MinecraftCommandBridge<FakeSender>(null, sender -> new CommandSource() {
+        }));
+        assertThrows(NullPointerException.class, () -> new MinecraftCommandBridge<>(framework, null));
+        assertThrows(NullPointerException.class, () -> new MinecraftNativeCommandAdapter<FakeSender>(null,
+            MinecraftResultRenderer.defaultRenderer()));
+        assertThrows(NullPointerException.class, () -> new MinecraftNativeCommandAdapter<>(bridge, null));
+        assertThrows(NullPointerException.class, () -> bridge.dispatch(null, "root child"));
+        assertThrows(NullPointerException.class, () -> bridge.dispatch(new FakeSender(Set.of()), (String) null));
+        assertThrows(NullPointerException.class, () -> bridge.dispatch(new FakeSender(Set.of()), (MinecraftInvocation) null));
+        assertThrows(NullPointerException.class, () -> bridge.suggest(null, "root", 0));
+        assertThrows(NullPointerException.class, () -> bridge.suggest(new FakeSender(Set.of()), (String) null, 0));
+        assertThrows(NullPointerException.class, () -> bridge.suggest(new FakeSender(Set.of()), (MinecraftInvocation) null));
+        assertThrows(NullPointerException.class, () -> bridge.suggestRich(new FakeSender(Set.of()), null, 0));
+        assertThrows(NullPointerException.class, () -> bridge.mapSource(null));
+        assertThrows(NullPointerException.class, () -> bridge.mapInput(null, MinecraftInvocation.slash("/root", 5)));
+        assertThrows(NullPointerException.class, () -> bridge.mapInput(new FakeSender(Set.of()), null));
+        assertThrows(NullPointerException.class, () -> MinecraftAdapterContracts.rootLabels(null));
+        assertThrows(NullPointerException.class, () -> nativeAdapter.canUseRootLabel(null, "root"));
+        assertThrows(NullPointerException.class, () -> nativeAdapter.canUseRootLabel(new FakeSender(Set.of()), null));
+
+        assertFalse(nativeAdapter.matchingPolicy().caseInsensitiveLiterals());
+        assertFalse(bridge.canUseRootLabel(new FakeSender(Set.of()), "root"));
+        assertTrue(nativeAdapter.canUseRootLabel(new FakeSender(Set.of("root.child")), "root"));
+        assertTrue(bridge.canUseRootLabel(new FakeSender(Set.of("root.child")), "root"));
+        assertEquals(Optional.of("child"), bridge.dispatch(new FakeSender(Set.of("root.child")), "root child").reply());
+        assertEquals("root", nativeAdapter.mapInput(new FakeSender(Set.of()), MinecraftInvocation.slash("/root", 5))
+            .normalizedInput());
+        assertTrue(nativeAdapter.mapSource(new FakeSender(Set.of("root.child"))).hasPermission("root.child"));
+        assertEquals(Optional.of("child"), nativeAdapter.dispatch(new FakeSender(Set.of("root.child")),
+            MinecraftInvocation.slash("/root child", 11)).reply());
+        assertEquals(List.of("root"), nativeAdapter.suggest(new FakeSender(Set.of("root.child")), MinecraftInvocation.slash("/ro", 3)));
+        assertEquals(List.of("root"), nativeAdapter.suggestRich(new FakeSender(Set.of("root.child")),
+            MinecraftInvocation.slash("/ro", 3),
+            2).stream().map(Suggestion::value).toList());
+    }
+
+    @Test
+    void sharedBrigadierFactoriesAndRegistrationHelpersCoverAllCommonBackends() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("minestom|ms ping").executes(ctx -> Results.silent());
+
+        assertEquals("minestom", MinecraftBackendProfiles.minestom().id());
+        assertEquals("sponge", MinecraftBackendProfiles.sponge().id());
+        assertTrue(MinecraftBackendProfiles.sponge().capabilities().contains(MinecraftCapability.EVENT_BUS));
+
+        var defaultBridge = MinecraftBrigadierAdapters.create(framework, sender -> new CommandSource() {
+        });
+        var spongeBridge = MinecraftBrigadierAdapters.create(MinecraftBackendProfiles.sponge(), framework, sender -> new CommandSource() {
+        });
+        MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.sponge(), spongeBridge);
+
+        assertEquals("minecraft-fabric-brigadier", defaultBridge.config().adapterId());
+        assertEquals("minecraft-sponge-brigadier", spongeBridge.config().adapterId());
+        assertEquals(List.of("minestom", "ms"), plan.rootLabels());
+        assertTrue(plan.reloadSafe());
+        assertThrows(NullPointerException.class, () -> MinecraftBrigadierAdapters.create(null, framework, sender -> new CommandSource() {
+        }));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlan.fromBridge(
+            MinecraftBackendProfiles.paper(),
+            null
+        ));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlan.fromNativeAdapter(
+            MinecraftBackendProfiles.paper(),
+            null
+        ));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(null, spongeBridge));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.sponge(), null));
+    }
+
+    @Test
+    void utilityClassesKeepPrivateConstructorsForStaticOnlyContracts() throws Exception {
+        assertUtilityConstructor(MinecraftAdapterContracts.class);
+        assertUtilityConstructor(MinecraftBackendProfiles.class);
+        assertUtilityConstructor(MinecraftBrigadierAdapters.class);
+        assertUtilityConstructor(MinecraftCommandRegistrationPlans.class);
+    }
+
     private record FakeSender(Set<String> permissions) {
     }
 
@@ -353,6 +488,12 @@ class MinecraftCommandBridgeTest {
                 return permissions.contains(permission);
             }
         };
+    }
+
+    private static void assertUtilityConstructor(Class<?> type) throws Exception {
+        Constructor<?> constructor = type.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertNotNull(constructor.newInstance());
     }
 
     private static final class ContractOnlyMinecraftAdapter

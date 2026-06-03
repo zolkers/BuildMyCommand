@@ -118,21 +118,19 @@ subprojects {
         }
     }
 
-    if (name != "examples" && name != "intellij-plugin") {
-        tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
-            dependsOn(tasks.named("test"))
-            violationRules {
-                rule {
-                    limit {
-                        minimum = coverageMinimumFor(path)
-                    }
+    tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+        dependsOn(tasks.named("test"))
+        violationRules {
+            rule {
+                limit {
+                    minimum = BigDecimal.ONE
                 }
             }
         }
+    }
 
-        tasks.named("check") {
-            dependsOn(tasks.named("jacocoTestCoverageVerification"))
-        }
+    tasks.named("check") {
+        dependsOn(tasks.named("jacocoTestCoverageVerification"))
     }
 
     dependencies {
@@ -142,19 +140,4 @@ subprojects {
     }
 
     apply(from = rootProject.file("gradle/publishing.gradle.kts"))
-}
-
-fun coverageMinimumFor(path: String): BigDecimal = when {
-    path == ":core" -> "0.80".toBigDecimal()
-    path == ":annotations" -> "0.75".toBigDecimal()
-    path == ":adapters:brigadier" -> "0.80".toBigDecimal()
-    path == ":adapters:core" -> "0.80".toBigDecimal()
-    path == ":adapters:terminal" -> "0.80".toBigDecimal()
-    path == ":adapters:discord" -> "0.70".toBigDecimal()
-    path == ":adapters:minecraft:common" -> "0.75".toBigDecimal()
-    path.startsWith(":adapters:minecraft") -> "0.55".toBigDecimal()
-    path == ":schema" -> "0.80".toBigDecimal()
-    path == ":testkit" -> "0.75".toBigDecimal()
-    path == ":dsl" -> "0.60".toBigDecimal()
-    else -> "0.20".toBigDecimal()
 }

@@ -29,16 +29,12 @@ public final class RoutePatternParser {
 
     private static RouteStep convertStep(dev.riege.buildmycommand.dsl.RouteStep step) {
         Objects.requireNonNull(step, "step");
-        if (step instanceof dev.riege.buildmycommand.dsl.LiteralRouteStep literal) {
-            return new LiteralRouteStep(literal.value(), literal.aliases());
-        }
-        if (step instanceof ArgumentRouteStep argument) {
-            return new ElementRouteStep(convertArgument(argument));
-        }
-        if (step instanceof OptionRouteStep option) {
-            return new ElementRouteStep(new OptionRouteElement(convertOption(option)));
-        }
-        throw new IllegalArgumentException("unknown route step: " + step);
+        return switch (step) {
+            case dev.riege.buildmycommand.dsl.LiteralRouteStep literal ->
+                new LiteralRouteStep(literal.value(), literal.aliases());
+            case ArgumentRouteStep argument -> new ElementRouteStep(convertArgument(argument));
+            case OptionRouteStep option -> new ElementRouteStep(new OptionRouteElement(convertOption(option)));
+        };
     }
 
     private static RouteElement convertArgument(ArgumentRouteStep argument) {

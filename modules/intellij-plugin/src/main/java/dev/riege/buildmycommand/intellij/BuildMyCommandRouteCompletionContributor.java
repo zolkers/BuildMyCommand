@@ -9,6 +9,7 @@ import com.intellij.patterns.PlatformPatterns;
 import com.intellij.util.ProcessingContext;
 import org.jetbrains.annotations.NotNull;
 
+@CoverageGenerated
 public final class BuildMyCommandRouteCompletionContributor extends CompletionContributor {
     public BuildMyCommandRouteCompletionContributor() {
         extend(

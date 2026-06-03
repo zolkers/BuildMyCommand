@@ -12,12 +12,16 @@ public final class BuildMyCommandTextMateBundleProvider implements TextMateBundl
 
     @Override
     public List<PluginBundle> getBundles() {
+        var url = Objects.requireNonNull(
+            BuildMyCommandTextMateBundleProvider.class.getResource(BUNDLE_RESOURCE),
+            BUNDLE_RESOURCE
+        );
+        return List.of(bundle("BuildMyCommand Route DSL", url));
+    }
+
+    static PluginBundle bundle(String name, java.net.URL url) {
         try {
-            var url = Objects.requireNonNull(
-                BuildMyCommandTextMateBundleProvider.class.getResource(BUNDLE_RESOURCE),
-                BUNDLE_RESOURCE
-            );
-            return List.of(new PluginBundle("BuildMyCommand Route DSL", Path.of(url.toURI())));
+            return new PluginBundle(name, Path.of(url.toURI()));
         } catch (URISyntaxException exception) {
             throw new IllegalStateException("Invalid BuildMyCommand TextMate bundle path", exception);
         }

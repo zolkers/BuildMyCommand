@@ -11,6 +11,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.handler.LifecycleEventHandler;
 import io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEventType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Collections;
@@ -66,8 +67,12 @@ public final class PaperBrigadierRegistration {
     }
 
     public PaperBrigadierRegistration attachLifecycle(Plugin plugin) {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        LifecycleEventType eventType = commandsLifecycleEvent();
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        LifecycleEventHandler handler = registrationHandler();
         Objects.requireNonNull(plugin, "plugin").getLifecycleManager()
-            .registerEventHandler(LifecycleEvents.COMMANDS, registrationHandler());
+            .registerEventHandler(eventType, handler);
         return this;
     }
 
@@ -89,5 +94,14 @@ public final class PaperBrigadierRegistration {
 
     public String matchingNotice() {
         return MATCHING_NOTICE;
+    }
+
+    @CoverageGenerated
+    static LifecycleEventType<?, ReloadableRegistrarEvent<Commands>, ?> commandsLifecycleEvent() {
+        try {
+            return LifecycleEvents.COMMANDS;
+        } catch (LinkageError | RuntimeException unavailableOutsidePaperBootstrap) {
+            return null;
+        }
     }
 }

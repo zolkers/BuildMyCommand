@@ -71,7 +71,7 @@ public final class AnnotationCommandCompiler {
             validateSingleLiteral(ownerCommand.value(), "@Command", "@Route");
         }
 
-        if (subRoute != null && ownerCommand != null) {
+        if (subRoute != null) {
             String commandRoute = aliasedSubcommandRoute(
                 ownerCommand.value() + " " + subRoute.value(),
                 target.getClass().getAnnotation(Alias.class),
@@ -91,7 +91,7 @@ public final class AnnotationCommandCompiler {
                 boundMethod
             );
         }
-        if (subcommand != null && ownerCommand != null) {
+        if (subcommand != null) {
             validateSingleLiteral(subcommand.value(), "@Subcommand", "@SubRoute");
             Alias ownerAlias = target.getClass().getAnnotation(Alias.class);
             Alias methodAlias = method.getAnnotation(Alias.class);
@@ -154,11 +154,11 @@ public final class AnnotationCommandCompiler {
             return command.value();
         }
         Subcommand subcommand = method.getAnnotation(Subcommand.class);
-        if (subcommand != null && owner.isAnnotationPresent(Command.class)) {
+        if (subcommand != null) {
             return owner.getAnnotation(Command.class).value() + " " + subcommand.value();
         }
         SubRoute subRoute = method.getAnnotation(SubRoute.class);
-        if (subRoute != null && owner.isAnnotationPresent(Command.class)) {
+        if (subRoute != null) {
             return owner.getAnnotation(Command.class).value() + " " + subRoute.value();
         }
         return method.getAnnotation(Route.class).value();
@@ -322,7 +322,7 @@ public final class AnnotationCommandCompiler {
     private static String applyRouteAlias(String route, String alias, int offset) {
         String[] routeTokens = route.trim().split("\\s+");
         String[] aliasTokens = alias.trim().split("\\s+");
-        if (routeTokens.length == 0 || aliasTokens.length == 0 || alias.isBlank()) {
+        if (alias.isBlank()) {
             throw new IllegalArgumentException("route alias must not be blank");
         }
         if (offset + aliasTokens.length > routeTokens.length) {
@@ -332,49 +332,12 @@ public final class AnnotationCommandCompiler {
         String[] updated = routeTokens.clone();
         for (int index = 0; index < aliasTokens.length; index++) {
             int routeIndex = offset + index;
-            if (routeTokens[routeIndex].startsWith("<") || routeTokens[routeIndex].startsWith("[")
-                || routeTokens[routeIndex].endsWith(">") || routeTokens[routeIndex].endsWith("]")) {
+            if (routeTokens[routeIndex].startsWith("<") || routeTokens[routeIndex].startsWith("[")) {
                 throw new IllegalArgumentException("route alias can only target literal tokens: " + alias);
             }
             updated[routeIndex] = routeTokens[routeIndex] + "|" + aliasTokens[index];
         }
         return String.join(" ", updated);
-    }
-
-    private static String aliasedParameterRoute(
-        String route,
-        List<MethodCommandBinder.ParameterBinding> bindings
-    ) {
-        String aliased = route;
-        for (MethodCommandBinder.ParameterBinding binding : bindings) {
-            if (binding.kind() == MethodCommandBinder.Kind.FLAG
-                || binding.kind() == MethodCommandBinder.Kind.OPTION
-                || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
-                aliased = applyOptionAlias(aliased, binding.name(), binding.alias());
-            }
-        }
-        return aliased;
-    }
-
-    private static String applyOptionAlias(String route, String optionName, String alias) {
-        if (alias == null) {
-            return route;
-        }
-
-        String[] tokens = route.split("\\s+");
-        for (int index = 0; index < tokens.length; index++) {
-            String token = tokens[index];
-            if (!token.startsWith("[--") || !token.endsWith("]") || token.contains("|")) {
-                continue;
-            }
-            String body = token.substring(1, token.length() - 1);
-            int separator = body.indexOf(':');
-            String longName = separator < 0 ? body.substring(2) : body.substring(2, separator);
-            if (longName.equals(optionName)) {
-                tokens[index] = token.substring(0, token.length() - 1) + "|-" + alias + "]";
-            }
-        }
-        return String.join(" ", tokens);
     }
 
     public record CompiledCommands(
@@ -473,20 +436,10 @@ public final class AnnotationCommandCompiler {
         void register(CommandRegistry registry) {
             casePolicy.apply(registry);
             if (kind == RegistrationKind.ROUTE) {
-                CommandRegistry.RouteBuilder builder = registry.route(aliasedParameterRoute(route, boundMethod.bindings()));
+                CommandRegistry.RouteBuilder builder = registry.route(route);
                 description.ifPresent(builder::description);
                 permission.ifPresent(builder::permission);
                 applyMetadata(builder);
-                for (MethodCommandBinder.ParameterBinding binding : boundMethod.bindings()) {
-                    binding.suggestionProviderFunction().ifPresent(provider -> {
-                        if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
-                            builder.argumentSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
-                        } else if (binding.kind() == MethodCommandBinder.Kind.OPTION
-                            || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
-                            builder.optionSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
-                        }
-                    });
-                }
                 builder.executes(boundMethod::invoke);
                 return;
             }
@@ -528,8 +481,7 @@ public final class AnnotationCommandCompiler {
                 binding.suggestionProviderFunction().ifPresent(provider -> {
                     if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
                         builder.argumentSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
-                    } else if (binding.kind() == MethodCommandBinder.Kind.OPTION
-                        || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
+                    } else {
                         builder.optionSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
                     }
                 });

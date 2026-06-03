@@ -10,11 +10,9 @@ import dev.riege.buildmycommand.dsl.RouteStep;
 import dev.riege.buildmycommand.dsl.RouteType;
 
 import java.lang.reflect.Method;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.LinkedHashMap;
 
 public final class AnnotationRouteValidator {
@@ -89,17 +87,12 @@ public final class AnnotationRouteValidator {
     ) {
         if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
             ArgumentDescriptor descriptor = routeNames.arguments().get(binding.name());
-            if (descriptor == null) {
-                return;
-            }
             validateType("route argument", binding.name(), descriptor.type(), binding.type());
             validateArgumentKind(binding, descriptor);
         } else if (binding.kind() == MethodCommandBinder.Kind.OPTION
             || binding.kind() == MethodCommandBinder.Kind.OPTIONAL_OPTION) {
             OptionDescriptor descriptor = routeNames.valueOptions().get(binding.name());
-            if (descriptor != null) {
-                validateType("route option", binding.name(), descriptor.type(), binding.type());
-            }
+            validateType("route option", binding.name(), descriptor.type(), binding.type());
         }
     }
 
@@ -131,9 +124,6 @@ public final class AnnotationRouteValidator {
     }
 
     private static Class<?> boxed(Class<?> type) {
-        if (!type.isPrimitive()) {
-            return type;
-        }
         if (type == int.class) {
             return Integer.class;
         }
@@ -145,9 +135,6 @@ public final class AnnotationRouteValidator {
         }
         if (type == boolean.class) {
             return Boolean.class;
-        }
-        if (type == float.class) {
-            return Float.class;
         }
         return type;
     }

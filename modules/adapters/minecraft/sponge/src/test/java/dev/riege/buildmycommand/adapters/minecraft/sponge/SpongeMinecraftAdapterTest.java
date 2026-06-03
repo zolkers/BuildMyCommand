@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpongeMinecraftAdapterTest {
@@ -39,7 +40,17 @@ class SpongeMinecraftAdapterTest {
         assertEquals("sponge", registrar.alias());
         assertEquals(List.of("sp"), Arrays.asList(registrar.aliases()));
         assertEquals(List.of("sponge", "sp"), registration.labels());
+        assertSame(container, registration.pluginContainer());
+        assertSame(command, registration.command());
         assertTrue(registration.exactLiteralMatching());
+        assertEquals(
+            "Sponge RegisterCommandEvent aliases are registration aliases; Sponge and Brigadier literals remain exact-case.",
+            registration.matchingNotice()
+        );
+        assertEquals(SpongeMinecraftAdapter.profile(), registration.plan().backend());
+        assertEquals(List.of("sponge", "sp"), registration.plan().rootLabels());
+        assertEquals(1, registration.plan().generation());
+        assertTrue(registration.plan().reloadSafe());
     }
 
     @Test
@@ -55,6 +66,25 @@ class SpongeMinecraftAdapterTest {
 
         assertEquals("minecraft-sponge-brigadier", bridge.config().adapterId());
         assertEquals(List.of("sponge", "sp"), bridge.registrationLabels().rootLabels());
+    }
+
+    @Test
+    void rejectsInvalidRegistrationInputs() {
+        Object container = new Object();
+        Object command = new Object();
+
+        assertThrows(NullPointerException.class, () -> new SpongeCommandRegistration<>(
+            null,
+            container,
+            command,
+            List.of("sponge")
+        ));
+        assertThrows(NullPointerException.class, () -> SpongeMinecraftAdapter.registration(null, command, List.of("sponge")));
+        assertThrows(NullPointerException.class, () -> SpongeMinecraftAdapter.registration(container, null, List.of("sponge")));
+        assertThrows(NullPointerException.class, () -> SpongeMinecraftAdapter.registration(container, command, null));
+        assertThrows(IllegalArgumentException.class, () -> SpongeMinecraftAdapter.registration(container, command, List.of()));
+        assertThrows(NullPointerException.class, () -> SpongeMinecraftAdapter.registration(container, command, List.of("sponge"))
+            .register(null));
     }
 
     private static final class RecordingRegistrar<C> implements SpongeCommandRegistrar<C> {

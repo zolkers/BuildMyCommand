@@ -109,21 +109,25 @@ public final class SpigotCommandRegistration {
         String label,
         Command command
     ) {
+        field.setAccessible(true);
+        Object value = fieldValue(commandMap, field);
+        if (value instanceof Map<?, ?> knownCommands) {
+            @SuppressWarnings("unchecked")
+            Map<String, Command> commands = (Map<String, Command>) knownCommands;
+            String fallbackLabel = fallbackPrefix + ":" + label;
+            commands.remove(label, command);
+            commands.remove(fallbackLabel, command);
+            commands.remove(command.getName(), command);
+            commands.remove(command.getName().toLowerCase(Locale.ROOT), command);
+            commands.remove(fallbackLabel.toLowerCase(Locale.ROOT), command);
+        }
+    }
+
+    private static Object fieldValue(CommandMap commandMap, Field field) {
         try {
-            field.setAccessible(true);
-            Object value = field.get(commandMap);
-            if (value instanceof Map<?, ?> knownCommands) {
-                @SuppressWarnings("unchecked")
-                Map<String, Command> commands = (Map<String, Command>) knownCommands;
-                String fallbackLabel = fallbackPrefix + ":" + label;
-                commands.remove(label, command);
-                commands.remove(fallbackLabel, command);
-                commands.remove(command.getName(), command);
-                commands.remove(command.getName().toLowerCase(Locale.ROOT), command);
-                commands.remove(fallbackLabel.toLowerCase(Locale.ROOT), command);
-            }
+            return field.get(commandMap);
         } catch (IllegalAccessException ignored) {
-            // Bukkit does not expose removal on CommandMap; best effort keeps this facade server-friendly.
+            return null;
         }
     }
 

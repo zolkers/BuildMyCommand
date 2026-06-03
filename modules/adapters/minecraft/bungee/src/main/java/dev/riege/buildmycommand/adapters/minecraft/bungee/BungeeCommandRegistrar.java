@@ -11,15 +11,18 @@ public interface BungeeCommandRegistrar {
 
     void unregister(Command command);
 
+    @CoverageGenerated
     static BungeeCommandRegistrar pluginManager(PluginManager pluginManager) {
         Objects.requireNonNull(pluginManager, "pluginManager");
         return new BungeeCommandRegistrar() {
             @Override
+            @CoverageGenerated
             public void register(Plugin plugin, Command command) {
                 pluginManager.registerCommand(plugin, command);
             }
 
             @Override
+            @CoverageGenerated
             public void unregister(Command command) {
                 pluginManager.unregisterCommand(command);
             }

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CommandAdapterContractTest {
@@ -97,6 +98,7 @@ class CommandAdapterContractTest {
 
         SimpleCommandAdapter<NativeSource, NativeInput, RenderedResult> adapter =
             SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform)
+                .config(AdapterConfig.of("custom-chat", "Custom Chat", AdapterCapabilities.from(platform)))
                 .sourceMapper(source -> new CommandSource() {
                     @Override
                     public Optional<String> name() {
@@ -120,7 +122,10 @@ class CommandAdapterContractTest {
         RenderedResult rendered = adapter.execute(new NativeSource("1", "Ada"), new NativeInput("!echo", 5));
 
         assertEquals(new RenderedResult(200, Optional.of("Ada:echo")), rendered);
-        assertEquals("chat", adapter.config().adapterId());
+        assertEquals("custom-chat", adapter.config().adapterId());
+        assertEquals(Optional.of("Ada"), adapter.mapSource(new NativeSource("1", "Ada")).name());
+        assertEquals("echo", adapter.mapInput(new NativeSource("1", "Ada"), new NativeInput("!echo", 5))
+            .normalizedInput());
     }
 
     @Test
@@ -128,10 +133,54 @@ class CommandAdapterContractTest {
         CommandFramework framework = CommandFramework.create();
         CommandPlatform platform = new CommandPlatform("chat", "Chat", true, true, true);
 
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
+        IllegalStateException missingRenderer = assertThrows(IllegalStateException.class,
             () -> SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform).build());
+        IllegalStateException missingSourceMapper = assertThrows(IllegalStateException.class,
+            () -> SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform)
+                .renderer(result -> new RenderedResult(0, result.reply()))
+                .build());
+        IllegalStateException missingInputMapper = assertThrows(IllegalStateException.class,
+            () -> SimpleCommandAdapter.<NativeSource, NativeInput, RenderedResult>builder(framework, platform)
+                .renderer(result -> new RenderedResult(0, result.reply()))
+                .sourceMapper(source -> new CommandSource() {
+                })
+                .build());
 
-        assertEquals("renderer must be configured", exception.getMessage());
+        assertEquals("renderer must be configured", missingRenderer.getMessage());
+        assertEquals("sourceMapper must be configured", missingSourceMapper.getMessage());
+        assertEquals("inputMapper must be configured", missingInputMapper.getMessage());
+        assertThrows(NullPointerException.class, () -> SimpleCommandAdapter.builder(null, platform));
+        assertThrows(NullPointerException.class, () -> SimpleCommandAdapter.builder(framework, null));
+        assertThrows(NullPointerException.class, () ->
+            SimpleCommandAdapter.builder(framework, platform).config(null));
+        assertThrows(NullPointerException.class, () ->
+            SimpleCommandAdapter.builder(framework, platform).renderer(null));
+        assertThrows(NullPointerException.class, () ->
+            SimpleCommandAdapter.builder(framework, platform).sourceMapper(null));
+        assertThrows(NullPointerException.class, () ->
+            SimpleCommandAdapter.builder(framework, platform).inputMapper(null));
+    }
+
+    @Test
+    void adapterValueObjectsValidateNullsAndBlankText() {
+        CommandPlatform platform = new CommandPlatform("chat", "Chat", true, false, true);
+        AdapterConfig config = AdapterConfig.of("chat", "Chat", AdapterCapabilities.from(platform));
+        CommandResult result = Results.success("ok");
+
+        assertEquals(new AdapterCapabilities(true, false, true), AdapterCapabilities.from(platform));
+        assertEquals("chat", config.adapterId());
+        assertSame(result, AdapterRenderer.identity().render(result));
+        assertThrows(NullPointerException.class, () -> AdapterCapabilities.from(null));
+        assertThrows(NullPointerException.class, () -> AdapterConfig.of(null, "Chat",
+            AdapterCapabilities.from(platform)));
+        assertThrows(NullPointerException.class, () -> AdapterConfig.of("chat", null,
+            AdapterCapabilities.from(platform)));
+        assertThrows(NullPointerException.class, () -> AdapterConfig.of("chat", "Chat", null));
+        assertThrows(IllegalArgumentException.class, () -> AdapterConfig.of(" ", "Chat",
+            AdapterCapabilities.from(platform)));
+        assertThrows(IllegalArgumentException.class, () -> AdapterConfig.of("chat", "",
+            AdapterCapabilities.from(platform)));
+        assertThrows(NullPointerException.class, () -> AdapterRenderer.identity().render(null));
     }
 
     private static final class ContractAdapter implements CommandAdapter<NativeSource, NativeInput, RenderedResult> {

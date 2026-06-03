@@ -79,7 +79,11 @@ final class BuildMyCommandRouteLexer extends LexerBase {
             tokenType = BuildMyCommandRouteTokenType.MARKUP;
             return;
         }
-        consumeWhile(BuildMyCommandRouteLexer::isWord);
+        if (isWord(current)) {
+            consumeWhile(BuildMyCommandRouteLexer::isWord);
+        } else {
+            tokenEnd++;
+        }
         tokenType = wordTokenType();
     }
 

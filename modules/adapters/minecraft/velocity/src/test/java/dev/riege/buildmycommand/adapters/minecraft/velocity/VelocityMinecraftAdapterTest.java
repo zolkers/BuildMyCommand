@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VelocityMinecraftAdapterTest {
@@ -55,8 +56,10 @@ class VelocityMinecraftAdapterTest {
 
         assertTrue(mapped.hasPermission("proxy.reload"));
         assertEquals(Optional.of(source.proxy()), mapped.unwrap(com.velocitypowered.api.command.CommandSource.class));
+        assertEquals(Optional.empty(), mapped.unwrap(String.class));
         mapped.reply("Reloaded");
         assertEquals(List.of("Reloaded"), source.messages());
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.commandSource(null));
     }
 
     @Test
@@ -69,6 +72,7 @@ class VelocityMinecraftAdapterTest {
             VelocityMinecraftAdapter.simpleCommandAdapter(framework)
         );
 
+        assertSame(command.adapter(), command.adapter());
         command.execute(invocation(source.proxy(), "px", "reload"));
 
         assertEquals(List.of("Proxy reloaded"), source.messages());
@@ -104,12 +108,46 @@ class VelocityMinecraftAdapterTest {
 
         CommandMeta meta = registration.register(commandManager.proxy());
 
+        assertSame(plugin, registration.plugin());
+        assertSame(registration.adapter(), registration.adapter());
+        assertSame(registration.command(), registration.command());
         assertEquals(List.of("proxy", "px"), registration.labels());
         assertSame(plugin, commandManager.plugin(meta));
         assertSame(registration.command(), commandManager.registered(meta));
         assertEquals(List.of("proxy", "px"), commandManager.labels(meta));
         registration.unregister(commandManager.proxy());
         assertTrue(commandManager.registrations().isEmpty());
+        assertSame(registration, registration.unregister(commandManager.proxy()));
+    }
+
+    @Test
+    void simpleRegistrationHandlesNoPluginSingleLabelAndInvalidInputs() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("proxy").executes(ctx -> Results.silent());
+        RecordingCommandManager commandManager = new RecordingCommandManager();
+        VelocityCommandRegistration registration = VelocityMinecraftAdapter.simpleRegistration(
+            null,
+            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+        );
+
+        CommandMeta meta = registration.register(commandManager.proxy());
+
+        assertEquals(List.of("proxy"), commandManager.labels(meta));
+        assertEquals(null, commandManager.plugin(meta));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleCommandInput("proxy", null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleCommand(null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleRegistration(new Object(), null));
+        assertThrows(NullPointerException.class, () -> new VelocityCommandRegistration(new Object(), null));
+        assertThrows(NullPointerException.class, () -> registration.register(null));
+        assertThrows(NullPointerException.class, () -> registration.unregister(null));
+        assertThrows(IllegalStateException.class, () -> VelocityMinecraftAdapter.simpleRegistration(
+            null,
+            VelocityMinecraftAdapter.simpleCommandAdapter(CommandFramework.create())
+        ).register(commandManager.proxy()));
+        assertThrows(NullPointerException.class, () -> new VelocitySimpleCommand(null));
+        assertThrows(NullPointerException.class, () -> registration.command().execute(null));
+        assertThrows(NullPointerException.class, () -> registration.command().suggest(null));
+        assertThrows(NullPointerException.class, () -> registration.command().hasPermission(null));
     }
 
     @Test
@@ -124,17 +162,50 @@ class VelocityMinecraftAdapterTest {
         );
         MinecraftCommandRegistrationPlan plan = registration.plan();
 
+        assertSame(registration.bridge(), registration.bridge());
+        assertEquals(List.of("proxy", "px"), registration.roots().stream()
+            .map(com.mojang.brigadier.tree.LiteralCommandNode::getLiteral)
+            .toList());
+        assertEquals(List.of("proxy"), registration.commands().stream()
+            .map(command -> command.getNode().getLiteral())
+            .toList());
         assertEquals(List.of("proxy", "px"), plan.rootLiterals());
         assertEquals(List.of("proxy", "px"), plan.rootLabels());
         assertEquals(List.of("proxy", "px"), registration.labels());
         assertEquals(List.of("proxy", "px"), new ArrayList<>(registration.register(commandManager.proxy())));
         assertTrue(registration.exactLiteralMatching());
         assertTrue(registration.frameworkAuthoritativeMatching());
+        assertEquals(
+            "Velocity Brigadier metadata exposes aliases while BuildMyCommand delegates framework matching through _bmc_input fallbacks.",
+            registration.matchingNotice()
+        );
         assertEquals("minecraft-velocity-brigadier", registration.bridge().config().adapterId());
         assertEquals(1, commandManager.registrations().size());
         assertEquals(List.of("proxy", "px"), commandManager.labels(commandManager.registrations().keySet().iterator().next()));
         registration.unregister(commandManager.proxy());
         assertTrue(commandManager.registrations().isEmpty());
+        assertSame(registration, registration.unregister(commandManager.proxy()));
+    }
+
+    @Test
+    void brigadierRegistrationWithPluginAndInvalidInputs() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("proxy").executes(ctx -> Results.silent());
+        RecordingCommandManager commandManager = new RecordingCommandManager();
+        Object plugin = new Object();
+        VelocityBrigadierRegistration registration = VelocityMinecraftAdapter.brigadierRegistration(framework, plugin);
+
+        CommandMeta meta = commandManager.registrations().keySet().stream().findFirst()
+            .orElseGet(() -> {
+                registration.register(commandManager.proxy());
+                return commandManager.registrations().keySet().iterator().next();
+            });
+
+        assertSame(plugin, commandManager.plugin(meta));
+        assertThrows(NullPointerException.class, () -> new VelocityBrigadierRegistration(null, registration.bridge(), plugin));
+        assertThrows(NullPointerException.class, () -> new VelocityBrigadierRegistration(VelocityMinecraftAdapter.profile(), null, plugin));
+        assertThrows(NullPointerException.class, () -> registration.register(null));
+        assertThrows(NullPointerException.class, () -> registration.unregister(null));
     }
 
     private static SimpleCommand.Invocation invocation(

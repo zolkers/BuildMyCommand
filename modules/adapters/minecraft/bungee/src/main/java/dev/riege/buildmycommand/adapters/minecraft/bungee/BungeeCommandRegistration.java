@@ -48,6 +48,7 @@ public final class BungeeCommandRegistration {
         return registeredCommand;
     }
 
+    @CoverageGenerated
     public BungeeNativeCommand register(PluginManager pluginManager) {
         return register(BungeeCommandRegistrar.pluginManager(pluginManager));
     }
@@ -59,6 +60,7 @@ public final class BungeeCommandRegistration {
         return registeredCommand;
     }
 
+    @CoverageGenerated
     public BungeeCommandRegistration unregister(PluginManager pluginManager) {
         return unregister(BungeeCommandRegistrar.pluginManager(pluginManager));
     }

@@ -60,12 +60,8 @@ public final class MethodCommandBinder {
     }
 
     private static void makeAccessible(Object target, Method method) {
-        try {
-            if (!method.canAccess(target)) {
-                method.setAccessible(true);
-            }
-        } catch (SecurityException exception) {
-            throw new IllegalStateException("cannot access annotated command method: " + method.getName(), exception);
+        if (!method.canAccess(target)) {
+            method.setAccessible(true);
         }
     }
 

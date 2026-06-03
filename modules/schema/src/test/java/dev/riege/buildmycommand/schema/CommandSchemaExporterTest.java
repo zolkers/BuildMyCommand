@@ -1,13 +1,21 @@
 package dev.riege.buildmycommand.schema;
 
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.CommandGraph;
+import dev.riege.buildmycommand.api.Commands;
+import dev.riege.buildmycommand.api.Arguments;
+import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CommandSchemaExporterTest {
@@ -51,5 +59,115 @@ class CommandSchemaExporterTest {
         assertTrue(inspection.executable());
         assertTrue(mermaid.contains("graph TD"));
         assertTrue(mermaid.contains("[\"admin user delete\"]"));
+    }
+
+    @Test
+    void exportsEmptyGraphsEscapedValuesAndMultipleSiblings() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("say", command -> command
+            .description("Say \"hi\" on C:\\tmp")
+            .executes(ctx -> Results.silent()));
+        framework.registry().command("stop", command -> command.executes(ctx -> Results.silent()));
+        CommandSchemaExporter exporter = new CommandSchemaExporter();
+
+        assertEquals("{\"commands\":[]}", exporter.exportJson(new CommandGraph(List.of())));
+        String json = exporter.exportJson(framework);
+        String mermaid = exporter.exportMermaid(framework);
+
+        assertTrue(json.contains("Say \\\"hi\\\" on C:\\\\tmp"));
+        assertTrue(json.contains("\"path\":\"stop\""));
+        assertTrue(mermaid.contains("say[\"say\"]"));
+        assertTrue(mermaid.contains("stop[\"stop\"]"));
+        assertThrows(NullPointerException.class, () -> exporter.exportJson((CommandFramework) null));
+        assertThrows(NullPointerException.class, () -> exporter.exportJson((CommandGraph) null));
+        assertThrows(NullPointerException.class, () -> exporter.exportMermaid(null));
+    }
+
+    @Test
+    void exportsMultipleArgumentsOptionsExamplesAndFindsFallbackPaths() throws Exception {
+        CommandGraph graph = new CommandGraph(List.of(
+            Commands.literal("root")
+                .alias("r")
+                .aliases("main")
+                .child(Commands.literal("child")
+                    .argument(Arguments.required("target", String.class))
+                    .argument(Arguments.optional("reason", String.class))
+                    .flag(Flags.bool("silent").alias("s"))
+                    .flag(Flags.option("amount", Integer.class).alias("a"))
+                    .metadata(new dev.riege.buildmycommand.api.CommandMetadata.Builder()
+                        .example("/root child Ada")
+                        .example("/r child Ada")
+                        .build())
+                    .build())
+                .build()
+        ));
+        CommandSchemaExporter exporter = new CommandSchemaExporter();
+        Method pathFor = CommandSchemaExporter.class.getDeclaredMethod("pathFor", CommandGraph.class,
+            dev.riege.buildmycommand.api.CommandNode.class);
+        Method findPath = CommandSchemaExporter.class.getDeclaredMethod("findPath",
+            dev.riege.buildmycommand.api.CommandNode.class,
+            dev.riege.buildmycommand.api.CommandNode.class,
+            List.class);
+        pathFor.setAccessible(true);
+        findPath.setAccessible(true);
+
+        String json = exporter.exportJson(graph);
+        Object fallback = pathFor.invoke(null, new CommandGraph(List.of()), Commands.literal("orphan").build());
+        Object notFound = findPath.invoke(null, graph.roots().get(0), Commands.literal("missing").build(), List.of());
+
+        assertTrue(json.contains("\"arguments\":[{\"name\":\"target\""));
+        assertTrue(json.contains("{\"name\":\"reason\""));
+        assertTrue(json.contains("\"options\":[{\"name\":\"silent\""));
+        assertTrue(json.contains("{\"name\":\"amount\""));
+        assertTrue(json.contains("\"aliases\":[\"r\",\"main\"]"));
+        assertTrue(json.contains("\"examples\":[\"/root child Ada\",\"/r child Ada\"]"));
+        assertEquals(List.of("orphan"), fallback);
+        assertEquals(List.of(), notFound);
+    }
+
+
+    @Test
+    void routeInspectorHandlesAliasesUnknownTokensAndNullInputs() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("admin", admin -> admin
+            .alias("adm")
+            .subcommand("reload", reload -> reload
+                .executes(ctx -> Results.success("ok")))
+            .subcommand("status", status -> { }));
+        RouteInspector inspector = new RouteInspector();
+
+        RouteInspection alias = inspector.inspect(framework, "adm reload now");
+        RouteInspection unknown = inspector.inspect(framework, "missing token");
+        RouteInspection nonExecutable = inspector.inspect(framework, "admin status");
+
+        assertEquals(List.of("adm", "reload", "now"), alias.tokens());
+        assertEquals(List.of("admin", "reload"), alias.matchedPath());
+        assertTrue(alias.executable());
+        assertEquals(List.of(), unknown.matchedPath());
+        assertEquals(List.of(), unknown.arguments());
+        assertEquals(List.of(), unknown.options());
+        assertFalse(unknown.executable());
+        assertEquals(List.of("admin", "status"), nonExecutable.matchedPath());
+        assertFalse(nonExecutable.executable());
+        assertThrows(NullPointerException.class, () -> inspector.inspect(null, "x"));
+        assertThrows(NullPointerException.class, () -> inspector.inspect(framework, null));
+        assertThrows(NullPointerException.class, () -> new RouteInspection(null, List.of(), List.of(), List.of(),
+            false));
+    }
+
+    @Test
+    void conflictReportsSnapshotAndExposeConflictPresence() {
+        List<String> values = new ArrayList<>(List.of("ban <x>", "ban <y>"));
+        ConflictReport report = new ConflictReport(values);
+        values.clear();
+
+        assertTrue(report.hasConflicts());
+        assertEquals(List.of("ban <x>", "ban <y>"), report.conflicts());
+        assertFalse(new ConflictReport(List.of()).hasConflicts());
+        assertThrows(UnsupportedOperationException.class, () -> report.conflicts().add("other"));
+        assertThrows(NullPointerException.class, () -> new ConflictReport(null));
+        assertEquals("{\"commands\":[{\"path\":\"orphan\",\"aliases\":[],\"arguments\":[],\"options\":[],"
+            + "\"hidden\":false,\"examples\":[]}]}",
+            new CommandSchemaExporter().exportJson(new CommandGraph(List.of(Commands.literal("orphan").build()))));
     }
 }

@@ -2,6 +2,7 @@ package dev.riege.buildmycommand.adapters.minecraft.spigot;
 
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
+import dev.riege.buildmycommand.api.CommandMessage;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -11,6 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -19,7 +21,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpigotMinecraftAdapterTest {
@@ -50,10 +54,20 @@ class SpigotMinecraftAdapterTest {
         CommandSource source = SpigotMinecraftAdapter.commandSource(sender.proxy());
 
         assertEquals(Optional.of("Ada"), source.name());
+        assertEquals(java.util.Locale.ROOT, source.locale());
         assertTrue(source.hasPermission("minecraft.command.ban"));
+        assertTrue(source.hasPermission(""));
+        assertFalse(source.hasPermission("minecraft.command.kick"));
         assertEquals(Optional.of(sender.proxy()), source.unwrap(CommandSender.class));
+        assertEquals(Optional.empty(), source.unwrap(String.class));
         source.reply("hello");
-        assertEquals(List.of("hello"), sender.messages());
+        source.reply(CommandMessage.success("world"));
+        assertEquals(List.of("hello", "world"), sender.messages());
+        assertThrows(NullPointerException.class, () -> source.unwrap(null));
+        assertThrows(NullPointerException.class, () -> source.reply((String) null));
+        assertThrows(NullPointerException.class, () -> source.reply((CommandMessage) null));
+        assertThrows(NullPointerException.class, () -> source.hasPermission(null));
+        assertThrows(NullPointerException.class, () -> new SpigotCommandSource(null));
     }
 
     @Test
@@ -68,6 +82,7 @@ class SpigotMinecraftAdapterTest {
             SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
         );
 
+        assertSame(command.adapter(), command.adapter());
         assertTrue(command.execute(sender.proxy(), "block", new String[] {"Alex"}));
         assertEquals(List.of("Banned Alex"), sender.messages());
     }
@@ -144,6 +159,11 @@ class SpigotMinecraftAdapterTest {
             "buildmycommand:block",
             new String[] {"Alex", "a"}
         ));
+        assertEquals(List.of(), command.tabComplete(
+            sender.proxy(),
+            "buildmycommand:",
+            new String[] {"Alex", "a"}
+        ));
     }
 
     @Test
@@ -173,17 +193,100 @@ class SpigotMinecraftAdapterTest {
             SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
         );
 
+        assertEquals("buildmycommand", registration.fallbackPrefix());
+        assertEquals(List.of(), registration.commands());
+        assertSame(registration, registration.unregister(commandMap));
         assertEquals(List.of("ban", "block"), registration.labels());
         assertEquals(List.of("ban", "block"), registration.plan().rootLabels());
         assertEquals(List.of("ban", "block"), registration.register(commandMap));
+        assertEquals(2, registration.commands().size());
         assertEquals(List.of(
             "ban",
             "buildmycommand:ban",
             "block",
             "buildmycommand:block"
         ), new ArrayList<>(commandMap.commands().keySet()));
+        assertEquals(List.of("ban", "block"), registration.register(commandMap));
         assertSame(registration.adapter(), registration.unregister(commandMap).adapter());
         assertTrue(commandMap.commands().isEmpty());
+    }
+
+    @Test
+    void registrationAndNativeCommandsRejectInvalidInputs() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban").executes(ctx -> Results.silent());
+        var adapter = SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource);
+        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand("ban", adapter);
+
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.commandExecutorInput("ban", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.commandSource(null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.nativeCommand(null, adapter));
+        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftAdapter.nativeCommand(" ", adapter));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.nativeCommand("ban", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration(null, adapter));
+        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftAdapter.registration(" ", adapter));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", null));
+        assertThrows(NullPointerException.class, () -> command.onCommand(null, command, "ban", new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), null, "ban", new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), command, null, new String[] {}));
+        assertThrows(IllegalArgumentException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), command, " ", new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), command, "ban", null));
+        assertThrows(NullPointerException.class, () -> command.onTabComplete(null, command, "ban", new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onTabComplete(new RecordingSender("Ada").proxy(), null, "ban", new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onTabComplete(new RecordingSender("Ada").proxy(), command, "ban", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", adapter).register(null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", adapter).unregister(null));
+    }
+
+    @Test
+    void unregisterFallsBackWhenCommandMapDoesNotExposeKnownCommands() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban").executes(ctx -> Results.silent());
+        NoFieldCommandMap commandMap = new NoFieldCommandMap();
+        SpigotCommandRegistration registration = SpigotMinecraftAdapter.registration(
+            "buildmycommand",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        registration.register(commandMap);
+
+        assertFalse(commandMap.registered().isEmpty());
+        registration.unregister(commandMap);
+        assertTrue(registration.commands().isEmpty());
+        assertFalse(commandMap.registered().isEmpty());
+    }
+
+    @Test
+    void unregisterHandlesAlternativeCommandMapFieldShapes() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban").executes(ctx -> Results.silent());
+        StringFirstCommandMap commandMap = new StringFirstCommandMap();
+        NullKnownCommandsMap nullMap = new NullKnownCommandsMap();
+        SpigotCommandRegistration registration = SpigotMinecraftAdapter.registration(
+            "buildmycommand",
+            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+        );
+
+        registration.register(commandMap);
+        registration.unregister(commandMap);
+        registration.register(nullMap);
+        registration.unregister(nullMap);
+
+        assertTrue(commandMap.commands.isEmpty());
+        assertTrue(registration.commands().isEmpty());
+    }
+
+    @Test
+    void reflectiveCommandMapFieldAccessFallsBackToNullWhenIllegal() throws Exception {
+        Method fieldValue = SpigotCommandRegistration.class.getDeclaredMethod(
+            "fieldValue",
+            CommandMap.class,
+            java.lang.reflect.Field.class
+        );
+        fieldValue.setAccessible(true);
+        java.lang.reflect.Field secret = SecretCommandMap.class.getDeclaredField("secret");
+
+        assertEquals(null, fieldValue.invoke(null, new SecretCommandMap(), secret));
     }
 
     private static final class RecordingSender {
@@ -276,6 +379,191 @@ class SpigotMinecraftAdapterTest {
 
         Map<String, Command> commands() {
             return commands;
+        }
+    }
+
+    private static final class NoFieldCommandMap implements CommandMap {
+        private final Map<String, Command> store = new LinkedHashMap<>();
+
+        @Override
+        public void registerAll(String fallbackPrefix, List<Command> commands) {
+            commands.forEach(command -> register(fallbackPrefix, command));
+        }
+
+        @Override
+        public boolean register(String label, String fallbackPrefix, Command command) {
+            store.put(label, command);
+            return true;
+        }
+
+        @Override
+        public boolean register(String fallbackPrefix, Command command) {
+            store.put(command.getName(), command);
+            return true;
+        }
+
+        @Override
+        public boolean dispatch(CommandSender sender, String commandLine) {
+            return false;
+        }
+
+        @Override
+        public void clearCommands() {
+            store.clear();
+        }
+
+        @Override
+        public Command getCommand(String name) {
+            return store.get(name);
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine) {
+            return List.of();
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine, org.bukkit.Location location) {
+            return List.of();
+        }
+
+        Map<String, Command> registered() {
+            return store;
+        }
+    }
+
+    private static final class StringFirstCommandMap implements CommandMap {
+        @SuppressWarnings("unused")
+        private final String knownCommands = "not a map";
+        private final Map<String, Command> commands = new LinkedHashMap<>();
+
+        @Override
+        public void registerAll(String fallbackPrefix, List<Command> commands) {
+            commands.forEach(command -> register(fallbackPrefix, command));
+        }
+
+        @Override
+        public boolean register(String label, String fallbackPrefix, Command command) {
+            commands.put(label, command);
+            commands.put(fallbackPrefix + ":" + label, command);
+            return true;
+        }
+
+        @Override
+        public boolean register(String fallbackPrefix, Command command) {
+            commands.put(command.getName(), command);
+            return true;
+        }
+
+        @Override
+        public boolean dispatch(CommandSender sender, String commandLine) {
+            return false;
+        }
+
+        @Override
+        public void clearCommands() {
+            commands.clear();
+        }
+
+        @Override
+        public Command getCommand(String name) {
+            return commands.get(name);
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine) {
+            return List.of();
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine, org.bukkit.Location location) {
+            return List.of();
+        }
+    }
+
+    private static final class NullKnownCommandsMap implements CommandMap {
+        @SuppressWarnings("unused")
+        private final Map<String, Command> knownCommands = null;
+
+        @Override
+        public void registerAll(String fallbackPrefix, List<Command> commands) {
+        }
+
+        @Override
+        public boolean register(String label, String fallbackPrefix, Command command) {
+            return true;
+        }
+
+        @Override
+        public boolean register(String fallbackPrefix, Command command) {
+            return true;
+        }
+
+        @Override
+        public boolean dispatch(CommandSender sender, String commandLine) {
+            return false;
+        }
+
+        @Override
+        public void clearCommands() {
+        }
+
+        @Override
+        public Command getCommand(String name) {
+            return null;
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine) {
+            return List.of();
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine, org.bukkit.Location location) {
+            return List.of();
+        }
+    }
+
+    private static final class SecretCommandMap implements CommandMap {
+        @SuppressWarnings("unused")
+        private final String secret = "hidden";
+
+        @Override
+        public void registerAll(String fallbackPrefix, List<Command> commands) {
+        }
+
+        @Override
+        public boolean register(String label, String fallbackPrefix, Command command) {
+            return false;
+        }
+
+        @Override
+        public boolean register(String fallbackPrefix, Command command) {
+            return false;
+        }
+
+        @Override
+        public boolean dispatch(CommandSender sender, String commandLine) {
+            return false;
+        }
+
+        @Override
+        public void clearCommands() {
+        }
+
+        @Override
+        public Command getCommand(String name) {
+            return null;
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine) {
+            return List.of();
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String cmdLine, org.bukkit.Location location) {
+            return List.of();
         }
     }
 

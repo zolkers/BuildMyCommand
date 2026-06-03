@@ -21,6 +21,7 @@ public final class MiddlewareAndErrorsExample {
         framework.registry().command("explode", command -> command.executes(ctx -> {
             throw new IllegalStateException("boom");
         }));
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
         return framework;
     }
 }

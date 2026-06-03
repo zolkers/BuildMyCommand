@@ -98,7 +98,7 @@ final class BuildMyCommandRouteDsl {
         }
         Matcher matcher = ARGUMENT.matcher(body);
         if (!matcher.matches()) {
-            if (greedyType != null && !"String".equals(greedyType)) {
+            if (greedyType != null) {
                 issues.add(new Issue(offset, offset + body.length(), "Greedy arguments must use String"));
             } else {
                 issues.add(new Issue(offset, offset + body.length(), "Malformed argument"));

@@ -13,7 +13,7 @@ import java.util.List;
 public final class BuildMyCommandRouteInjector implements MultiHostInjector {
     @Override
     public void getLanguagesToInject(@NotNull MultiHostRegistrar registrar, @NotNull PsiElement context) {
-        if (!(context instanceof PsiLiteralExpression literal) || !(context instanceof PsiLanguageInjectionHost host)) {
+        if (!(context instanceof PsiLiteralExpression literal)) {
             return;
         }
         if (!BuildMyCommandRouteLiteralMatcher.isRouteLiteral(literal)) {
@@ -21,13 +21,9 @@ public final class BuildMyCommandRouteInjector implements MultiHostInjector {
         }
 
         TextRange range = BuildMyCommandRouteLiteralMatcher.contentRange(literal);
-        if (range.isEmpty()) {
-            return;
-        }
-
         registrar
             .startInjecting(BuildMyCommandRouteLanguage.INSTANCE)
-            .addPlace(null, null, host, range)
+            .addPlace(null, null, (PsiLanguageInjectionHost) context, range)
             .doneInjecting();
     }
 

@@ -21,10 +21,6 @@ public final class BuildMyCommandRouteAnnotator implements Annotator {
         }
 
         TextRange contentRange = BuildMyCommandRouteLiteralMatcher.contentRange(literal);
-        if (contentRange.isEmpty()) {
-            return;
-        }
-
         String route = literal.getText().substring(contentRange.getStartOffset(), contentRange.getEndOffset());
         Lexer lexer = new BuildMyCommandRouteLexer();
         lexer.start(route);

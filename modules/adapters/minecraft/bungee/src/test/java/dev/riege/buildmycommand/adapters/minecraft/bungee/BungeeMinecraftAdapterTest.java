@@ -10,6 +10,7 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.plugin.Command;
 import net.md_5.bungee.api.plugin.Plugin;
+import net.md_5.bungee.api.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BungeeMinecraftAdapterTest {
@@ -55,9 +57,11 @@ class BungeeMinecraftAdapterTest {
 
         assertEquals(Optional.of("Ada"), source.name());
         assertTrue(source.hasPermission("proxy.server"));
+        assertEquals(Optional.empty(), source.unwrap(String.class));
         assertEquals(Optional.of(sender.proxy()), source.unwrap(CommandSender.class));
         source.reply("Hello");
         assertEquals(List.of("Hello"), sender.messages());
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.commandSource(null));
     }
 
     @Test
@@ -75,6 +79,7 @@ class BungeeMinecraftAdapterTest {
 
         assertEquals("server", command.getName());
         assertArrayEquals(new String[] {"srv"}, command.getAliases());
+        assertSame(command.adapter(), command.adapter());
         assertEquals(List.of("Switching lobby"), sender.messages());
     }
 
@@ -104,6 +109,11 @@ class BungeeMinecraftAdapterTest {
             BungeeMinecraftAdapter.commandAdapter(framework)
         );
 
+        assertThrows(RuntimeException.class, () -> registration.register(uninitializedPluginManager()));
+        assertThrows(RuntimeException.class, () -> registration.unregister(uninitializedPluginManager()));
+        assertSame(plugin, registration.plugin());
+        assertSame(registration.adapter(), registration.adapter());
+        assertSame(registration, registration.unregister(registrar));
         BungeeNativeCommand command = registration.register(registrar);
 
         assertSame(command, registration.command());
@@ -115,14 +125,60 @@ class BungeeMinecraftAdapterTest {
         assertSame(command, registrar.unregistered());
     }
 
+    @Test
+    void pluginManagerRegistrarDelegatesToBungeePluginManager() {
+        Plugin plugin = uninitializedPlugin();
+        PluginManager manager = uninitializedPluginManager();
+        Command command = new BungeeNativeCommand("server", new String[] {}, BungeeMinecraftAdapter.commandAdapter(CommandFramework.create()));
+        BungeeCommandRegistrar registrar = BungeeCommandRegistrar.pluginManager(manager);
+
+        assertThrows(RuntimeException.class, () -> registrar.register(plugin, command));
+        assertThrows(RuntimeException.class, () -> registrar.unregister(command));
+
+        assertThrows(NullPointerException.class, () -> BungeeCommandRegistrar.pluginManager(null));
+    }
+
+    @Test
+    void rejectsInvalidBungeeRegistrationAndNativeCommandInputs() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("server").executes(ctx -> Results.silent());
+        var adapter = BungeeMinecraftAdapter.commandAdapter(framework);
+        BungeeNativeCommand command = BungeeMinecraftAdapter.nativeCommand(adapter);
+        Plugin plugin = uninitializedPlugin();
+
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.commandInput("server", null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.nativeCommand(null));
+        assertThrows(IllegalStateException.class, () -> BungeeMinecraftAdapter.nativeCommand(BungeeMinecraftAdapter.commandAdapter(CommandFramework.create())));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(null, adapter));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, adapter).register((BungeeCommandRegistrar) null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, adapter).unregister((BungeeCommandRegistrar) null));
+        assertThrows(NullPointerException.class, () -> new BungeeNativeCommand(null, new String[] {}, adapter));
+        assertThrows(IllegalArgumentException.class, () -> new BungeeNativeCommand(" ", new String[] {}, adapter));
+        assertThrows(NullPointerException.class, () -> new BungeeNativeCommand("server", null, adapter));
+        assertThrows(NullPointerException.class, () -> new BungeeNativeCommand("server", new String[] {}, null));
+        assertThrows(NullPointerException.class, () -> command.execute(null, new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.execute(new RecordingSender("Ada").proxy(), null));
+        assertThrows(NullPointerException.class, () -> command.onTabComplete(null, new String[] {}));
+        assertThrows(NullPointerException.class, () -> command.onTabComplete(new RecordingSender("Ada").proxy(), null));
+    }
+
     private static Plugin uninitializedPlugin() {
+        return allocate(Plugin.class, "Unable to allocate Bungee Plugin test double");
+    }
+
+    private static PluginManager uninitializedPluginManager() {
+        return allocate(PluginManager.class, "Unable to allocate Bungee PluginManager test double");
+    }
+
+    private static <T> T allocate(Class<T> type, String errorMessage) {
         try {
             Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
             unsafeField.setAccessible(true);
             sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);
-            return (Plugin) unsafe.allocateInstance(Plugin.class);
+            return type.cast(unsafe.allocateInstance(type));
         } catch (ReflectiveOperationException error) {
-            throw new IllegalStateException("Unable to allocate Bungee Plugin test double", error);
+            throw new IllegalStateException(errorMessage, error);
         }
     }
 
@@ -214,6 +270,7 @@ class BungeeMinecraftAdapterTest {
             return unregistered;
         }
     }
+
 
     private static Object defaultReturn(Class<?> type) {
         if (type == boolean.class) {

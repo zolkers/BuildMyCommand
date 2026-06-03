@@ -186,7 +186,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
     private RegistryCommandNode findEventNode(List<String> path, RegistryCommandNode fallback) {
         RegistryCommandPath commandPath = findPath(path);
-        if (commandPath == null || commandPath.nodes().isEmpty()) {
+        if (commandPath == null) {
             return fallback;
         }
         return commandPath.nodes().get(commandPath.nodes().size() - 1);

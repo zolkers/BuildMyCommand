@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TerminalAdapterTest {
     @Test
@@ -151,6 +152,29 @@ class TerminalAdapterTest {
             List.of("ping", "p")
         ), sdkAdapter.registrationLabels());
         assertEquals(line("terminal"), text(captured));
+    }
+
+    @Test
+    void legacyAdapterDelegatesNoArgLoopCapabilitiesAndValidation() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("reply", command -> command.executes(ctx -> {
+            ctx.source().reply("from loop");
+            return Results.silent();
+        }));
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        TerminalAdapter adapter = TerminalAdapter.attach(framework)
+            .input(input("reply\nexit\n"))
+            .output(output(captured));
+        CommandSource source = source();
+
+        adapter.runLoop();
+
+        assertEquals(line("from loop"), text(captured));
+        assertEquals(adapter.config().capabilities(), adapter.capabilities());
+        assertEquals("terminal", adapter.runtime().platform().id());
+        assertEquals(source, adapter.mapSource(source));
+        assertEquals("ping", adapter.mapInput(source, "ping").normalizedInput());
+        assertThrows(NullPointerException.class, () -> TerminalAdapter.attach(null));
     }
 
     private static ByteArrayInputStream input(String value) {

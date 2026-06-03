@@ -94,7 +94,7 @@ public final class SuggestionEngine {
         matchedNodes.add(command);
 
         int completeTokenCount = tokens.size();
-        if (!prefixInput.endsWith(" ") && completeTokenCount > 0) {
+        if (!prefixInput.endsWith(" ")) {
             completeTokenCount--;
         }
 
@@ -200,10 +200,8 @@ public final class SuggestionEngine {
                 if (prefix.failure().isPresent()) {
                     return CompletionState.failure();
                 }
-                if (prefix.consumed() > 0) {
-                    tokenIndex += prefix.consumed();
-                    continue;
-                }
+                tokenIndex += prefix.consumed();
+                continue;
             }
             break;
         }
@@ -331,16 +329,6 @@ public final class SuggestionEngine {
             return SuggestionType.FLAG;
         }
         return current.isEmpty() ? SuggestionType.SUBCOMMAND : SuggestionType.COMMAND;
-    }
-
-    private static String currentToken(String input, List<String> tokens) {
-        if (input.isEmpty() || input.endsWith(" ")) {
-            return "";
-        }
-        if (tokens.isEmpty()) {
-            return "";
-        }
-        return tokens.get(tokens.size() - 1);
     }
 
     private record CompletionState(

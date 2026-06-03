@@ -82,19 +82,23 @@ public final class ManualCommandImporter {
     }
 
     private static void applyArgument(SimpleCommandBuilder builder, ArgumentSpec<?> argument) {
-        switch (argument.kind()) {
-            case REQUIRED -> builder.argument(argument.name(), argument.type());
-            case OPTIONAL -> builder.optionalArgument(argument.name(), argument.type());
-            case GREEDY -> builder.greedyArgument(argument.name(), argument.type());
-            case OPTIONAL_GREEDY -> builder.optionalGreedyArgument(argument.name(), argument.type());
+        if (argument.kind() == ArgumentSpec.Kind.REQUIRED) {
+            builder.argument(argument.name(), argument.type());
+        } else if (argument.kind() == ArgumentSpec.Kind.OPTIONAL) {
+            builder.optionalArgument(argument.name(), argument.type());
+        } else if (argument.kind() == ArgumentSpec.Kind.GREEDY) {
+            builder.greedyArgument(argument.name(), argument.type());
+        } else {
+            builder.optionalGreedyArgument(argument.name(), argument.type());
         }
     }
 
     private static void applyFlag(SimpleCommandBuilder builder, FlagSpec<?> flag) {
         String alias = flag.aliasOptional().orElse(null);
-        switch (flag.kind()) {
-            case FLAG -> builder.flag(flag.name(), alias);
-            case VALUE -> builder.option(flag.name(), flag.type(), alias);
+        if (flag.kind() == FlagSpec.Kind.FLAG) {
+            builder.flag(flag.name(), alias);
+        } else {
+            builder.option(flag.name(), flag.type(), alias);
         }
     }
 
