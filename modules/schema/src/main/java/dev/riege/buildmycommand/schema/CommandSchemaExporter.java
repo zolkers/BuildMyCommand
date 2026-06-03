@@ -6,6 +6,17 @@ import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.core.CommandFramework;
+import dev.riege.buildmycommand.dsl.ArgumentRouteStep;
+import dev.riege.buildmycommand.dsl.LiteralRouteStep;
+import dev.riege.buildmycommand.dsl.OptionRouteStep;
+import dev.riege.buildmycommand.dsl.RouteArgumentKind;
+import dev.riege.buildmycommand.dsl.RouteCanonicalizer;
+import dev.riege.buildmycommand.dsl.RouteConflict;
+import dev.riege.buildmycommand.dsl.RouteConflictAnalyzer;
+import dev.riege.buildmycommand.dsl.RouteOptionKind;
+import dev.riege.buildmycommand.dsl.RoutePattern;
+import dev.riege.buildmycommand.dsl.RouteStep;
+import dev.riege.buildmycommand.dsl.RouteType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +51,19 @@ public final class CommandSchemaExporter {
         return builder.toString();
     }
 
+    public ConflictReport detectConflicts(CommandFramework framework) {
+        return detectConflicts(Objects.requireNonNull(framework, "framework").graph());
+    }
+
+    public ConflictReport detectConflicts(CommandGraph graph) {
+        Objects.requireNonNull(graph, "graph");
+        List<RouteConflict> conflicts = RouteConflictAnalyzer.findConflicts(executableRoutes(graph));
+        return new ConflictReport(conflicts.stream()
+            .map(conflict -> RouteCanonicalizer.canonical(conflict.first()) + " conflicts with "
+                + RouteCanonicalizer.canonical(conflict.second()))
+            .toList());
+    }
+
     private static List<CommandNode> flatten(CommandGraph graph) {
         List<CommandNode> nodes = new ArrayList<>();
         graph.roots().forEach(root -> collect(root, nodes));
@@ -49,6 +73,60 @@ public final class CommandSchemaExporter {
     private static void collect(CommandNode node, List<CommandNode> nodes) {
         nodes.add(node);
         node.children().forEach(child -> collect(child, nodes));
+    }
+
+    private static List<RoutePattern> executableRoutes(CommandGraph graph) {
+        List<RoutePattern> routes = new ArrayList<>();
+        for (CommandNode root : graph.roots()) {
+            collectRoutes(root, root.literal(), root.aliases(), List.of(), routes);
+        }
+        return List.copyOf(routes);
+    }
+
+    private static void collectRoutes(
+        CommandNode node,
+        String rootLiteral,
+        List<String> rootAliases,
+        List<RouteStep> prefix,
+        List<RoutePattern> routes
+    ) {
+        if (node.executor().isPresent()) {
+            List<RouteStep> steps = new ArrayList<>(prefix);
+            node.arguments().forEach(argument -> steps.add(argumentStep(argument)));
+            node.flags().forEach(option -> steps.add(optionStep(option)));
+            routes.add(new RoutePattern(rootLiteral, rootAliases, steps));
+        }
+        for (CommandNode child : node.children()) {
+            List<RouteStep> childPrefix = new ArrayList<>(prefix);
+            childPrefix.add(new LiteralRouteStep(child.literal(), child.aliases()));
+            collectRoutes(child, rootLiteral, rootAliases, childPrefix, routes);
+        }
+    }
+
+    private static ArgumentRouteStep argumentStep(ArgumentSpec<?> argument) {
+        return new ArgumentRouteStep(
+            argument.name(),
+            routeType(argument.type()),
+            switch (argument.kind()) {
+                case REQUIRED -> RouteArgumentKind.REQUIRED;
+                case OPTIONAL -> RouteArgumentKind.OPTIONAL;
+                case GREEDY -> RouteArgumentKind.GREEDY;
+                case OPTIONAL_GREEDY -> RouteArgumentKind.OPTIONAL_GREEDY;
+            }
+        );
+    }
+
+    private static OptionRouteStep optionStep(FlagSpec<?> option) {
+        return new OptionRouteStep(
+            option.name(),
+            routeType(option.type()),
+            option.alias(),
+            option.kind() == FlagSpec.Kind.FLAG ? RouteOptionKind.FLAG : RouteOptionKind.VALUE
+        );
+    }
+
+    private static RouteType routeType(Class<?> type) {
+        return RouteType.runtime(type.getSimpleName(), type);
     }
 
     private static List<String> pathFor(CommandGraph graph, CommandNode target) {

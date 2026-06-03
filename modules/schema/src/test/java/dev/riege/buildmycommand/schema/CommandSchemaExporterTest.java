@@ -170,4 +170,102 @@ class CommandSchemaExporterTest {
             + "\"hidden\":false,\"examples\":[]}]}",
             new CommandSchemaExporter().exportJson(new CommandGraph(List.of(Commands.literal("orphan").build()))));
     }
+
+    @Test
+    void exporterDetectsConflictsFromFrameworkAndManualGraphs() {
+        CommandSchemaExporter exporter = new CommandSchemaExporter();
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("ban <target:String> [--silent|-s]").executes(ctx -> Results.silent());
+        framework.registry().route("kick <target:String>").executes(ctx -> Results.silent());
+
+        CommandGraph conflictGraph = new CommandGraph(List.of(
+            Commands.literal("ban")
+                .alias("block")
+                .child(Commands.literal("user")
+                    .argument(Arguments.required("target", String.class))
+                    .flag(Flags.bool("silent").alias("s"))
+                    .handler(ctx -> Results.silent())
+                    .build())
+                .build(),
+            Commands.literal("block")
+                .child(Commands.literal("user")
+                    .argument(Arguments.required("player", String.class))
+                    .flag(Flags.bool("silent").alias("s"))
+                    .handler(ctx -> Results.silent())
+                    .build())
+                .build(),
+            Commands.literal("ignoredParent")
+                .child(Commands.literal("shape")
+                    .argument(Arguments.required("amount", Integer.class))
+                    .build())
+                .build(),
+            Commands.literal("ignoredParent")
+                .child(Commands.literal("shape")
+                    .argument(Arguments.required("other", Integer.class))
+                    .build())
+                .build()
+        ));
+
+        ConflictReport empty = exporter.detectConflicts(framework);
+        ConflictReport conflicts = exporter.detectConflicts(conflictGraph);
+
+        assertFalse(empty.hasConflicts());
+        assertTrue(conflicts.hasConflicts());
+        assertEquals(List.of("ban|block user <target:String> [--silent|-s] conflicts with block user <player:String> [--silent|-s]"),
+            conflicts.conflicts());
+        assertThrows(NullPointerException.class, () -> exporter.detectConflicts((CommandFramework) null));
+        assertThrows(NullPointerException.class, () -> exporter.detectConflicts((CommandGraph) null));
+    }
+
+    @Test
+    void exporterDetectsOptionValueAndRootExecutableConflicts() {
+        CommandSchemaExporter exporter = new CommandSchemaExporter();
+        CommandGraph graph = new CommandGraph(List.of(
+            Commands.literal("root")
+                .argument(Arguments.optional("reason", String.class))
+                .flag(Flags.option("amount", Integer.class).alias("a"))
+                .handler(ctx -> Results.silent())
+                .build(),
+            Commands.literal("root")
+                .argument(Arguments.optional("message", String.class))
+                .flag(Flags.option("amount", Integer.class).alias("a"))
+                .handler(ctx -> Results.silent())
+                .build()
+        ));
+
+        ConflictReport report = exporter.detectConflicts(graph);
+
+        assertEquals(List.of("root [reason:String] [--amount:Integer|-a] conflicts with root [message:String] [--amount:Integer|-a]"),
+            report.conflicts());
+    }
+
+    @Test
+    void exporterDetectsGreedyArgumentConflicts() {
+        CommandSchemaExporter exporter = new CommandSchemaExporter();
+        CommandGraph graph = new CommandGraph(List.of(
+            Commands.literal("say")
+                .argument(Arguments.greedy("message", String.class))
+                .handler(ctx -> Results.silent())
+                .build(),
+            Commands.literal("say")
+                .argument(Arguments.greedy("text", String.class))
+                .handler(ctx -> Results.silent())
+                .build(),
+            Commands.literal("note")
+                .argument(Arguments.greedyOptional("message", String.class))
+                .handler(ctx -> Results.silent())
+                .build(),
+            Commands.literal("note")
+                .argument(Arguments.greedyOptional("text", String.class))
+                .handler(ctx -> Results.silent())
+                .build()
+        ));
+
+        ConflictReport report = exporter.detectConflicts(graph);
+
+        assertEquals(List.of(
+            "say <message:String...> conflicts with say <text:String...>",
+            "note [message:String...] conflicts with note [text:String...]"
+        ), report.conflicts());
+    }
 }
