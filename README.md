@@ -2,7 +2,27 @@
 
 BuildMyCommand is a modular Java command framework. It gives you one command runtime, a readable route DSL, annotation scanning, dynamic suggestions, middleware, permissions, and adapters for runtimes such as Fabric/Brigadier.
 
-The recommended API is:
+## Getting Started
+
+Add the dependencies first. For local testing while the API is moving, use `mavenLocal()` before `mavenCentral()`:
+
+```kotlin
+repositories {
+    mavenLocal() // temporary while testing unpublished snapshots
+    mavenCentral()
+}
+
+dependencies {
+    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
+}
+```
+
+For a plain Java app, replace the Fabric adapter with `adapters-terminal` or `adapters-brigadier`.
+
+Then declare commands with the canonical annotation style:
 
 ```java
 @Command("wecc")
@@ -31,26 +51,6 @@ public final class PingCommand {
 ```
 
 `@Command` declares the root. `@SubRoute` declares executable leaves. The route string is the source of truth for arguments, options, aliases, and optional segments. Parameter annotations such as `@Arg`/`@Option` are intentionally not the canonical style anymore.
-
-## Install
-
-For local testing while the API is moving:
-
-```kotlin
-repositories {
-    mavenLocal() // temporary while testing unpublished snapshots
-    mavenCentral()
-}
-
-dependencies {
-    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
-}
-```
-
-For a plain Java app, replace the Fabric adapter with `adapters-terminal` or `adapters-brigadier`.
 
 ## Modules
 
