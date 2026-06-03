@@ -868,6 +868,41 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void dispatchesLiteralPathBuilderForDeepSubcommandTrees() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("user", user -> user
+            .path("rank set promote", promote -> promote
+                .description("Promote a user")
+                .argument("target", String.class)
+                .argument("rank", String.class)
+                .executes(ctx -> Results.success(ctx.arg("target", String.class) + "=" + ctx.arg("rank", String.class))))
+            .path("rank set demote", demote -> demote.executes(ctx -> Results.success("demote"))));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "user rank set promote Victor admin");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("Victor=admin"), result.reply());
+        assertEquals("Usage: user rank set promote <target:String> <rank:String>\n"
+            + "Description: Promote a user", framework.help("user rank set promote").replace("\r\n", "\n"));
+        assertEquals(List.of("promote", "demote"), framework.suggest(new CommandSource() {
+        }, "user rank set ", 14));
+    }
+
+    @Test
+    void rejectsDslTokensInLiteralPathBuilder() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> framework.registry().command("user", user -> user.path("rank <target:String>", target -> {
+            })));
+
+        assertEquals("literal path can only contain literal tokens; use route DSL for arguments/options: rank <target:String>",
+            exception.getMessage());
+    }
+
+    @Test
     void matchesSubcommandLiteralBeforeParsingArguments() {
         CommandFramework framework = CommandFramework.create();
 

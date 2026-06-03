@@ -47,6 +47,21 @@ public final class RegistryNodeMerger {
         replaceNode(commands, existing, merged);
     }
 
+    static void mergeChild(
+        Map<String, RegistryCommandNode> children,
+        RegistryCommandNode node,
+        CommandMatchingPolicy matchingPolicy
+    ) {
+        RegistryCommandNode existing = children.get(matchingPolicy.literalKey(node.literal()));
+        if (existing == null) {
+            registerAll(children, node.literals(), node, "subcommand already registered: ", matchingPolicy);
+            return;
+        }
+
+        RegistryCommandNode merged = mergeNodes(existing, node, matchingPolicy);
+        replaceNode(children, existing, merged);
+    }
+
     private static RegistryCommandNode mergeNodes(
         RegistryCommandNode existing,
         RegistryCommandNode incoming,

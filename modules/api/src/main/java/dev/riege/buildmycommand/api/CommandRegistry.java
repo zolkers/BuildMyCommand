@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.api;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public interface CommandRegistry {
@@ -105,6 +106,13 @@ public interface CommandRegistry {
 
         CommandBuilder subcommand(String literal, Consumer<CommandBuilder> configure);
 
+        default CommandBuilder path(String literalPath, Consumer<CommandBuilder> configure) {
+            Objects.requireNonNull(configure, "configure");
+            String[] literals = literalPathTokens(literalPath);
+            appendPath(this, literals, 0, configure);
+            return this;
+        }
+
         <T> CommandBuilder argument(String name, Class<T> type);
 
         <T> CommandBuilder optionalArgument(String name, Class<T> type);
@@ -138,6 +146,38 @@ public interface CommandRegistry {
         }
 
         CommandBuilder executes(CommandExecutor executor);
+
+        private static void appendPath(
+            CommandBuilder builder,
+            String[] literals,
+            int index,
+            Consumer<CommandBuilder> configure
+        ) {
+            builder.subcommand(literals[index], child -> {
+                if (index == literals.length - 1) {
+                    configure.accept(child);
+                } else {
+                    appendPath(child, literals, index + 1, configure);
+                }
+            });
+        }
+
+        private static String[] literalPathTokens(String literalPath) {
+            Objects.requireNonNull(literalPath, "literalPath");
+            String trimmed = literalPath.trim();
+            if (trimmed.isBlank()) {
+                throw new IllegalArgumentException("literal path must not be blank");
+            }
+            String[] tokens = trimmed.split("\\s+");
+            for (String token : tokens) {
+                if (token.contains("<") || token.contains(">") || token.contains("[") || token.contains("]")
+                    || token.contains("|")) {
+                    throw new IllegalArgumentException("literal path can only contain literal tokens; use route DSL "
+                        + "for arguments/options: " + literalPath);
+                }
+            }
+            return tokens;
+        }
     }
 
     @FunctionalInterface

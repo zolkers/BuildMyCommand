@@ -118,6 +118,14 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     }
 
     @Override
+    public CommandRegistry.CommandBuilder path(String literalPath, Consumer<CommandRegistry.CommandBuilder> configure) {
+        Objects.requireNonNull(configure, "configure");
+        String[] literals = literalPathTokens(literalPath);
+        RegistryNodeMerger.mergeChild(children, pathNode(literals, 0, configure), matchingPolicy);
+        return this;
+    }
+
+    @Override
     public <T> CommandRegistry.CommandBuilder argument(String name, Class<T> type) {
         validateCanAdd(name, RegistryArgumentKind.REQUIRED);
         arguments.add(new RegistryArgumentSpec(name, type, RegistryArgumentKind.REQUIRED));
@@ -257,6 +265,38 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
                 seenAliases.add(alias);
             });
         }
+    }
+
+    private RegistryCommandNode pathNode(
+        String[] literals,
+        int index,
+        Consumer<CommandRegistry.CommandBuilder> configure
+    ) {
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(literals[index], matchingPolicy);
+        if (index == literals.length - 1) {
+            configure.accept(builder);
+        } else {
+            builder.path(String.join(" ", List.of(literals).subList(index + 1, literals.length)), configure);
+        }
+        return builder.node();
+    }
+
+    private static String[] literalPathTokens(String literalPath) {
+        Objects.requireNonNull(literalPath, "literalPath");
+        String trimmed = literalPath.trim();
+        if (trimmed.isBlank()) {
+            throw new IllegalArgumentException("literal path must not be blank");
+        }
+        String[] tokens = trimmed.split("\\s+");
+        for (String token : tokens) {
+            if (token.contains("<") || token.contains(">") || token.contains("[") || token.contains("]")
+                || token.contains("|")) {
+                throw new IllegalArgumentException("literal path can only contain literal tokens; use route DSL "
+                    + "for arguments/options: " + literalPath);
+            }
+            Validators.literal(token, "literal");
+        }
+        return tokens;
     }
 
 }
