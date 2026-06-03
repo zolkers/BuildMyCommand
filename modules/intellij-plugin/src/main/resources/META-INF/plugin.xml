@@ -18,6 +18,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
+        <implicitUsageProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandImplicitUsageProvider"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteAnnotator"/>
         <completion.contributor language="BuildMyCommandRoute"
                                 implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteCompletionContributor"/>

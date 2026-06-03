@@ -23,6 +23,7 @@ import com.intellij.psi.PsiExpressionList;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiMethodCallExpression;
 import com.intellij.psi.PsiNameValuePair;
+import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiReferenceExpression;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
@@ -251,6 +252,63 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertNotNull(file);
     }
 
+    public void testImplicitUsageProviderMarksCommandAnnotationsAsUsed() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @CaseInsensitive(literals = true, options = true)
+                static final class ModerationCommands {
+                    @Route("moderation|mod punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
+                    @Description("Punish a user")
+                    @Permission("mod.punish")
+                    void punish(@RouteCtx dev.riege.buildmycommand.api.CommandContext route) {
+                    }
+                }
+
+                static final class PlainCommands {
+                    void helper(String value) {
+                    }
+                }
+
+                @dev.riege.buildmycommand.annotation.Command("qualified")
+                static final class QualifiedCommands {
+                    @dev.riege.buildmycommand.annotation.Description("metadata class")
+                    static final class MetadataOnlyClass {
+                    }
+
+                    @dev.riege.buildmycommand.annotation.Description("metadata method")
+                    void metadataOnly(@dev.riege.buildmycommand.annotation.Default("fallback") String value) {
+                    }
+                }
+            }
+            """);
+
+        BuildMyCommandImplicitUsageProvider provider = new BuildMyCommandImplicitUsageProvider();
+        PsiClass moderation = findClass(file, "ModerationCommands");
+        PsiClass plain = findClass(file, "PlainCommands");
+        PsiClass qualified = findClass(file, "QualifiedCommands");
+        PsiClass metadataOnlyClass = findClass(file, "MetadataOnlyClass");
+        PsiMethod punish = findMethod(file, "punish");
+        PsiMethod helper = findMethod(file, "helper");
+        PsiMethod metadataOnly = findMethod(file, "metadataOnly");
+        PsiParameter route = punish.getParameterList().getParameters()[0];
+        PsiParameter value = helper.getParameterList().getParameters()[0];
+        PsiParameter defaulted = metadataOnly.getParameterList().getParameters()[0];
+
+        assertTrue(provider.isImplicitUsage(moderation));
+        assertTrue(provider.isImplicitUsage(qualified));
+        assertTrue(provider.isImplicitUsage(metadataOnlyClass));
+        assertTrue(provider.isImplicitUsage(punish));
+        assertTrue(provider.isImplicitUsage(metadataOnly));
+        assertTrue(provider.isImplicitUsage(route));
+        assertTrue(provider.isImplicitUsage(defaulted));
+        assertTrue(provider.isImplicitRead(route));
+        assertFalse(provider.isImplicitUsage(plain));
+        assertFalse(provider.isImplicitUsage(helper));
+        assertFalse(provider.isImplicitUsage(value));
+        assertFalse(provider.isImplicitUsage(file));
+        assertFalse(provider.isImplicitWrite(route));
+    }
+
     public void testSyntaxHighlighterMapsEveryTokenAndFallback() {
         BuildMyCommandRouteSyntaxHighlighter highlighter = new BuildMyCommandRouteSyntaxHighlighter();
 
@@ -373,6 +431,22 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 .stream()
                 .map(PsiLiteralExpression::getValue)
                 .toList()));
+    }
+
+    private static PsiClass findClass(PsiElement root, String name) {
+        return PsiTreeUtil.findChildrenOfType(root, PsiClass.class)
+            .stream()
+            .filter(psiClass -> name.equals(psiClass.getName()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Missing class " + name));
+    }
+
+    private static PsiMethod findMethod(PsiElement root, String name) {
+        return PsiTreeUtil.findChildrenOfType(root, PsiMethod.class)
+            .stream()
+            .filter(method -> name.equals(method.getName()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("Missing method " + name));
     }
 
     private static PsiLiteralExpression literalWithText(String text) {
