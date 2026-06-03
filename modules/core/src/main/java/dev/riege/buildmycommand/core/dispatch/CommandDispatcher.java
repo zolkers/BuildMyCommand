@@ -4,13 +4,19 @@ package dev.riege.buildmycommand.core.dispatch;
 import dev.riege.buildmycommand.core.parse.*;
 import dev.riege.buildmycommand.core.middleware.MiddlewareChain;
 import dev.riege.buildmycommand.core.registry.*;
-import dev.riege.buildmycommand.api.CommandErrorHandler;
+import dev.riege.buildmycommand.api.ArgumentParseException;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandException;
+import dev.riege.buildmycommand.api.CommandExceptionContext;
+import dev.riege.buildmycommand.api.CommandExceptionHandler;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
-import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.CommandSyntaxException;
+import dev.riege.buildmycommand.api.OptionParseException;
+import dev.riege.buildmycommand.api.PermissionDeniedException;
+import dev.riege.buildmycommand.api.UnknownCommandException;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
@@ -27,7 +33,7 @@ public final class CommandDispatcher {
     private final ArgumentResolver argumentResolver;
     private final CommandMatchingPolicy matchingPolicy;
     private final MiddlewareChain middlewareChain;
-    private final CommandErrorHandler errorHandler;
+    private final CommandExceptionHandler exceptionHandler;
 
     public CommandDispatcher(
         SimpleCommandRegistry registry,
@@ -36,7 +42,7 @@ public final class CommandDispatcher {
         ArgumentResolver argumentResolver,
         CommandMatchingPolicy matchingPolicy,
         MiddlewareChain middlewareChain,
-        CommandErrorHandler errorHandler
+        CommandExceptionHandler exceptionHandler
     ) {
         this.registry = registry;
         this.tokenizer = tokenizer;
@@ -44,7 +50,7 @@ public final class CommandDispatcher {
         this.argumentResolver = argumentResolver;
         this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
         this.middlewareChain = Objects.requireNonNull(middlewareChain, "middlewareChain");
-        this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler");
+        this.exceptionHandler = Objects.requireNonNull(exceptionHandler, "exceptionHandler");
     }
 
     public CommandResult dispatch(CommandSource source, String input) {
@@ -59,27 +65,27 @@ public final class CommandDispatcher {
         String normalizedInput = input.normalizedInput();
         TokenizeResult tokenizeResult = tokenizer.tokenize(normalizedInput);
         if (tokenizeResult.failure().isPresent()) {
-            return Results.failure(tokenizeResult.failure().get());
+            return handleDispatchFailure(input, new CommandSyntaxException(tokenizeResult.failure().get()));
         }
 
         List<String> tokens = tokenizeResult.tokens();
         if (tokens.isEmpty()) {
-            return Results.failure("Unknown command: " + normalizedInput);
+            return handleDispatchFailure(input, new UnknownCommandException(normalizedInput));
         }
 
         RegistryCommandNode command = registry.find(tokens.get(0));
         if (command == null) {
-            return Results.failure("Unknown command: " + tokens.get(0));
+            return handleDispatchFailure(input, new UnknownCommandException(tokens.get(0)));
         }
 
         MatchResult match = matchCommandPath(input, tokens, command);
         if (match.failure().isPresent()) {
-            return Results.failure(match.failure().get());
+            return handleDispatchFailure(input, classifyMatchFailure(match.failure().get()));
         }
 
         Optional<String> deniedPermission = CommandPermissions.deniedPermission(source, match.matchedNodes());
         if (deniedPermission.isPresent()) {
-            return Results.failure("Missing permission: " + deniedPermission.get());
+            return handleDispatchFailure(input, new PermissionDeniedException(deniedPermission.get()));
         }
 
         ParseOptionsResult options = optionParser.parseOptions(
@@ -88,12 +94,12 @@ public final class CommandDispatcher {
             input
         );
         if (options.failure().isPresent()) {
-            return Results.failure(options.failure().get());
+            return handleExecutionFailure(input, match, new OptionParseException(options.failure().get()));
         }
 
         ParseArgumentsResult arguments = argumentResolver.parseArguments(match.command().arguments(), options.positionals(), input);
         if (arguments.failure().isPresent()) {
-            return Results.failure(arguments.failure().get());
+            return handleExecutionFailure(input, match, new ArgumentParseException(arguments.failure().get()));
         }
 
         Map<String, Object> values = new HashMap<>(match.pathValues());
@@ -114,11 +120,35 @@ public final class CommandDispatcher {
         } catch (Error error) {
             throw error;
         } catch (RuntimeException error) {
-            return Objects.requireNonNull(
-                errorHandler.handle(context, commandSnapshot, commandPath, error),
-                "command result"
-            );
+            return handleFailure(CommandExceptionContext.execution(input, context, commandSnapshot, commandPath), error);
         }
+    }
+
+    private CommandResult handleDispatchFailure(CommandInput input, Throwable error) {
+        return handleFailure(CommandExceptionContext.dispatch(input), error);
+    }
+
+    private CommandResult handleExecutionFailure(CommandInput input, MatchResult match, Throwable error) {
+        CommandNode commandSnapshot = ManualCommandImporter.exportNode(match.command());
+        List<String> commandPath = match.matchedNodes().stream()
+            .map(RegistryCommandNode::literal)
+            .toList();
+        CommandContext context = new CommandContext(input.source(), input, Map.copyOf(match.pathValues()));
+        return handleFailure(CommandExceptionContext.execution(input, context, commandSnapshot, commandPath), error);
+    }
+
+    private CommandResult handleFailure(CommandExceptionContext context, Throwable error) {
+        return Objects.requireNonNull(exceptionHandler.handle(context, error), "command result");
+    }
+
+    private static CommandException classifyMatchFailure(String failure) {
+        if (failure.startsWith("Missing permission: ")) {
+            return new PermissionDeniedException(failure.substring("Missing permission: ".length()));
+        }
+        if (failure.contains(" argument") || failure.startsWith("Missing required argument: ")) {
+            return new ArgumentParseException(failure);
+        }
+        return new CommandSyntaxException(failure);
     }
 
     private MatchResult matchCommandPath(

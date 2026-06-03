@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class ApiContractTest {
     @Test
@@ -166,6 +167,101 @@ class ApiContractTest {
         assertThrows(NullPointerException.class, () -> new CommandMessage("text", MessageLevel.INFO, null));
         assertThrows(IllegalArgumentException.class, () -> new CommandPlatform(" ", "Test", false, true, true));
         assertThrows(IllegalArgumentException.class, () -> new CommandPlatform("test", " ", false, true, true));
+    }
+
+    @Test
+    void commandExceptionsExposeTypedFailureContractsAndMappingHandlers() {
+        CommandSource source = new CommandSource() {
+        };
+        CommandInput input = CommandInput.raw(source, "ban Ada");
+        CommandContext context = new CommandContext(source, input, Map.of("target", "Ada"));
+        CommandNode command = Commands.literal("ban").handler(ctx -> Results.success("ok")).build();
+        CommandExceptionContext executionContext =
+            CommandExceptionContext.execution(input, context, command, List.of("ban"));
+
+        assertEquals(input, executionContext.input());
+        assertEquals(Optional.of(context), executionContext.context());
+        assertEquals(Optional.of(command), executionContext.command());
+        assertEquals(List.of("ban"), executionContext.commandPath());
+        assertEquals(Optional.empty(), CommandExceptionContext.dispatch(input).context());
+        UnknownCommandException unknown = new UnknownCommandException("missing");
+        assertEquals("Unknown command: missing", unknown.getMessage());
+        assertEquals("missing", unknown.command());
+        assertEquals("Missing permission: ban.use", new PermissionDeniedException("ban.use").getMessage());
+        assertEquals("Invalid integer", new ArgumentParseException("Invalid integer").getMessage());
+        assertEquals("Missing value", new OptionParseException("Missing value").getMessage());
+        assertEquals("Broken quotes", new CommandSyntaxException("Broken quotes").getMessage());
+        RuntimeException cause = new RuntimeException("cause");
+        assertEquals(cause, new CommandException("wrapped", cause).getCause());
+
+        CommandExceptionHandler handler = CommandExceptionHandlers.mapping()
+            .on(PermissionDeniedException.class, (failureContext, error) ->
+                Results.failure("perm " + error.permission() + " on " + failureContext.input().normalizedInput()))
+            .on(CommandException.class, (failureContext, error) -> Results.failure("typed " + error.getMessage()))
+            .fallback((failureContext, error) -> Results.failure("fallback " + error.getMessage()))
+            .build();
+
+        assertEquals(Optional.of("perm ban.use on ban Ada"),
+            handler.handle(executionContext, new PermissionDeniedException("ban.use")).reply());
+        assertEquals(Optional.of("typed Unknown command: nope"),
+            handler.handle(executionContext, new UnknownCommandException("nope")).reply());
+        assertEquals(Optional.of("fallback boom"),
+            handler.handle(executionContext, new IllegalStateException("boom")).reply());
+
+        CommandExceptionHandler failureMessage = CommandExceptionHandlers.failureMessage();
+        assertEquals(Optional.of("Missing permission: ban.use"),
+            failureMessage.handle(executionContext, new PermissionDeniedException("ban.use")).reply());
+        assertThrows(IllegalStateException.class, () ->
+            CommandExceptionHandlers.rethrow().handle(executionContext, new IllegalStateException("boom")));
+        assertThrows(AssertionError.class, () ->
+            CommandExceptionHandlers.rethrow().handle(executionContext, new AssertionError("fatal")));
+        RuntimeException wrappedChecked = assertThrows(RuntimeException.class, () ->
+            CommandExceptionHandlers.rethrow().handle(executionContext, new Exception("checked")));
+        assertEquals("checked", wrappedChecked.getCause().getMessage());
+        assertThrows(RuntimeException.class, () ->
+            failureMessage.handle(executionContext, new IllegalStateException("boom")));
+        assertThrows(AssertionError.class, () ->
+            failureMessage.handle(executionContext, new AssertionError("fatal fallback")));
+        RuntimeException failureMessageChecked = assertThrows(RuntimeException.class, () ->
+            failureMessage.handle(executionContext, new Exception("checked fallback")));
+        assertEquals("checked fallback", failureMessageChecked.getCause().getMessage());
+        try {
+            failureMessage.handle(executionContext, new Throwable("plain fallback"));
+            fail("plain throwable should be wrapped");
+        } catch (RuntimeException error) {
+            assertEquals("plain fallback", error.getCause().getMessage());
+        }
+        assertThrows(NullPointerException.class, () ->
+            CommandExceptionHandlers.rethrow().handle(null, new CommandException("x")));
+        assertThrows(NullPointerException.class, () ->
+            CommandExceptionHandlers.rethrow().handle(executionContext, null));
+        assertThrows(NullPointerException.class, () ->
+            failureMessage.handle(null, new CommandException("x")));
+        assertThrows(NullPointerException.class, () ->
+            failureMessage.handle(executionContext, null));
+        assertThrows(NullPointerException.class, () -> CommandExceptionContext.dispatch(null));
+        assertThrows(NullPointerException.class, () -> CommandExceptionContext.execution(null, context, command,
+            List.of("ban")));
+        assertThrows(NullPointerException.class, () -> CommandExceptionContext.execution(input, null, command,
+            List.of("ban")));
+        assertThrows(NullPointerException.class, () -> CommandExceptionContext.execution(input, context, null,
+            List.of("ban")));
+        assertThrows(NullPointerException.class, () -> CommandExceptionContext.execution(input, context, command,
+            null));
+        assertThrows(IllegalArgumentException.class, () -> new CommandException(" "));
+        assertThrows(NullPointerException.class, () -> new CommandException(null));
+        assertThrows(NullPointerException.class, () -> new UnknownCommandException(null));
+        assertThrows(NullPointerException.class, () -> new PermissionDeniedException(null));
+        assertThrows(NullPointerException.class, () -> new ArgumentParseException(null));
+        assertThrows(NullPointerException.class, () -> new OptionParseException(null));
+        assertThrows(NullPointerException.class, () -> new CommandSyntaxException(null));
+        assertThrows(NullPointerException.class, () -> CommandExceptionHandlers.mapping().on(null,
+            (failureContext, error) -> Results.failure("x")));
+        assertThrows(NullPointerException.class, () -> CommandExceptionHandlers.mapping()
+            .on(CommandException.class, null));
+        assertThrows(NullPointerException.class, () -> CommandExceptionHandlers.mapping().fallback(null));
+        assertThrows(NullPointerException.class, () -> handler.handle(null, new CommandException("x")));
+        assertThrows(NullPointerException.class, () -> handler.handle(executionContext, null));
     }
 
     @Test

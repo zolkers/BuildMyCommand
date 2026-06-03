@@ -1,12 +1,17 @@
 package dev.riege.buildmycommand.core;
 
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.ArgumentParseException;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Commands;
+import dev.riege.buildmycommand.api.CommandExceptionHandlers;
+import dev.riege.buildmycommand.api.CommandSyntaxException;
+import dev.riege.buildmycommand.api.PermissionDeniedException;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.core.dispatch.CommandDispatcher;
 import dev.riege.buildmycommand.core.middleware.CooldownMiddleware;
 import org.junit.jupiter.api.Test;
 
@@ -94,6 +99,61 @@ class CommandFrameworkExecutionCoverageTest {
         InvocationTargetException fatalWrapped = assertThrows(InvocationTargetException.class, () ->
             rethrow.invoke(null, null, null, List.of(), new AssertionError("checked fatal")));
         assertTrue(fatalWrapped.getCause() instanceof AssertionError);
+        InvocationTargetException runtimeWrapped = assertThrows(InvocationTargetException.class, () ->
+            rethrow.invoke(null, null, null, List.of(), new IllegalArgumentException("runtime")));
+        assertTrue(runtimeWrapped.getCause() instanceof IllegalArgumentException);
+    }
+
+    @Test
+    void exceptionHandlerCanCustomizeDispatchParsingPermissionOptionAndExecutionFailures() {
+        CommandFramework framework = CommandFramework.builder()
+            .exceptionHandler(CommandExceptionHandlers.mapping()
+                .on(PermissionDeniedException.class, (context, error) -> Results.failure("denied " + error.permission()))
+                .on(RuntimeException.class, (context, error) -> Results.failure(
+                    context.commandPath().isEmpty()
+                        ? error.getClass().getSimpleName() + " before command: " + error.getMessage()
+                        : error.getClass().getSimpleName() + " at " + context.commandPath() + ": " + error.getMessage()
+                ))
+                .build())
+            .build();
+        framework.registry().route("secure").permission("secure.use").executes(ctx -> Results.success("secure"));
+        framework.registry().route("give <amount:Integer> [--target:String]").executes(ctx -> Results.success("give"));
+        framework.registry().route("boom").executes(ctx -> {
+            throw new IllegalStateException("boom");
+        });
+
+        assertEquals(Optional.of("UnknownCommandException before command: Unknown command: missing"),
+            framework.dispatch(source(Set.of()), "missing").reply());
+        assertEquals(Optional.of("CommandSyntaxException before command: Unclosed quote"),
+            framework.dispatch(source(Set.of()), "\"oops").reply());
+        assertEquals(Optional.of("denied secure.use"), framework.dispatch(source(Set.of()), "secure").reply());
+        assertEquals(Optional.of("ArgumentParseException at [give]: Invalid integer for argument amount: nope"),
+            framework.dispatch(source(Set.of()), "give nope").reply());
+        assertEquals(Optional.of("OptionParseException at [give]: Missing value for option: target"),
+            framework.dispatch(source(Set.of()), "give 1 --target").reply());
+        assertEquals(Optional.of("IllegalStateException at [boom]: boom"),
+            framework.dispatch(source(Set.of()), "boom").reply());
+
+        assertThrows(NullPointerException.class, () -> CommandFramework.builder().exceptionHandler(null));
+    }
+
+    @Test
+    void legacyErrorHandlerKeepsPreExecutionFailuresAndMatchFailuresAreTyped() throws Exception {
+        CommandFramework framework = CommandFramework.builder()
+            .errorHandler((context, command, path, error) -> Results.failure("legacy " + path))
+            .build();
+        framework.registry().route("boom").executes(ctx -> {
+            throw new IllegalStateException("boom");
+        });
+
+        assertEquals(Optional.of("Unknown command: missing"), framework.dispatch(source(Set.of()), "missing").reply());
+        assertEquals(Optional.of("legacy [boom]"), framework.dispatch(source(Set.of()), "boom").reply());
+
+        Method classify = CommandDispatcher.class.getDeclaredMethod("classifyMatchFailure", String.class);
+        classify.setAccessible(true);
+        assertTrue(classify.invoke(null, "Missing permission: secret.use") instanceof PermissionDeniedException);
+        assertTrue(classify.invoke(null, "Missing required argument: target") instanceof ArgumentParseException);
+        assertTrue(classify.invoke(null, "Unexpected literal") instanceof CommandSyntaxException);
     }
 
     @Test

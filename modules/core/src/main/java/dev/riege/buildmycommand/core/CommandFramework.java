@@ -16,6 +16,9 @@ import dev.riege.buildmycommand.core.registry.SimpleCommandRegistry;
 import dev.riege.buildmycommand.api.ArgumentParser;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandErrorHandler;
+import dev.riege.buildmycommand.api.CommandExceptionContext;
+import dev.riege.buildmycommand.api.CommandExceptionHandler;
+import dev.riege.buildmycommand.api.CommandExceptionHandlers;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandLifecycleListener;
@@ -48,7 +51,7 @@ public final class CommandFramework {
         CommandMatchingPolicy matchingPolicy,
         ArgumentParserRegistry parsers,
         List<CommandMiddleware> middleware,
-        CommandErrorHandler errorHandler,
+        CommandExceptionHandler exceptionHandler,
         Clock cooldownClock,
         ConcurrentMap<CooldownMiddleware.Key, Instant> cooldownStore
     ) {
@@ -67,7 +70,7 @@ public final class CommandFramework {
             argumentResolver,
             matchingPolicy,
             new MiddlewareChain(executionMiddleware),
-            errorHandler
+            exceptionHandler
         );
         this.suggestions = new SuggestionEngine(registry, tokenizer, matchingPolicy, parsers);
         this.help = new HelpGenerator(registry, tokenizer);
@@ -161,7 +164,7 @@ public final class CommandFramework {
         private final ArgumentParserRegistry parsers = new ArgumentParserRegistry();
         private final List<CommandMiddleware> middleware = new ArrayList<>();
         private final List<CommandLifecycleListener> lifecycleListeners = new ArrayList<>();
-        private CommandErrorHandler errorHandler = Builder::rethrow;
+        private CommandExceptionHandler exceptionHandler = Builder::defaultHandler;
         private Clock cooldownClock = Clock.systemUTC();
         private ConcurrentMap<CooldownMiddleware.Key, Instant> cooldownStore = new ConcurrentHashMap<>();
 
@@ -194,7 +197,23 @@ public final class CommandFramework {
         }
 
         public Builder errorHandler(CommandErrorHandler errorHandler) {
-            this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler");
+            Objects.requireNonNull(errorHandler, "errorHandler");
+            this.exceptionHandler = (exceptionContext, error) -> {
+                if (exceptionContext.context().isEmpty() || exceptionContext.command().isEmpty()) {
+                    return CommandExceptionHandlers.failureMessage().handle(exceptionContext, error);
+                }
+                return errorHandler.handle(
+                    exceptionContext.context().get(),
+                    exceptionContext.command().get(),
+                    exceptionContext.commandPath(),
+                    error
+                );
+            };
+            return this;
+        }
+
+        public Builder exceptionHandler(CommandExceptionHandler exceptionHandler) {
+            this.exceptionHandler = Objects.requireNonNull(exceptionHandler, "exceptionHandler");
             return this;
         }
 
@@ -221,7 +240,7 @@ public final class CommandFramework {
                 matchingPolicy,
                 new ArgumentParserRegistry(parsers.parsers(), parsers.suggestionProviders()),
                 middleware,
-                errorHandler,
+                exceptionHandler,
                 cooldownClock,
                 cooldownStore
             );
@@ -240,6 +259,10 @@ public final class CommandFramework {
                 throw fatal;
             }
             throw new RuntimeException(error);
+        }
+
+        private static CommandResult defaultHandler(CommandExceptionContext context, Throwable error) {
+            return CommandExceptionHandlers.failureMessage().handle(context, error);
         }
     }
 }
