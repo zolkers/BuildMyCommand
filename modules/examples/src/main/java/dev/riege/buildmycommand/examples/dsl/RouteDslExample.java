@@ -1,4 +1,4 @@
-package dev.riege.buildmycommand.examples;
+package dev.riege.buildmycommand.examples.dsl;
 
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -10,7 +10,7 @@ public final class RouteDslExample {
     public static CommandFramework create() {
         CommandFramework framework = CommandFramework.create();
         framework.registry()
-            .route("give <target:String> <item:String> [--amount:Integer|-a]")
+            .route("give|grant <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]")
             .description("Give an item")
             .permission("inventory.give")
             .executes(ctx -> Results.success(
@@ -18,7 +18,9 @@ public final class RouteDslExample {
                     + " gets "
                     + ctx.option("amount", Integer.class).orElse(1)
                     + " "
-                    + ctx.arg("item", String.class)));
+                    + ctx.arg("item", String.class)
+                    + " silent="
+                    + ctx.flag("silent")));
         return framework;
     }
 }

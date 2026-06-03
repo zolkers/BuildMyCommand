@@ -1,17 +1,22 @@
-package dev.riege.buildmycommand.examples;
+package dev.riege.buildmycommand.examples.basics;
 
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
-public final class BuilderExample {
-    private BuilderExample() {
+public final class BuilderCommandsExample {
+    private BuilderCommandsExample() {
     }
 
     public static CommandFramework create() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().command("ping", command -> command
             .description("Reply with Pong")
+            .alias("p")
             .executes(ctx -> Results.success("Pong")));
+        framework.registry().command("echo", command -> command
+            .description("Echo text back")
+            .greedyArgument("text", String.class)
+            .executes(ctx -> Results.success(ctx.arg("text", String.class))));
         return framework;
     }
 }

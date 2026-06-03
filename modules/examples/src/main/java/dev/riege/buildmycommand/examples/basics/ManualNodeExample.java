@@ -1,4 +1,4 @@
-package dev.riege.buildmycommand.examples;
+package dev.riege.buildmycommand.examples.basics;
 
 import dev.riege.buildmycommand.api.Arguments;
 import dev.riege.buildmycommand.api.Commands;
@@ -6,8 +6,8 @@ import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
-public final class ManualExample {
-    private ManualExample() {
+public final class ManualNodeExample {
+    private ManualNodeExample() {
     }
 
     public static CommandFramework create() {
@@ -18,7 +18,13 @@ public final class ManualExample {
             .argument(Arguments.required("target", String.class))
             .argument(Arguments.greedyOptional("reason", String.class))
             .flag(Flags.bool("silent").alias("s"))
-            .handler(ctx -> Results.success("Banned " + ctx.arg("target", String.class)))
+            .handler(ctx -> Results.success(
+                "Banned "
+                    + ctx.arg("target", String.class)
+                    + " silent="
+                    + ctx.flag("silent")
+                    + " reason="
+                    + ctx.optionalArg("reason", String.class).orElse("none")))
             .build());
         return framework;
     }
