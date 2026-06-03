@@ -39,7 +39,6 @@ public final class BrigadierRegistration<N> {
             dispatcher.getRoot().addChild(root);
             registered.add(root.getLiteral());
         }
-        dispatcher.getRoot().addChild(adapter.frameworkFallbackRoot());
         return Collections.unmodifiableSet(registered);
     }
 }

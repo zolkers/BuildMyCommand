@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
@@ -27,8 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -157,7 +160,7 @@ class BrigadierCommandAdapterTest {
     }
 
     @Test
-    void dispatcherHonorsFrameworkCaseInsensitiveLiteralsThroughFallbackTunnel() throws Exception {
+    void dispatcherHonorsFrameworkCaseInsensitiveLiteralsUnderRegisteredRootsOnly() throws Exception {
         CommandFramework framework = CommandFramework.builder()
             .caseInsensitiveLiterals()
             .caseInsensitiveOptions()
@@ -174,15 +177,14 @@ class BrigadierCommandAdapterTest {
 
         bridge.registration().register(dispatcher);
 
-        assertNotNull(dispatcher.getRoot().getChild("_bmc_input"));
-        assertEquals(1, dispatcher.execute("ADMIN ban Ada --SILENT", new NativeSource()));
-        assertEquals("Ada:true", executed.get());
+        assertNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("ADMIN ban Ada --SILENT", new NativeSource()));
         assertEquals(1, dispatcher.execute("admin BAN Ada -S", new NativeSource()));
         assertEquals("Ada:true", executed.get());
     }
 
     @Test
-    void dispatcherFallbackTunnelDelegatesSuggestionsToFramework() throws Exception {
+    void dispatcherFallbackTunnelDelegatesSuggestionsUnderRegisteredRootsOnly() throws Exception {
         CommandFramework framework = CommandFramework.builder()
             .caseInsensitiveLiterals()
             .build();
@@ -194,6 +196,8 @@ class BrigadierCommandAdapterTest {
 
         bridge.registration().register(dispatcher);
 
+        assertNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertEquals(List.of(), suggestions(dispatcher, "unknown"));
         assertEquals(List.of("admin"), suggestions(dispatcher, "A"));
         assertEquals(List.of("ban"), suggestions(dispatcher, "admin B"));
     }
@@ -297,7 +301,7 @@ class BrigadierCommandAdapterTest {
     }
 
     @Test
-    void dispatcherDelegatesStrictFailuresToFramework() throws Exception {
+    void dispatcherKeepsUnknownRootsAsInvalidInput() throws Exception {
         CommandFramework framework = CommandFramework.create();
         BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
         framework.registry().command("ping", command -> command.executes(ctx -> Results.success("pong")));
@@ -305,8 +309,10 @@ class BrigadierCommandAdapterTest {
 
         bridge.registration().register(dispatcher);
 
-        assertNotNull(dispatcher.getRoot().getChild("_bmc_input"));
-        assertEquals(0, dispatcher.execute("PING", new NativeSource()));
+        assertNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("PING", new NativeSource()));
+        assertEquals(List.of("ping"), suggestions(dispatcher, "PING"));
+        assertFalse(suggestions(dispatcher, "nope").contains("_bmc_input"));
     }
 
     @Test

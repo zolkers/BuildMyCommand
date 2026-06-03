@@ -100,14 +100,6 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         return framework.caseInsensitiveLiterals();
     }
 
-    public ArgumentCommandNode<N, String> frameworkFallbackRoot() {
-        RequiredArgumentBuilder<N, String> fallback =
-            RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
-        attachFrameworkSuggestions(fallback);
-        attachExecutor(fallback);
-        return fallback.build();
-    }
-
     public BrigadierRegistration<N> registration() {
         return new BrigadierRegistration<>(this);
     }
