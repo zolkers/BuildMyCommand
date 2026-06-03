@@ -79,6 +79,7 @@ public final class ManualCommandImporter {
         metadata.cooldown().ifPresent(builder::cooldown);
         metadata.requirement().ifPresent(builder::requirement);
         metadata.group().ifPresent(builder::group);
+        builder.suggestAliases(metadata.suggestAliases());
         metadata.middlewares().forEach(builder::middleware);
     }
 

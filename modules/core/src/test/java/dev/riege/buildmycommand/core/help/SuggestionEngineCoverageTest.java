@@ -127,6 +127,18 @@ class SuggestionEngineCoverageTest {
             .toList());
     }
 
+    @Test
+    void canHideAliasesFromSuggestionsWithoutDisablingExecution() {
+        SimpleCommandRegistry registry = new SimpleCommandRegistry();
+        registry.route("wecc bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success("ok"));
+        SuggestionEngine engine = new SuggestionEngine(registry, new CommandTokenizer());
+
+        assertEquals(List.of("bang"), values(engine.suggestRich(input(source(Set.of()), "wecc ", 5))));
+        assertEquals(List.of("bang"), values(engine.suggestRich(input(source(Set.of()), "wecc b", 6))));
+    }
+
     private static List<String> values(List<Suggestion> suggestions) {
         return suggestions.stream().map(Suggestion::value).toList();
     }

@@ -14,6 +14,7 @@ import dev.riege.buildmycommand.annotation.Require;
 import dev.riege.buildmycommand.annotation.Route;
 import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.annotation.Subcommand;
+import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandRegistry;
 
@@ -103,7 +104,7 @@ public final class AnnotationCommandCompiler {
         }
 
         if (subRoute != null) {
-            String commandRoute = aliasedSubcommandRoute(
+            String commandRoute = AnnotationRouteAliases.aliasedSubcommandRoute(
                 ownerCommand.value() + prefixedRoute(prefix, subRoute.value()),
                 rootAliases,
                 method.getAnnotation(Alias.class),
@@ -140,7 +141,7 @@ public final class AnnotationCommandCompiler {
             );
         }
         if (route != null) {
-            String commandRoute = aliasedRoute(route.value(), method.getAnnotation(Alias.class));
+            String commandRoute = AnnotationRouteAliases.aliasedRoute(route.value(), method.getAnnotation(Alias.class));
             AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
@@ -265,6 +266,7 @@ public final class AnnotationCommandCompiler {
             List.of(),
             Optional.empty(),
             Optional.empty(),
+            true,
             List.of()
         );
     }
@@ -300,6 +302,7 @@ public final class AnnotationCommandCompiler {
             || owner.isAnnotationPresent(Example.class)
             || owner.isAnnotationPresent(Cooldown.class)
             || owner.isAnnotationPresent(Require.class)
+            || owner.isAnnotationPresent(SuggestAliases.class)
             || owner.isAnnotationPresent(Middleware.class)
             || owner.isAnnotationPresent(CommandGroup.class);
     }
@@ -331,6 +334,7 @@ public final class AnnotationCommandCompiler {
             examples,
             cooldownDuration,
             requirement == null ? Optional.empty() : Optional.of(validateMetadata(requirement.value(), "requirement")),
+            !owner.isAnnotationPresent(SuggestAliases.class) || owner.getAnnotation(SuggestAliases.class).value(),
             MethodCommandBinder.annotatedMiddlewares(owner)
         );
     }
@@ -398,58 +402,6 @@ public final class AnnotationCommandCompiler {
         return builder.append(')').toString();
     }
 
-    private static String aliasedRoute(String route, Alias... aliases) {
-        String aliased = route;
-        for (Alias alias : aliases) {
-            if (alias == null) {
-                continue;
-            }
-            for (String value : alias.value()) {
-                aliased = applyRouteAlias(aliased, value, 0);
-            }
-        }
-        return aliased;
-    }
-
-    private static String aliasedSubcommandRoute(
-        String route,
-        List<String> ownerAliases,
-        Alias methodAlias,
-        int methodAliasOffset
-    ) {
-        String aliased = route;
-        for (String value : ownerAliases) {
-            aliased = applyRouteAlias(aliased, value, 0);
-        }
-        if (methodAlias != null) {
-            for (String value : methodAlias.value()) {
-                aliased = applyRouteAlias(aliased, value, methodAliasOffset);
-            }
-        }
-        return aliased;
-    }
-
-    private static String applyRouteAlias(String route, String alias, int offset) {
-        String[] routeTokens = route.trim().split("\\s+");
-        String[] aliasTokens = alias.trim().split("\\s+");
-        if (alias.isBlank()) {
-            throw new IllegalArgumentException("route alias must not be blank");
-        }
-        if (offset + aliasTokens.length > routeTokens.length) {
-            throw new IllegalArgumentException("route alias is longer than route: " + alias);
-        }
-
-        String[] updated = routeTokens.clone();
-        for (int index = 0; index < aliasTokens.length; index++) {
-            int routeIndex = offset + index;
-            if (routeTokens[routeIndex].startsWith("<") || routeTokens[routeIndex].startsWith("[")) {
-                throw new IllegalArgumentException("route alias can only target literal tokens: " + alias);
-            }
-            updated[routeIndex] = routeTokens[routeIndex] + "|" + aliasTokens[index];
-        }
-        return String.join(" ", updated);
-    }
-
     public record CompiledCommands(
         CasePolicy classCasePolicy,
         Optional<RootCommand> rootCommand,
@@ -505,6 +457,7 @@ public final class AnnotationCommandCompiler {
                 metadata.examples().forEach(builder::example);
                 metadata.cooldown().ifPresent(builder::cooldown);
                 metadata.requirement().ifPresent(builder::requirement);
+                builder.suggestAliases(metadata.suggestAliases());
                 metadata.middlewares().forEach(builder::middleware);
                 group.ifPresent(builder::group);
             });
@@ -615,6 +568,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            builder.suggestAliases(metadata.suggestAliases());
             metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
         }
@@ -628,6 +582,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            builder.suggestAliases(metadata.suggestAliases());
             metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
         }
@@ -686,6 +641,7 @@ public final class AnnotationCommandCompiler {
             metadata.examples().forEach(builder::example);
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
+            builder.suggestAliases(metadata.suggestAliases());
             metadata.middlewares().forEach(builder::middleware);
         }
     }

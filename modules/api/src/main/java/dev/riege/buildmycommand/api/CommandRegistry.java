@@ -52,6 +52,10 @@ public interface CommandRegistry {
             throw new UnsupportedOperationException("command group metadata is not supported by this registry");
         }
 
+        default RouteBuilder suggestAliases(boolean suggestAliases) {
+            throw new UnsupportedOperationException("alias suggestion metadata is not supported by this registry");
+        }
+
         default RouteBuilder middleware(CommandMiddleware middleware) {
             throw new UnsupportedOperationException("command middleware metadata is not supported by this registry");
         }
@@ -102,6 +106,10 @@ public interface CommandRegistry {
 
         default CommandBuilder group(String group) {
             throw new UnsupportedOperationException("command group metadata is not supported by this registry");
+        }
+
+        default CommandBuilder suggestAliases(boolean suggestAliases) {
+            throw new UnsupportedOperationException("alias suggestion metadata is not supported by this registry");
         }
 
         default CommandBuilder middleware(CommandMiddleware middleware) {

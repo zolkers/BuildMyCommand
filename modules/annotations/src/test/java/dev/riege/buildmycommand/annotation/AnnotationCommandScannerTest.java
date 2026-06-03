@@ -277,6 +277,7 @@ class AnnotationCommandScannerTest {
         assertEquals(Optional.of(Duration.ofSeconds(30)), metadata.cooldown());
         assertEquals(Optional.of("perm.a && perm.b"), metadata.requirement());
         assertEquals(Optional.of("players"), command.bindings().get(0).suggestionProvider());
+        assertEquals(false, metadata.suggestAliases());
     }
 
     @Test
@@ -301,6 +302,16 @@ class AnnotationCommandScannerTest {
               cooldown PT30S
               require perm.a && perm.b
               argument target:String required suggest=players""", framework.schema());
+    }
+
+    @Test
+    void suggestAliasesAnnotationHidesAliasesFromSuggestionsWithoutDisablingExecution() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new AliasSuggestionCommands());
+
+        assertEquals(List.of("secret"), framework.suggest(source(), "s", 1));
+        assertEquals(Optional.of("ok"), framework.dispatch(source(), "s").reply());
     }
 
     @Test
@@ -340,6 +351,7 @@ class AnnotationCommandScannerTest {
         assertTargets(Hidden.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Require.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Middleware.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(SuggestAliases.class, ElementType.METHOD, ElementType.TYPE);
     }
 
     @Test
@@ -791,6 +803,8 @@ class AnnotationCommandScannerTest {
         @Example({"secret Ada", "secret Bob"})
         @Cooldown(30)
         @Require("perm.a && perm.b")
+        @SuggestAliases(false)
+        @Alias("s")
         CommandResult secret(@Arg("target") @Suggest("players") String target) {
             return Results.success(target);
         }
@@ -818,6 +832,15 @@ class AnnotationCommandScannerTest {
                 new Suggestion("Bob", Optional.empty(), context.replacementStart(), context.replacementEnd(),
                     context.suggestionType(), 0)
             );
+        }
+    }
+
+    static final class AliasSuggestionCommands {
+        @Command("secret")
+        @Alias("s")
+        @SuggestAliases(false)
+        CommandResult secret() {
+            return Results.success("ok");
         }
     }
 

@@ -77,7 +77,7 @@ public final class SuggestionEngine {
         if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
             return registry.roots().stream()
                 .filter(command -> CommandPermissions.canDiscover(source, List.of(command), command))
-                .flatMap(command -> command.literals().stream())
+                .flatMap(command -> suggestionLiterals(command).stream())
                 .distinct()
                 .filter(literal -> startsWith(literal, current))
                 .map(value -> new Suggestion(value, Optional.empty(), replacementStart, replacementEnd,
@@ -162,7 +162,7 @@ public final class SuggestionEngine {
         List<RegistryCommandNode> suggestionPath = matchedNodes;
         return command.uniqueChildren().stream()
             .filter(child -> CommandPermissions.canDiscover(source, CommandPermissions.append(suggestionPath, child), child))
-            .flatMap(child -> child.literals().stream())
+            .flatMap(child -> suggestionLiterals(child).stream())
             .distinct()
             .filter(literal -> startsWith(literal, current))
             .map(value -> new Suggestion(value, Optional.empty(), replacementStart, replacementEnd,
@@ -280,6 +280,10 @@ public final class SuggestionEngine {
         labels.add("--" + option.name());
         option.aliasOptional().ifPresent(alias -> labels.add("-" + alias));
         return labels;
+    }
+
+    private static List<String> suggestionLiterals(RegistryCommandNode command) {
+        return command.metadata().suggestAliases() ? command.literals() : List.of(command.literal());
     }
 
     private static ArgumentParseContext context(

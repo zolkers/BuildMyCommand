@@ -87,6 +87,12 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     }
 
     @Override
+    public CommandRegistry.CommandBuilder suggestAliases(boolean suggestAliases) {
+        metadata.suggestAliases(suggestAliases);
+        return this;
+    }
+
+    @Override
     public CommandRegistry.CommandBuilder middleware(CommandMiddleware middleware) {
         metadata.middleware(middleware);
         return this;

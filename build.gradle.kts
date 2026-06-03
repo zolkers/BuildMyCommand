@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.github.zolkers"
-version = "0.0.2"
+version = "0.0.3-SNAPSHOT"
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
     include("**/src/main/java/**/*.java")
@@ -136,7 +136,7 @@ subprojects {
     }
 
     tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
-        dependsOn(tasks.named("test"))
+        dependsOn(tasks.named("jacocoTestReport"))
         violationRules {
             rule {
                 limit {

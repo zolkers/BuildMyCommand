@@ -317,6 +317,12 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         }
 
         @Override
+        public RouteBuilder suggestAliases(boolean suggestAliases) {
+            metadata.suggestAliases(suggestAliases);
+            return this;
+        }
+
+        @Override
         public RouteBuilder middleware(CommandMiddleware middleware) {
             metadata.middleware(middleware);
             return this;
@@ -416,6 +422,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             builtMetadata.cooldown().ifPresent(builder::cooldown);
             builtMetadata.requirement().ifPresent(builder::requirement);
             builtMetadata.group().ifPresent(builder::group);
+            builder.suggestAliases(builtMetadata.suggestAliases());
             builtMetadata.middlewares().forEach(builder::middleware);
             argumentSuggestions.forEach((name, provider) ->
                 builder.argumentSuggestions(name, providerName(provider), provider));

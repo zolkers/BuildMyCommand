@@ -278,6 +278,7 @@ class ApiContractTest {
             .cooldown(Duration.ofSeconds(5))
             .requirement("staff")
             .group("moderation")
+            .suggestAliases(false)
             .middlewares(middlewares)
             .build();
         examples.add("mutated");
@@ -289,8 +290,10 @@ class ApiContractTest {
         assertEquals(Optional.of(Duration.ofSeconds(5)), metadata.cooldown());
         assertEquals(Optional.of("staff"), metadata.requirement());
         assertEquals(Optional.of("moderation"), metadata.group());
+        assertFalse(metadata.suggestAliases());
         assertEquals(List.of(middleware), metadata.middlewares());
         assertEquals(CommandMetadata.empty(), new CommandMetadata.Builder().build());
+        assertTrue(CommandMetadata.empty().suggestAliases());
 
         assertThrows(NullPointerException.class, () -> new CommandMetadata.Builder().usage(null));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().usage(" "));
@@ -304,9 +307,9 @@ class ApiContractTest {
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().requirement(" "));
         assertThrows(IllegalArgumentException.class, () -> new CommandMetadata.Builder().group(" "));
         assertThrows(NullPointerException.class, () -> new CommandMetadata(false, null, List.of(), Optional.empty(),
-            Optional.empty(), Optional.empty(), List.of()));
+            Optional.empty(), Optional.empty(), true, List.of()));
         assertThrows(NullPointerException.class, () -> new CommandMetadata(false, Optional.empty(), List.of(),
-            Optional.empty(), Optional.empty(), Optional.empty(), null));
+            Optional.empty(), Optional.empty(), Optional.empty(), true, null));
     }
 
     @Test
@@ -445,6 +448,7 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").cooldown(Duration.ofSeconds(1)));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").requirement("r"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").group("g"));
+        assertThrows(UnsupportedOperationException.class, () -> registry.route("x").suggestAliases(false));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").middleware((context, command,
             path, next) -> next.proceed(context)));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").argumentSuggestions("a", ctx ->
@@ -460,6 +464,7 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, () -> builder.cooldown(Duration.ofSeconds(1)));
         assertThrows(UnsupportedOperationException.class, () -> builder.requirement("r"));
         assertThrows(UnsupportedOperationException.class, () -> builder.group("g"));
+        assertThrows(UnsupportedOperationException.class, () -> builder.suggestAliases(false));
         assertThrows(UnsupportedOperationException.class, () -> builder.middleware((context, command, path, next) ->
             next.proceed(context)));
         assertThrows(UnsupportedOperationException.class, () -> builder.argumentSuggestions("a", ctx -> List.of()));

@@ -22,6 +22,7 @@ import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.annotation.Subcommand;
 import dev.riege.buildmycommand.annotation.Suggest;
+import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandContext;
@@ -38,6 +39,7 @@ import dev.riege.buildmycommand.api.SuggestionType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -63,8 +65,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnnotationBindingCoverageTest {
+    @Test
+    void utilityConstructorsAreCoveredForStrictCoverageGate() throws Exception {
+        Constructor<AnnotationRouteAliases> constructor = AnnotationRouteAliases.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        assertNotNull(constructor.newInstance());
+    }
+
     @Test
     void validatesRouteBindingsForEveryRuntimeRouteShape() throws Exception {
         Method method = method(ValidatorCommands.class, "all", String.class, int.class, long.class, double.class,
@@ -211,6 +221,19 @@ class AnnotationBindingCoverageTest {
     }
 
     @Test
+    void bindMetadataResolvesAliasSuggestionPolicyFromMethodClassAndDefault() throws Exception {
+        AliasSuggestionPolicyCommands target = new AliasSuggestionPolicyCommands();
+
+        assertTrue(MethodCommandBinder.bind(new DefaultAliasSuggestionPolicyCommands(),
+            method(DefaultAliasSuggestionPolicyCommands.class, "defaults"))
+            .metadata().suggestAliases());
+        assertFalse(MethodCommandBinder.bind(target, method(AliasSuggestionPolicyCommands.class, "inheritsClass"))
+            .metadata().suggestAliases());
+        assertTrue(MethodCommandBinder.bind(target, method(AliasSuggestionPolicyCommands.class, "methodOverride"))
+            .metadata().suggestAliases());
+    }
+
+    @Test
     void rejectsInferredParametersWhenClassWasCompiledWithoutParameterNames() throws Exception {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler);
@@ -327,7 +350,7 @@ class AnnotationBindingCoverageTest {
         Method privateMethod = InvocationCommands.class.getDeclaredMethod("privateCommand");
         MethodCommandBinder.BoundMethod inaccessible = new MethodCommandBinder.BoundMethod(target, privateMethod,
             List.of(), new MethodCommandBinder.CommandMetadata(false, Optional.empty(), List.of(), Optional.empty(),
-            Optional.empty(), List.of()));
+            Optional.empty(), true, List.of()));
         IllegalStateException illegalAccess = assertThrows(IllegalStateException.class,
             () -> inaccessible.invoke(context(Map.of())));
         assertEquals("cannot invoke annotated command method: privateCommand", illegalAccess.getMessage());
@@ -423,6 +446,8 @@ class AnnotationBindingCoverageTest {
         assertRootCommand(new RootExampleCommands());
         assertRootCommand(new RootCooldownCommands());
         assertRootCommand(new RootRequireCommands());
+        assertRootCommand(new RootSuggestAliasesFalseCommands());
+        assertRootCommand(new RootSuggestAliasesTrueCommands());
         assertRootCommand(new RootGroupOnlyCommands());
         assertRootCommand(new RootMiddlewareCommands());
         assertFalse(AnnotationCommandCompiler.compile(new RootWithoutMetadataCommands()).rootCommand().isPresent());
@@ -499,6 +524,7 @@ class AnnotationBindingCoverageTest {
                 List.of("root node"),
                 Optional.of(Duration.ofSeconds(1)),
                 Optional.of("node.use"),
+                true,
                 List.of()
             )
         );
@@ -794,6 +820,24 @@ class AnnotationBindingCoverageTest {
             @Option("emptyAlias") @Alias({}) String emptyAlias,
             @Option("amount") Optional<Long> amount
         ) {
+            return Results.silent();
+        }
+    }
+
+    static final class DefaultAliasSuggestionPolicyCommands {
+        CommandResult defaults() {
+            return Results.silent();
+        }
+    }
+
+    @SuggestAliases(false)
+    static final class AliasSuggestionPolicyCommands {
+        CommandResult inheritsClass() {
+            return Results.silent();
+        }
+
+        @SuggestAliases(true)
+        CommandResult methodOverride() {
             return Results.silent();
         }
     }
@@ -1192,6 +1236,16 @@ class AnnotationBindingCoverageTest {
     }
 
     @Command("root")
+    @SuggestAliases(false)
+    static final class RootSuggestAliasesFalseCommands {
+    }
+
+    @Command("root")
+    @SuggestAliases(true)
+    static final class RootSuggestAliasesTrueCommands {
+    }
+
+    @Command("root")
     @CommandGroup("roots")
     static final class RootGroupOnlyCommands {
     }
@@ -1301,6 +1355,14 @@ class AnnotationBindingCoverageTest {
         }
 
         @Override
+        public CommandRegistry.RouteBuilder suggestAliases(boolean suggestAliases) {
+            if (!suggestAliases) {
+                events.add("suggestAliases:false");
+            }
+            return this;
+        }
+
+        @Override
         public CommandRegistry.RouteBuilder middleware(CommandMiddleware middleware) {
             events.add("middleware:" + middleware.getClass().getSimpleName());
             return this;
@@ -1389,6 +1451,14 @@ class AnnotationBindingCoverageTest {
         @Override
         public CommandRegistry.CommandBuilder group(String group) {
             events.add("group:" + group);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder suggestAliases(boolean suggestAliases) {
+            if (!suggestAliases) {
+                events.add("suggestAliases:false");
+            }
             return this;
         }
 

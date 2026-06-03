@@ -7,6 +7,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
@@ -30,6 +33,8 @@ import java.util.function.Function;
 
 public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, String, Integer> {
     private static final String FRAMEWORK_TUNNEL = "_bmc_input";
+    private static final SimpleCommandExceptionType INVALID_INPUT =
+        new SimpleCommandExceptionType(new LiteralMessage("Invalid command input"));
 
     private final CommandFramework framework;
     private final Function<N, CommandSource> sourceMapper;
@@ -106,23 +111,16 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
 
     private LiteralArgumentBuilder<N> convertRoot(CommandNode node) {
         LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal());
-        attachExecutor(builder);
+        attachExecutorIfRunnable(builder, node, -1);
         attachNodeContents(builder, node);
         return builder;
     }
 
-    private com.mojang.brigadier.tree.CommandNode<N> convertChild(CommandNode node) {
+    private LiteralCommandNode<N> convertChild(CommandNode node) {
         LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal());
-        attachExecutor(builder);
+        attachExecutorIfRunnable(builder, node, -1);
         attachNodeContents(builder, node);
-        com.mojang.brigadier.tree.LiteralCommandNode<N> built = builder.build();
-        for (String alias : node.aliases()) {
-            built.addChild(LiteralArgumentBuilder.<N>literal(alias)
-                .executes(built.getCommand())
-                .redirect(built)
-                .build());
-        }
-        return built;
+        return builder.build();
     }
 
     private void attachNodeContents(ArgumentBuilder<N, ?> builder, CommandNode node) {
@@ -148,7 +146,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             }
             return suggestionsBuilder.buildFuture();
         });
-        attachExecutor(builder);
+        attachExecutorIfRunnable(builder, node, index);
         if (index + 1 < node.arguments().size()) {
             builder.then(argumentBranch(node, index + 1));
         } else {
@@ -159,13 +157,68 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
 
     private void attachTerminalContents(ArgumentBuilder<N, ?> builder, CommandNode node) {
         for (CommandNode child : node.children()) {
-            builder.then(convertChild(child));
+            LiteralCommandNode<N> childNode = convertChild(child);
+            builder.then(childNode);
+            for (String alias : child.aliases()) {
+                builder.then(LiteralArgumentBuilder.<N>literal(alias)
+                    .executes(childNode.getCommand())
+                    .redirect(childNode)
+                    .build());
+            }
         }
         RequiredArgumentBuilder<N, String> tunnel =
             RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
         attachFrameworkSuggestions(tunnel);
-        attachExecutor(tunnel);
+        tunnel.executes(context -> executeTunnel(context, node));
         builder.then(tunnel);
+    }
+
+    private int executeTunnel(CommandContext<N> context, CommandNode node) throws CommandSyntaxException {
+        if (shouldRejectTunnel(node, context.getArgument(FRAMEWORK_TUNNEL, String.class))) {
+            throw INVALID_INPUT.create();
+        }
+        return execute(context.getSource(), context.getInput());
+    }
+
+    private boolean shouldRejectTunnel(CommandNode node, String tunnelInput) {
+        if (node.children().isEmpty()) {
+            return false;
+        }
+        String token = firstToken(tunnelInput);
+        if (token == null || token.startsWith("-")) {
+            return false;
+        }
+        boolean exactKnownChild = false;
+        boolean caseInsensitiveKnownChild = false;
+        for (CommandNode child : node.children()) {
+            for (String label : childLabels(child)) {
+                exactKnownChild |= label.equals(token);
+                caseInsensitiveKnownChild |= framework.caseInsensitiveLiterals() && label.equalsIgnoreCase(token);
+            }
+        }
+        if (exactKnownChild) {
+            return true;
+        }
+        return !caseInsensitiveKnownChild;
+    }
+
+    private static List<String> childLabels(CommandNode child) {
+        List<String> labels = new ArrayList<>();
+        labels.add(child.literal());
+        labels.addAll(child.aliases());
+        return labels;
+    }
+
+    private static String firstToken(String input) {
+        String trimmed = input.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        int end = 0;
+        while (end < trimmed.length() && !Character.isWhitespace(trimmed.charAt(end))) {
+            end++;
+        }
+        return trimmed.substring(0, end);
     }
 
     private void attachFrameworkSuggestions(RequiredArgumentBuilder<N, String> builder) {
@@ -184,6 +237,19 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         builder.executes(context -> {
             return execute(context.getSource(), context.getInput());
         });
+    }
+
+    private void attachExecutorIfRunnable(ArgumentBuilder<N, ?> builder, CommandNode node, int lastParsedArgumentIndex) {
+        if (node.executor().isEmpty()) {
+            return;
+        }
+        for (int index = lastParsedArgumentIndex + 1; index < node.arguments().size(); index++) {
+            ArgumentSpec.Kind kind = node.arguments().get(index).kind();
+            if (kind == ArgumentSpec.Kind.REQUIRED || kind == ArgumentSpec.Kind.GREEDY) {
+                return;
+            }
+        }
+        attachExecutor(builder);
     }
 
     private static ArgumentType<?> brigadierArgument(ArgumentSpec<?> argument) {

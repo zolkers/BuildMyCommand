@@ -13,6 +13,7 @@ public record CommandMetadata(
     Optional<Duration> cooldown,
     Optional<String> requirement,
     Optional<String> group,
+    boolean suggestAliases,
     List<CommandMiddleware> middlewares
 ) {
     public CommandMetadata {
@@ -26,7 +27,7 @@ public record CommandMetadata(
 
     public static CommandMetadata empty() {
         return new CommandMetadata(false, Optional.empty(), List.of(), Optional.empty(), Optional.empty(),
-            Optional.empty(), List.of());
+            Optional.empty(), true, List.of());
     }
 
     public static final class Builder {
@@ -36,6 +37,7 @@ public record CommandMetadata(
         private Duration cooldown;
         private String requirement;
         private String group;
+        private boolean suggestAliases = true;
         private final List<CommandMiddleware> middlewares = new ArrayList<>();
 
         public Builder hidden() {
@@ -78,6 +80,11 @@ public record CommandMetadata(
             return this;
         }
 
+        public Builder suggestAliases(boolean suggestAliases) {
+            this.suggestAliases = suggestAliases;
+            return this;
+        }
+
         public Builder middleware(CommandMiddleware middleware) {
             middlewares.add(Objects.requireNonNull(middleware, "middleware"));
             return this;
@@ -97,6 +104,7 @@ public record CommandMetadata(
                 Optional.ofNullable(cooldown),
                 Optional.ofNullable(requirement),
                 Optional.ofNullable(group),
+                suggestAliases,
                 middlewares
             );
         }

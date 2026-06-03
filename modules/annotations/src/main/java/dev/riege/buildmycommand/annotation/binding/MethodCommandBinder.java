@@ -14,6 +14,7 @@ import dev.riege.buildmycommand.annotation.OptionalArg;
 import dev.riege.buildmycommand.annotation.Require;
 import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.Suggest;
+import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandContext;
@@ -350,6 +351,10 @@ public final class MethodCommandBinder {
         if (requirement == null) {
             requirement = owner.getAnnotation(Require.class);
         }
+        SuggestAliases suggestAliases = method.getAnnotation(SuggestAliases.class);
+        if (suggestAliases == null) {
+            suggestAliases = owner.getAnnotation(SuggestAliases.class);
+        }
 
         List<String> examples = new ArrayList<>();
         if (example != null) {
@@ -372,6 +377,7 @@ public final class MethodCommandBinder {
             examples,
             cooldownDuration,
             requirement == null ? Optional.empty() : Optional.of(metadata(requirement.value(), "requirement")),
+            suggestAliases == null || suggestAliases.value(),
             annotatedMiddlewares(owner, method)
         );
     }
@@ -463,6 +469,7 @@ public final class MethodCommandBinder {
         List<String> examples,
         Optional<Duration> cooldown,
         Optional<String> requirement,
+        boolean suggestAliases,
         List<CommandMiddleware> middlewares
     ) {
         public CommandMetadata {

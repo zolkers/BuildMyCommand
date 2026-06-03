@@ -585,6 +585,51 @@ class RegistryModelCoverageTest {
         );
         mergeCommandMetadata.setAccessible(true);
         assertEquals(CommandMetadata.empty(), mergeCommandMetadata.invoke(null, CommandMetadata.empty(), CommandMetadata.empty()));
+
+        CommandMetadata aliasesSuggested = new CommandMetadata.Builder()
+            .hidden()
+            .usage("/meta")
+            .example("meta run")
+            .cooldown(Duration.ofSeconds(2))
+            .requirement("staff")
+            .group("internal")
+            .build();
+        CommandMetadata aliasesHidden = new CommandMetadata.Builder()
+            .hidden()
+            .usage("/meta")
+            .example("meta run")
+            .cooldown(Duration.ofSeconds(2))
+            .requirement("staff")
+            .group("internal")
+            .suggestAliases(false)
+            .build();
+        assertEquals(aliasesHidden, mergeCommandMetadata.invoke(null, aliasesSuggested, aliasesHidden));
+
+        Method onlyAliasSuggestionDiffers = RegistryNodeMerger.class.getDeclaredMethod(
+            "onlyAliasSuggestionDiffers",
+            CommandMetadata.class,
+            CommandMetadata.class
+        );
+        onlyAliasSuggestionDiffers.setAccessible(true);
+        assertTrue((boolean) onlyAliasSuggestionDiffers.invoke(null, aliasesSuggested, aliasesHidden));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().usage("/one").build(),
+            new CommandMetadata.Builder().usage("/two").build()));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().group("one").build(),
+            new CommandMetadata.Builder().group("two").build()));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().example("one").build(),
+            new CommandMetadata.Builder().example("two").build()));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().cooldown(Duration.ofSeconds(1)).build(),
+            new CommandMetadata.Builder().cooldown(Duration.ofSeconds(2)).build()));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().requirement("one").build(),
+            new CommandMetadata.Builder().requirement("two").build()));
+        assertFalse((boolean) onlyAliasSuggestionDiffers.invoke(null,
+            new CommandMetadata.Builder().middleware((context, command, path, next) -> next.proceed(context)).build(),
+            CommandMetadata.empty()));
     }
 
     private static final class RecordingLifecycleListener implements CommandLifecycleListener {

@@ -20,6 +20,7 @@ import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +96,78 @@ class BrigadierCommandAdapterTest {
 
         assertEquals(1, dispatcher.execute("user roles put Ada", new NativeSource()));
         assertEquals("Ada", executed.get());
+    }
+
+    @Test
+    void dispatcherDoesNotLetFallbackTunnelEatIncompleteOrUnknownSubcommands() throws Exception {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("wecc ping")
+            .executes(ctx -> Results.success("pong"));
+        framework.registry()
+            .route("wecc bang|b <target:String>")
+            .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(1, dispatcher.execute("wecc ping", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc bang Ada", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc b Ada", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc B Ada", new NativeSource()));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc bang", new NativeSource()));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc b", new NativeSource()));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc nope", new NativeSource()));
+        assertFalse(suggestions(dispatcher, "wecc nope").contains("_bmc_input"));
+    }
+
+    @Test
+    void fallbackTunnelRejectsOnlyInputsThatShouldBeOwnedByBrigadierChildren() throws Exception {
+        CommandFramework strictFramework = CommandFramework.create();
+        strictFramework.registry()
+            .route("wecc ping")
+            .executes(ctx -> Results.success("pong"));
+        strictFramework.registry()
+            .route("wecc bang|b <target:String>")
+            .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        BrigadierCommandAdapter<NativeSource> strictBridge =
+            BrigadierCommandAdapter.create(strictFramework, NativeSource::source);
+        dev.riege.buildmycommand.api.CommandNode strictRoot = strictFramework.graph().roots().get(0);
+        dev.riege.buildmycommand.api.CommandNode leaf = strictRoot.children().stream()
+            .filter(child -> child.literal().equals("ping"))
+            .findFirst()
+            .orElseThrow();
+
+        Method shouldRejectTunnel = BrigadierCommandAdapter.class.getDeclaredMethod(
+            "shouldRejectTunnel",
+            dev.riege.buildmycommand.api.CommandNode.class,
+            String.class
+        );
+        shouldRejectTunnel.setAccessible(true);
+
+        assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, leaf, "anything"));
+        assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, " "));
+        assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "--silent"));
+        assertTrue((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "bang"));
+        assertTrue((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "BANG"));
+
+        CommandFramework caseInsensitiveFramework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+        caseInsensitiveFramework.registry()
+            .route("wecc bang|b <target:String>")
+            .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        BrigadierCommandAdapter<NativeSource> caseInsensitiveBridge =
+            BrigadierCommandAdapter.create(caseInsensitiveFramework, NativeSource::source);
+
+        assertFalse((boolean) shouldRejectTunnel.invoke(
+            caseInsensitiveBridge,
+            caseInsensitiveFramework.graph().roots().get(0),
+            "BANG"
+        ));
     }
 
     @Test

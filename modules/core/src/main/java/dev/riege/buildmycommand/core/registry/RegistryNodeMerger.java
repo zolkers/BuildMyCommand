@@ -112,7 +112,29 @@ public final class RegistryNodeMerger {
         if (incoming.equals(CommandMetadata.empty()) || existing.equals(incoming)) {
             return existing;
         }
+        if (onlyAliasSuggestionDiffers(existing, incoming)) {
+            return new CommandMetadata(
+                existing.hidden(),
+                existing.usage(),
+                existing.examples(),
+                existing.cooldown(),
+                existing.requirement(),
+                existing.group(),
+                incoming.suggestAliases(),
+                existing.middlewares()
+            );
+        }
         throw new IllegalArgumentException("route conflicts with existing command metadata");
+    }
+
+    private static boolean onlyAliasSuggestionDiffers(CommandMetadata existing, CommandMetadata incoming) {
+        return existing.hidden() == incoming.hidden()
+            && existing.usage().equals(incoming.usage())
+            && existing.group().equals(incoming.group())
+            && existing.examples().equals(incoming.examples())
+            && existing.cooldown().equals(incoming.cooldown())
+            && existing.requirement().equals(incoming.requirement())
+            && existing.middlewares().equals(incoming.middlewares());
     }
 
     private static String mergeMetadata(String existing, String incoming, String label) {
