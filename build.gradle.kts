@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.riege.buildmycommand"
-version = "0.1.0-SNAPSHOT"
+version = "0.0.1"
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
     include("**/src/main/java/**/*.java")

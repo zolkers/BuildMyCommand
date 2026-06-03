@@ -1,6 +1,6 @@
 # API Compatibility
 
-The project is currently `0.1.0-SNAPSHOT`.
+The project is currently `0.0.1`.
 
 Until a `1.0.0` API freeze, public APIs may evolve when needed for architecture, adapter support, or correctness. Compatibility decisions should follow these rules:
 
