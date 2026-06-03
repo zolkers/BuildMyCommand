@@ -41,6 +41,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "@Permission accepts one permission node; use @Require for boolean expressions";
     static final String DEEP_SUBCOMMAND_TREE_DISCOURAGED =
         "Deep @Subcommand nesting is supported but @SubRoute route DSL is recommended for command paths";
+    static final String PATH_LITERAL_ONLY =
+        "Builder path() only accepts literal segments; use subRoute() for route DSL arguments, options, or aliases";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
@@ -113,7 +115,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 if (BuildMyCommandRouteLiteralMatcher.isRouteLiteral(expression)) {
                     TextRange range = BuildMyCommandRouteLiteralMatcher.contentRange(expression);
                     String route = expression.getText().substring(range.getStartOffset(), range.getEndOffset());
-                    for (BuildMyCommandRouteDsl.Issue issue : BuildMyCommandRouteDsl.validate(route)) {
+                    for (BuildMyCommandRouteDsl.Issue issue : routeIssues(expression, route)) {
                         holder.registerProblem(
                             expression,
                             TextRange.create(range.getStartOffset() + issue.start(), range.getStartOffset() + issue.end()),
@@ -161,6 +163,37 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 holder.registerProblem(parameter, ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL);
             }
         }
+    }
+
+    private static Iterable<BuildMyCommandRouteDsl.Issue> routeIssues(PsiLiteralExpression expression, String route) {
+        if (!BuildMyCommandRouteLiteralMatcher.isLiteralPathLiteral(expression)) {
+            return BuildMyCommandRouteDsl.validate(route);
+        }
+        TextRange pathDslRange = pathDslRange(route);
+        if (pathDslRange.isEmpty()) {
+            return BuildMyCommandRouteDsl.validate(route);
+        }
+        return java.util.List.of(new BuildMyCommandRouteDsl.Issue(
+            pathDslRange.getStartOffset(),
+            pathDslRange.getEndOffset(),
+            PATH_LITERAL_ONLY
+        ));
+    }
+
+    private static TextRange pathDslRange(String route) {
+        int start = -1;
+        int end = -1;
+        for (int index = 0; index < route.length(); index++) {
+            char character = route.charAt(index);
+            if (character == '<' || character == '>' || character == '[' || character == ']'
+                || character == '|') {
+                if (start < 0) {
+                    start = index;
+                }
+                end = index + 1;
+            }
+        }
+        return start < 0 ? TextRange.EMPTY_RANGE : TextRange.create(start, end);
     }
 
     private static void inspectLiteralOnly(PsiAnnotation annotation, String message, ProblemsHolder holder) {

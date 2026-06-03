@@ -22,7 +22,12 @@ final class BuildMyCommandRouteLiteralMatcher {
     }
 
     static boolean isRouteLiteral(PsiLiteralExpression literal) {
-        return literal.getValue() instanceof String && (isRouteAnnotationValue(literal) || isRouteMethodArgument(literal));
+        return literal.getValue() instanceof String
+            && (isRouteAnnotationValue(literal) || isRouteMethodArgument(literal) || isLiteralPathMethodArgument(literal));
+    }
+
+    static boolean isLiteralPathLiteral(PsiLiteralExpression literal) {
+        return literal.getValue() instanceof String && isLiteralPathMethodArgument(literal);
     }
 
     static TextRange contentRange(PsiLiteralExpression literal) {
@@ -62,6 +67,22 @@ final class BuildMyCommandRouteLiteralMatcher {
         }
         String methodName = methodCall.getMethodExpression().getReferenceName();
         if (!"route".equals(methodName) && !"subRoute".equals(methodName)) {
+            return false;
+        }
+        return expressionList.getExpressions().length > 0 && expressionList.getExpressions()[0] == literal;
+    }
+
+    private static boolean isLiteralPathMethodArgument(PsiLiteralExpression literal) {
+        PsiElement parent = literal.getParent();
+        if (!(parent instanceof PsiExpressionList expressionList)) {
+            return false;
+        }
+        PsiElement call = expressionList.getParent();
+        if (!(call instanceof PsiMethodCallExpression methodCall)) {
+            return false;
+        }
+        String methodName = methodCall.getMethodExpression().getReferenceName();
+        if (!"path".equals(methodName)) {
             return false;
         }
         return expressionList.getExpressions().length > 0 && expressionList.getExpressions()[0] == literal;

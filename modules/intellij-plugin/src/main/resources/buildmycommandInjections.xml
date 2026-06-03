@@ -20,4 +20,20 @@
                     .definedInClass("dev.riege.buildmycommand.api.CommandRegistry"))
         ]]></place>
     </injection>
+    <injection language="BuildMyCommandRoute" injector-id="java">
+        <display-name>BuildMyCommand builder subRoute DSL</display-name>
+        <place><![CDATA[
+            psiParameter()
+                .ofMethod(0, psiMethod()
+                    .withName("subRoute"))
+        ]]></place>
+    </injection>
+    <injection language="BuildMyCommandRoute" injector-id="java">
+        <display-name>BuildMyCommand builder literal path</display-name>
+        <place><![CDATA[
+            psiParameter()
+                .ofMethod(0, psiMethod()
+                    .withName("path"))
+        ]]></place>
+    </injection>
 </component>

@@ -41,6 +41,8 @@ class IntellijPluginResourcesTest {
         assertTrue(injections.contains("dev.riege.buildmycommand.api.CommandRegistry"));
         assertTrue(injections.contains("language=\"BuildMyCommandRoute\""));
         assertTrue(injections.contains("route"));
+        assertTrue(injections.contains("subRoute"));
+        assertTrue(injections.contains("path"));
     }
 
     @Test
@@ -145,6 +147,7 @@ class IntellijPluginResourcesTest {
         assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
         assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_TYPE_REQUIRED));
         assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL));
+        assertTrue(inspection.contains(BuildMyCommandRouteInspection.PATH_LITERAL_ONLY));
     }
 
     @Test

@@ -53,7 +53,9 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
                 void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
                     registry.route("call [--force|-f]", null);
-                    registry.command("root", root -> root.subRoute("relative|rel <target:String>").executes(ctx -> null));
+                    registry.command("root", root -> root
+                        .path("rank set promote", promote -> promote.executes(ctx -> null))
+                        .subRoute("relative|rel <target:String>").executes(ctx -> null));
                     registry.route("first", "second");
                     registry.other("not route method");
                     new String("new expression literal");
@@ -67,6 +69,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiLiteralExpression annotation = literal(file, "root <target:String>");
         PsiLiteralExpression shortSubRoute = literal(file, "branch <id:String>");
         PsiLiteralExpression registry = literal(file, "call [--force|-f]");
+        PsiLiteralExpression literalPath = literal(file, "rank set promote");
         PsiLiteralExpression relativeSubRoute = literal(file, "relative|rel <target:String>");
         PsiLiteralExpression secondArgument = literal(file, "second");
         PsiLiteralExpression otherMethod = literal(file, "not route method");
@@ -86,10 +89,15 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiLiteralExpression raw = literalWithText("raw");
         PsiLiteralExpression orphanAnnotationValue = literalWithParent(nameValuePairWithParent(null));
         PsiLiteralExpression emptyRouteCallArgument = literalWithParent(expressionListForRouteCall(new PsiExpression[0]));
+        PsiLiteralExpression emptyPathCallArgument = literalWithParent(expressionListForMethodCall("path",
+            new PsiExpression[0], null));
+        PsiLiteralExpression pathWithoutMethodCall = literalWithParent(expressionListForMethodCall("path",
+            new PsiExpression[] {literalWithText("\"route\"")}, file));
 
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(annotation));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(shortSubRoute));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(registry));
+        assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(literalPath));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(relativeSubRoute));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(secondArgument));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(otherMethod));
@@ -99,6 +107,8 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(number));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(orphanAnnotationValue));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(emptyRouteCallArgument));
+        assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(emptyPathCallArgument));
+        assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(pathWithoutMethodCall));
         assertEquals(TextRange.create(1, annotation.getText().length() - 1),
             BuildMyCommandRouteLiteralMatcher.contentRange(annotation));
         assertEquals(TextRange.create(3, block.getText().length() - 3),
@@ -315,6 +325,15 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void valid(@dev.riege.buildmycommand.annotation.RouteCtx Object context) {
                     String plain = "not a route";
                 }
+
+                void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
+                    registry.command("rank", rank -> rank
+                        .path("set promote <target:String>", promote -> promote.executes(ctx -> null))
+                        .path("set demote|down", demote -> demote.executes(ctx -> null))
+                        .path("set clear [--force]", clear -> clear.executes(ctx -> null))
+                        .path("set inspect", inspect -> inspect.executes(ctx -> null))
+                        .subRoute("set assign <target:String>", assign -> assign.executes(ctx -> null)));
+                }
             }
 
             @Subcommand("top")
@@ -330,8 +349,9 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         for (PsiMethod method : PsiTreeUtil.findChildrenOfType(file, PsiMethod.class)) {
             visitor.visitMethod(method);
         }
-        visitor.visitLiteralExpression(literal(file, "give <target:Player>"));
-        visitor.visitLiteralExpression(literal(file, "not a route"));
+        for (PsiLiteralExpression literal : PsiTreeUtil.findChildrenOfType(file, PsiLiteralExpression.class)) {
+            visitor.visitLiteralExpression(literal);
+        }
         List<String> descriptions = holder.messages;
 
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
@@ -342,6 +362,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_LITERAL_ONLY));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.DEEP_SUBCOMMAND_TREE_DISCOURAGED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.PATH_LITERAL_ONLY));
         assertTrue(descriptions.contains("Unknown argument type: Player"));
         assertNotNull(file);
     }
