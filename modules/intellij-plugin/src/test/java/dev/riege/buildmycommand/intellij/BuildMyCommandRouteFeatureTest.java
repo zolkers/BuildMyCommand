@@ -217,9 +217,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 }
 
                 @dev.riege.buildmycommand.annotation.Route("give <target:Player>")
-                void invalid(@dev.riege.buildmycommand.annotation.Arg String target,
-                             @dev.riege.buildmycommand.annotation.Option Integer amount,
-                             @dev.riege.buildmycommand.annotation.Flag boolean silent) {
+                void invalid(@dev.riege.buildmycommand.annotation.RouteCtx dev.riege.buildmycommand.api.CommandContext context) {
                 }
 
                 @dev.riege.buildmycommand.annotation.Route("valid <target:String>")
@@ -243,7 +241,6 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_TYPE_REQUIRED));
-        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUB_ROUTE_OWNER_REQUIRED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_OWNER_REQUIRED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.COMMAND_LITERAL_ONLY));
@@ -313,7 +310,9 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                     }
 
                     @dev.riege.buildmycommand.annotation.Description("metadata method")
-                    void metadataOnly(@dev.riege.buildmycommand.annotation.Default("fallback") String value) {
+                    @dev.riege.buildmycommand.annotation.Suggest("target")
+                    java.util.List<String> metadataOnly() {
+                        return java.util.List.of("Ada");
                     }
                 }
             }
@@ -329,7 +328,6 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiMethod metadataOnly = findMethod(file, "metadataOnly");
         PsiParameter route = punish.getParameterList().getParameters()[0];
         PsiParameter value = helper.getParameterList().getParameters()[0];
-        PsiParameter defaulted = metadataOnly.getParameterList().getParameters()[0];
 
         assertTrue(provider.isImplicitUsage(moderation));
         assertTrue(provider.isImplicitUsage(qualified));
@@ -337,7 +335,6 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(provider.isImplicitUsage(punish));
         assertTrue(provider.isImplicitUsage(metadataOnly));
         assertTrue(provider.isImplicitUsage(route));
-        assertTrue(provider.isImplicitUsage(defaulted));
         assertTrue(provider.isImplicitRead(route));
         assertFalse(provider.isImplicitUsage(plain));
         assertFalse(provider.isImplicitUsage(helper));

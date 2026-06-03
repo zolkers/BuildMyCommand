@@ -38,14 +38,14 @@ public final class MinestomNativeCommand {
     public void execute(Object sender, String[] args) {
         MinecraftRenderedResult result = adapter.execute(
             Objects.requireNonNull(sender, "sender"),
-            MinestomMinecraftAdapter.commandInput(name, Objects.requireNonNull(args, "args"))
+            MinestomMinecraftIntegration.commandInput(name, Objects.requireNonNull(args, "args"))
         );
-        result.message().ifPresent(message -> MinestomMinecraftAdapter.commandSource(sender).reply(message));
+        result.message().ifPresent(message -> MinestomMinecraftIntegration.commandSource(sender).reply(message));
     }
 
     public List<String> suggest(Object sender, String[] args) {
         MinecraftInvocation invocation =
-            MinestomMinecraftAdapter.commandInput(name, Objects.requireNonNull(args, "args"));
+            MinestomMinecraftIntegration.commandInput(name, Objects.requireNonNull(args, "args"));
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
             invocation,

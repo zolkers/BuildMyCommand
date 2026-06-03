@@ -9,15 +9,15 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
-import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotMinecraftAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotMinecraftIntegration;
 import dev.riege.buildmycommand.adapters.minecraft.spigot.SpigotNativeCommand;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.command.CommandSender;
 
-public final class PaperMinecraftAdapter {
-    private PaperMinecraftAdapter() {
+public final class PaperMinecraftIntegration {
+    private PaperMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {
@@ -40,7 +40,7 @@ public final class PaperMinecraftAdapter {
     }
 
     public static CommandSource commandSource(CommandSender sender) {
-        return SpigotMinecraftAdapter.commandSource(sender);
+        return SpigotMinecraftIntegration.commandSource(sender);
     }
 
     public static PaperCommandRegistrationStrategy strategy(PaperCommandRegistrationMode mode) {
@@ -65,7 +65,7 @@ public final class PaperMinecraftAdapter {
         String label,
         IAdapter<CommandSender, MinecraftInvocation, MinecraftRenderedResult> adapter
     ) {
-        return SpigotMinecraftAdapter.nativeCommand(label, adapter);
+        return SpigotMinecraftIntegration.nativeCommand(label, adapter);
     }
 
     public static PaperNativeCommandRegistration nativeRegistration(

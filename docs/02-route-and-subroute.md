@@ -89,7 +89,7 @@ CommandResult give(@RouteCtx CommandContext ctx) {
 }
 ```
 
-This avoids duplicated annotations like `@Arg("target")`, `@Option("amount")`, and `@Flag("silent")`. Parameter annotations are still supported, but they are no longer the recommended route style.
+This avoids duplicated schema: the route string declares the command shape, and `@RouteCtx` is the single bridge into runtime values.
 
 ## Validation Rules
 

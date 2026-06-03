@@ -30,11 +30,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MinestomMinecraftAdapterTest {
+class MinestomMinecraftIntegrationTest {
     @Test
     void exposesMinestomCommandManagerProfile() {
-        assertTrue(MinestomMinecraftAdapter.profile().capabilities().contains(MinecraftCapability.BRIGADIER));
-        assertEquals("minestom reload", MinestomMinecraftAdapter.commandInput("minestom", new String[] {"reload"}).normalizedInput());
+        assertTrue(MinestomMinecraftIntegration.profile().capabilities().contains(MinecraftCapability.BRIGADIER));
+        assertEquals("minestom reload", MinestomMinecraftIntegration.commandInput("minestom", new String[] {"reload"}).normalizedInput());
     }
 
     @Test
@@ -42,8 +42,8 @@ class MinestomMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("minestom|ms reload").executes(ctx -> Results.silent());
 
-        MinestomCommandRegistration registration = MinestomMinecraftAdapter.registration(
-            MinestomMinecraftAdapter.commandAdapter(framework)
+        MinestomCommandRegistration registration = MinestomMinecraftIntegration.registration(
+            MinestomMinecraftIntegration.commandAdapter(framework)
         );
         MinestomNativeCommand command = registration.command();
 
@@ -69,8 +69,8 @@ class MinestomMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("minestom|ms reload").executes(ctx -> Results.silent());
 
-        BrigadierCommandAdapter<Object> bridge = MinestomMinecraftAdapter.brigadierBridge(framework);
-        BrigadierCommandAdapter<String> customBridge = MinestomMinecraftAdapter.brigadierBridge(framework, sender -> new CommandSource() {
+        BrigadierCommandAdapter<Object> bridge = MinestomMinecraftIntegration.brigadierBridge(framework);
+        BrigadierCommandAdapter<String> customBridge = MinestomMinecraftIntegration.brigadierBridge(framework, sender -> new CommandSource() {
         });
 
         assertEquals("minecraft-minestom-brigadier", bridge.config().adapterId());
@@ -82,8 +82,8 @@ class MinestomMinecraftAdapterTest {
     void bridgesNativeCommandExecutionSuggestionAndCommandSourceReply() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("minestom reload").executes(ctx -> Results.success("done"));
-        MinestomNativeCommand command = MinestomMinecraftAdapter.nativeCommand(
-            MinestomMinecraftAdapter.commandAdapter(framework)
+        MinestomNativeCommand command = MinestomMinecraftIntegration.nativeCommand(
+            MinestomMinecraftIntegration.commandAdapter(framework)
         );
         MessageSender sender = new MessageSender();
 
@@ -91,25 +91,25 @@ class MinestomMinecraftAdapterTest {
 
         assertEquals(List.of("done"), sender.messages());
         assertEquals(List.of("reload"), command.suggest(sender, new String[] {"r"}));
-        assertEquals(Optional.of(sender), MinestomMinecraftAdapter.commandSource(sender).unwrap(MessageSender.class));
-        assertEquals(Optional.empty(), MinestomMinecraftAdapter.commandSource(sender).unwrap(String.class));
-        MinestomMinecraftAdapter.commandSource(new Object()).reply("ignored");
+        assertEquals(Optional.of(sender), MinestomMinecraftIntegration.commandSource(sender).unwrap(MessageSender.class));
+        assertEquals(Optional.empty(), MinestomMinecraftIntegration.commandSource(sender).unwrap(String.class));
+        MinestomMinecraftIntegration.commandSource(new Object()).reply("ignored");
     }
 
     @Test
     void rejectsInvalidNativeCommandAndRegistrationInputs() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("minestom").executes(ctx -> Results.silent());
-        var adapter = MinestomMinecraftAdapter.commandAdapter(framework);
+        var adapter = MinestomMinecraftIntegration.commandAdapter(framework);
         MinestomNativeCommand command = new MinestomNativeCommand("minestom", new String[] {}, adapter);
 
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.commandInput("minestom", null));
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.commandSource(null));
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.nativeCommand(null));
-        assertThrows(IllegalStateException.class, () -> MinestomMinecraftAdapter.nativeCommand(new EmptyLabelsAdapter()));
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.registration(null));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.commandInput("minestom", null));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.commandSource(null));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.nativeCommand(null));
+        assertThrows(IllegalStateException.class, () -> MinestomMinecraftIntegration.nativeCommand(new EmptyLabelsAdapter()));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.registration(null));
         assertThrows(NullPointerException.class, () -> new MinestomCommandRegistration(null, adapter));
-        assertThrows(NullPointerException.class, () -> new MinestomCommandRegistration(MinestomMinecraftAdapter.profile(), null));
+        assertThrows(NullPointerException.class, () -> new MinestomCommandRegistration(MinestomMinecraftIntegration.profile(), null));
         assertThrows(NullPointerException.class, () -> new MinestomNativeCommand(null, new String[] {}, adapter));
         assertThrows(IllegalArgumentException.class, () -> new MinestomNativeCommand(" ", new String[] {}, adapter));
         assertThrows(NullPointerException.class, () -> new MinestomNativeCommand("minestom", null, adapter));
@@ -118,8 +118,8 @@ class MinestomMinecraftAdapterTest {
         assertThrows(NullPointerException.class, () -> command.execute(new Object(), null));
         assertThrows(NullPointerException.class, () -> command.suggest(null, new String[] {}));
         assertThrows(NullPointerException.class, () -> command.suggest(new Object(), null));
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.registration(adapter).register(null));
-        assertThrows(NullPointerException.class, () -> MinestomMinecraftAdapter.registration(adapter).unregister(null));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.registration(adapter).register(null));
+        assertThrows(NullPointerException.class, () -> MinestomMinecraftIntegration.registration(adapter).unregister(null));
     }
 
     @Test
@@ -128,8 +128,8 @@ class MinestomMinecraftAdapterTest {
         framework.registry().route("minestom|ms reload").executes(ctx -> Results.silent());
         RecordingRegistrar registrar = new RecordingRegistrar();
 
-        MinestomCommandRegistration registration = MinestomMinecraftAdapter.registration(
-            MinestomMinecraftAdapter.commandAdapter(framework)
+        MinestomCommandRegistration registration = MinestomMinecraftIntegration.registration(
+            MinestomMinecraftIntegration.commandAdapter(framework)
         );
 
         assertSame(registration.command(), registration.register(registrar));

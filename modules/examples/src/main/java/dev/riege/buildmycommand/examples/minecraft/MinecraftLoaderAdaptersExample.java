@@ -2,11 +2,11 @@ package dev.riege.buildmycommand.examples.minecraft;
 
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.fabric.FabricBrigadierRegistration;
-import dev.riege.buildmycommand.adapters.minecraft.fabric.FabricMinecraftAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.fabric.FabricMinecraftIntegration;
 import dev.riege.buildmycommand.adapters.minecraft.forge.ForgeBrigadierRegistration;
-import dev.riege.buildmycommand.adapters.minecraft.forge.ForgeMinecraftAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.forge.ForgeMinecraftIntegration;
 import dev.riege.buildmycommand.adapters.minecraft.neoforge.NeoForgeBrigadierRegistration;
-import dev.riege.buildmycommand.adapters.minecraft.neoforge.NeoForgeMinecraftAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.neoforge.NeoForgeMinecraftIntegration;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -27,23 +27,23 @@ public final class MinecraftLoaderAdaptersExample {
     }
 
     public static FabricBrigadierRegistration<NativeCommandSource> fabricLegacyRegistration() {
-        return FabricMinecraftAdapter.legacyRegistration(framework(), MinecraftLoaderAdaptersExample::source);
+        return FabricMinecraftIntegration.legacyRegistration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
     public static FabricBrigadierRegistration<NativeCommandSource> fabricModernRegistration() {
-        return FabricMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
+        return FabricMinecraftIntegration.registration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
     public static ForgeBrigadierRegistration<NativeCommandSource> forgeLegacyRegistration() {
-        return ForgeMinecraftAdapter.legacyRegistration(framework(), MinecraftLoaderAdaptersExample::source);
+        return ForgeMinecraftIntegration.legacyRegistration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
     public static ForgeBrigadierRegistration<NativeCommandSource> forgeModernRegistration() {
-        return ForgeMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
+        return ForgeMinecraftIntegration.registration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
     public static NeoForgeBrigadierRegistration<NativeCommandSource> neoForgeRegistration() {
-        return NeoForgeMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
+        return NeoForgeMinecraftIntegration.registration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
     public static void registerFabric1165(CommandDispatcher<NativeCommandSource> dispatcher) {

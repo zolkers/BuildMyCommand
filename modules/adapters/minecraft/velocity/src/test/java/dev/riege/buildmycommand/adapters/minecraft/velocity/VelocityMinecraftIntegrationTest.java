@@ -26,12 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class VelocityMinecraftAdapterTest {
+class VelocityMinecraftIntegrationTest {
     @Test
     void supportsProxyBrigadierCommands() {
-        assertTrue(VelocityMinecraftAdapter.profile().capabilities().contains(MinecraftCapability.PROXY_COMMANDS));
-        assertTrue(VelocityMinecraftAdapter.profile().capabilities().contains(MinecraftCapability.BRIGADIER));
-        assertEquals("proxy reload", VelocityMinecraftAdapter.simpleCommandInput("proxy", new String[] {"reload"}).normalizedInput());
+        assertTrue(VelocityMinecraftIntegration.profile().capabilities().contains(MinecraftCapability.PROXY_COMMANDS));
+        assertTrue(VelocityMinecraftIntegration.profile().capabilities().contains(MinecraftCapability.BRIGADIER));
+        assertEquals("proxy reload", VelocityMinecraftIntegration.simpleCommandInput("proxy", new String[] {"reload"}).normalizedInput());
     }
 
     @Test
@@ -39,7 +39,7 @@ class VelocityMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("proxy|px reload").executes(ctx -> Results.silent());
 
-        MinecraftNativeCommandAdapter<Object> adapter = VelocityMinecraftAdapter.simpleCommandAdapter(
+        MinecraftNativeCommandAdapter<Object> adapter = VelocityMinecraftIntegration.simpleCommandAdapter(
             framework,
             sender -> new CommandSource() {
             }
@@ -52,14 +52,14 @@ class VelocityMinecraftAdapterTest {
     void mapsVelocityCommandSourcePermissionsAndReplies() {
         RecordingVelocitySource source = new RecordingVelocitySource("proxy.reload");
 
-        CommandSource mapped = VelocityMinecraftAdapter.commandSource(source.proxy());
+        CommandSource mapped = VelocityMinecraftIntegration.commandSource(source.proxy());
 
         assertTrue(mapped.hasPermission("proxy.reload"));
         assertEquals(Optional.of(source.proxy()), mapped.unwrap(com.velocitypowered.api.command.CommandSource.class));
         assertEquals(Optional.empty(), mapped.unwrap(String.class));
         mapped.reply("Reloaded");
         assertEquals(List.of("Reloaded"), source.messages());
-        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.commandSource(null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftIntegration.commandSource(null));
     }
 
     @Test
@@ -68,8 +68,8 @@ class VelocityMinecraftAdapterTest {
         framework.registry().route("proxy|px reload").executes(ctx -> Results.success("Proxy reloaded"));
         framework.registry().route("proxy|px status").executes(ctx -> Results.silent());
         RecordingVelocitySource source = new RecordingVelocitySource();
-        VelocitySimpleCommand command = VelocityMinecraftAdapter.simpleCommand(
-            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+        VelocitySimpleCommand command = VelocityMinecraftIntegration.simpleCommand(
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
         );
 
         assertSame(command.adapter(), command.adapter());
@@ -86,8 +86,8 @@ class VelocityMinecraftAdapterTest {
         framework.registry().route("proxy|px reload")
             .permission("proxy.reload")
             .executes(ctx -> Results.silent());
-        VelocitySimpleCommand command = VelocityMinecraftAdapter.simpleCommand(
-            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+        VelocitySimpleCommand command = VelocityMinecraftIntegration.simpleCommand(
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
         );
 
         assertTrue(command.hasPermission(invocation(new RecordingVelocitySource("proxy.reload").proxy(), "px")));
@@ -101,9 +101,9 @@ class VelocityMinecraftAdapterTest {
         RecordingCommandManager commandManager = new RecordingCommandManager();
         Object plugin = new Object();
 
-        VelocityCommandRegistration registration = VelocityMinecraftAdapter.simpleRegistration(
+        VelocityCommandRegistration registration = VelocityMinecraftIntegration.simpleRegistration(
             plugin,
-            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
         );
 
         CommandMeta meta = registration.register(commandManager.proxy());
@@ -125,24 +125,24 @@ class VelocityMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("proxy").executes(ctx -> Results.silent());
         RecordingCommandManager commandManager = new RecordingCommandManager();
-        VelocityCommandRegistration registration = VelocityMinecraftAdapter.simpleRegistration(
+        VelocityCommandRegistration registration = VelocityMinecraftIntegration.simpleRegistration(
             null,
-            VelocityMinecraftAdapter.simpleCommandAdapter(framework)
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
         );
 
         CommandMeta meta = registration.register(commandManager.proxy());
 
         assertEquals(List.of("proxy"), commandManager.labels(meta));
         assertEquals(null, commandManager.plugin(meta));
-        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleCommandInput("proxy", null));
-        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleCommand(null));
-        assertThrows(NullPointerException.class, () -> VelocityMinecraftAdapter.simpleRegistration(new Object(), null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftIntegration.simpleCommandInput("proxy", null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftIntegration.simpleCommand(null));
+        assertThrows(NullPointerException.class, () -> VelocityMinecraftIntegration.simpleRegistration(new Object(), null));
         assertThrows(NullPointerException.class, () -> new VelocityCommandRegistration(new Object(), null));
         assertThrows(NullPointerException.class, () -> registration.register(null));
         assertThrows(NullPointerException.class, () -> registration.unregister(null));
-        assertThrows(IllegalStateException.class, () -> VelocityMinecraftAdapter.simpleRegistration(
+        assertThrows(IllegalStateException.class, () -> VelocityMinecraftIntegration.simpleRegistration(
             null,
-            VelocityMinecraftAdapter.simpleCommandAdapter(CommandFramework.create())
+            VelocityMinecraftIntegration.simpleCommandAdapter(CommandFramework.create())
         ).register(commandManager.proxy()));
         assertThrows(NullPointerException.class, () -> new VelocitySimpleCommand(null));
         assertThrows(NullPointerException.class, () -> registration.command().execute(null));
@@ -156,7 +156,7 @@ class VelocityMinecraftAdapterTest {
         framework.registry().route("proxy|px reload").executes(ctx -> Results.silent());
         RecordingCommandManager commandManager = new RecordingCommandManager();
 
-        VelocityBrigadierRegistration registration = VelocityMinecraftAdapter.brigadierRegistration(
+        VelocityBrigadierRegistration registration = VelocityMinecraftIntegration.brigadierRegistration(
             framework,
             null
         );
@@ -193,7 +193,7 @@ class VelocityMinecraftAdapterTest {
         framework.registry().route("proxy").executes(ctx -> Results.silent());
         RecordingCommandManager commandManager = new RecordingCommandManager();
         Object plugin = new Object();
-        VelocityBrigadierRegistration registration = VelocityMinecraftAdapter.brigadierRegistration(framework, plugin);
+        VelocityBrigadierRegistration registration = VelocityMinecraftIntegration.brigadierRegistration(framework, plugin);
 
         CommandMeta meta = commandManager.registrations().keySet().stream().findFirst()
             .orElseGet(() -> {
@@ -203,7 +203,7 @@ class VelocityMinecraftAdapterTest {
 
         assertSame(plugin, commandManager.plugin(meta));
         assertThrows(NullPointerException.class, () -> new VelocityBrigadierRegistration(null, registration.bridge(), plugin));
-        assertThrows(NullPointerException.class, () -> new VelocityBrigadierRegistration(VelocityMinecraftAdapter.profile(), null, plugin));
+        assertThrows(NullPointerException.class, () -> new VelocityBrigadierRegistration(VelocityMinecraftIntegration.profile(), null, plugin));
         assertThrows(NullPointerException.class, () -> registration.register(null));
         assertThrows(NullPointerException.class, () -> registration.unregister(null));
     }

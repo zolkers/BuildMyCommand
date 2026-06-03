@@ -36,7 +36,7 @@ public final class SpigotNativeCommand extends Command implements CommandExecuto
         Objects.requireNonNull(command, "command");
         MinecraftRenderedResult result = adapter.execute(
             Objects.requireNonNull(sender, "sender"),
-            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(label), Objects.requireNonNull(args, "args"))
+            SpigotMinecraftIntegration.commandExecutorInput(normalizeLabel(label), Objects.requireNonNull(args, "args"))
         );
         result.message().ifPresent(sender::sendMessage);
         return true;
@@ -46,7 +46,7 @@ public final class SpigotNativeCommand extends Command implements CommandExecuto
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         Objects.requireNonNull(command, "command");
         MinecraftInvocation invocation =
-            SpigotMinecraftAdapter.commandExecutorInput(normalizeLabel(alias), Objects.requireNonNull(args, "args"));
+            SpigotMinecraftIntegration.commandExecutorInput(normalizeLabel(alias), Objects.requireNonNull(args, "args"));
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
             invocation,

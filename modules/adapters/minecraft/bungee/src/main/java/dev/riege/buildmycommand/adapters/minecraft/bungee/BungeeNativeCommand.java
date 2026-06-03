@@ -30,14 +30,14 @@ public final class BungeeNativeCommand extends Command implements TabExecutor {
     public void execute(CommandSender sender, String[] args) {
         MinecraftRenderedResult result = adapter.execute(
             Objects.requireNonNull(sender, "sender"),
-            BungeeMinecraftAdapter.commandInput(getName(), Objects.requireNonNull(args, "args"))
+            BungeeMinecraftIntegration.commandInput(getName(), Objects.requireNonNull(args, "args"))
         );
         result.message().ifPresent(sender::sendMessage);
     }
 
     @Override
     public Iterable<String> onTabComplete(CommandSender sender, String[] args) {
-        MinecraftInvocation invocation = BungeeMinecraftAdapter.commandInput(getName(), Objects.requireNonNull(args, "args"));
+        MinecraftInvocation invocation = BungeeMinecraftIntegration.commandInput(getName(), Objects.requireNonNull(args, "args"));
         return adapter.suggest(
             Objects.requireNonNull(sender, "sender"),
             invocation,

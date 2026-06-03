@@ -26,11 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class SpigotMinecraftAdapterTest {
+class SpigotMinecraftIntegrationTest {
     @Test
     void reconstructsCommandExecutorInvocation() {
-        assertTrue(SpigotMinecraftAdapter.profile().edgeCases().contains(MinecraftCommandEdgeCase.ARGS_ARRAY));
-        assertEquals("home set base", SpigotMinecraftAdapter.commandExecutorInput("home", new String[] {"set", "base"}).normalizedInput());
+        assertTrue(SpigotMinecraftIntegration.profile().edgeCases().contains(MinecraftCommandEdgeCase.ARGS_ARRAY));
+        assertEquals("home set base", SpigotMinecraftIntegration.commandExecutorInput("home", new String[] {"set", "base"}).normalizedInput());
     }
 
     @Test
@@ -38,7 +38,7 @@ class SpigotMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("home|h set").executes(ctx -> Results.silent());
 
-        MinecraftNativeCommandAdapter<Object> adapter = SpigotMinecraftAdapter.commandAdapter(
+        MinecraftNativeCommandAdapter<Object> adapter = SpigotMinecraftIntegration.commandAdapter(
             framework,
             sender -> new CommandSource() {
             }
@@ -51,7 +51,7 @@ class SpigotMinecraftAdapterTest {
     void mapsBukkitCommandSenderToCommandSource() {
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        CommandSource source = SpigotMinecraftAdapter.commandSource(sender.proxy());
+        CommandSource source = SpigotMinecraftIntegration.commandSource(sender.proxy());
 
         assertEquals(Optional.of("Ada"), source.name());
         assertEquals(java.util.Locale.ROOT, source.locale());
@@ -77,9 +77,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.success("Banned " + ctx.arg("target", String.class)));
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "ban",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertSame(command.adapter(), command.adapter());
@@ -94,9 +94,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.silent());
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "ban",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertEquals(List.of("appeal"), command.onTabComplete(
@@ -114,9 +114,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.silent());
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "ban",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertEquals(List.of("appeal"), command.tabComplete(
@@ -133,9 +133,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.success("Blocked " + ctx.arg("target", String.class)));
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "block",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertTrue(command.execute(sender.proxy(), "buildmycommand:block", new String[] {"Alex"}));
@@ -149,9 +149,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.silent());
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "block",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertEquals(List.of("appeal"), command.tabComplete(
@@ -173,9 +173,9 @@ class SpigotMinecraftAdapterTest {
             .executes(ctx -> Results.failure("Cannot ban " + ctx.arg("target", String.class)));
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand(
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
             "ban",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertTrue(command.execute(sender.proxy(), "ban", new String[] {"Alex"}));
@@ -188,9 +188,9 @@ class SpigotMinecraftAdapterTest {
         framework.registry().route("ban|block <target:String>").executes(ctx -> Results.silent());
         RecordingCommandMap commandMap = new RecordingCommandMap();
 
-        SpigotCommandRegistration registration = SpigotMinecraftAdapter.registration(
+        SpigotCommandRegistration registration = SpigotMinecraftIntegration.registration(
             "buildmycommand",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         assertEquals("buildmycommand", registration.fallbackPrefix());
@@ -215,17 +215,17 @@ class SpigotMinecraftAdapterTest {
     void registrationAndNativeCommandsRejectInvalidInputs() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("ban").executes(ctx -> Results.silent());
-        var adapter = SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource);
-        SpigotNativeCommand command = SpigotMinecraftAdapter.nativeCommand("ban", adapter);
+        var adapter = SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource);
+        SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand("ban", adapter);
 
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.commandExecutorInput("ban", null));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.commandSource(null));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.nativeCommand(null, adapter));
-        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftAdapter.nativeCommand(" ", adapter));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.nativeCommand("ban", null));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration(null, adapter));
-        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftAdapter.registration(" ", adapter));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.commandExecutorInput("ban", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.commandSource(null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.nativeCommand(null, adapter));
+        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftIntegration.nativeCommand(" ", adapter));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.nativeCommand("ban", null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.registration(null, adapter));
+        assertThrows(IllegalArgumentException.class, () -> SpigotMinecraftIntegration.registration(" ", adapter));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.registration("buildmycommand", null));
         assertThrows(NullPointerException.class, () -> command.onCommand(null, command, "ban", new String[] {}));
         assertThrows(NullPointerException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), null, "ban", new String[] {}));
         assertThrows(NullPointerException.class, () -> command.onCommand(new RecordingSender("Ada").proxy(), command, null, new String[] {}));
@@ -234,8 +234,8 @@ class SpigotMinecraftAdapterTest {
         assertThrows(NullPointerException.class, () -> command.onTabComplete(null, command, "ban", new String[] {}));
         assertThrows(NullPointerException.class, () -> command.onTabComplete(new RecordingSender("Ada").proxy(), null, "ban", new String[] {}));
         assertThrows(NullPointerException.class, () -> command.onTabComplete(new RecordingSender("Ada").proxy(), command, "ban", null));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", adapter).register(null));
-        assertThrows(NullPointerException.class, () -> SpigotMinecraftAdapter.registration("buildmycommand", adapter).unregister(null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.registration("buildmycommand", adapter).register(null));
+        assertThrows(NullPointerException.class, () -> SpigotMinecraftIntegration.registration("buildmycommand", adapter).unregister(null));
     }
 
     @Test
@@ -243,9 +243,9 @@ class SpigotMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("ban").executes(ctx -> Results.silent());
         NoFieldCommandMap commandMap = new NoFieldCommandMap();
-        SpigotCommandRegistration registration = SpigotMinecraftAdapter.registration(
+        SpigotCommandRegistration registration = SpigotMinecraftIntegration.registration(
             "buildmycommand",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         registration.register(commandMap);
@@ -262,9 +262,9 @@ class SpigotMinecraftAdapterTest {
         framework.registry().route("ban").executes(ctx -> Results.silent());
         StringFirstCommandMap commandMap = new StringFirstCommandMap();
         NullKnownCommandsMap nullMap = new NullKnownCommandsMap();
-        SpigotCommandRegistration registration = SpigotMinecraftAdapter.registration(
+        SpigotCommandRegistration registration = SpigotMinecraftIntegration.registration(
             "buildmycommand",
-            SpigotMinecraftAdapter.commandAdapter(framework, SpigotMinecraftAdapter::commandSource)
+            SpigotMinecraftIntegration.commandAdapter(framework, SpigotMinecraftIntegration::commandSource)
         );
 
         registration.register(commandMap);

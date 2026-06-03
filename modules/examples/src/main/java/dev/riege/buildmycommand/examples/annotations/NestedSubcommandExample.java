@@ -2,13 +2,13 @@ package dev.riege.buildmycommand.examples.annotations;
 
 import dev.riege.buildmycommand.annotation.Alias;
 import dev.riege.buildmycommand.annotation.AnnotationCommandScanner;
-import dev.riege.buildmycommand.annotation.Arg;
 import dev.riege.buildmycommand.annotation.Command;
 import dev.riege.buildmycommand.annotation.Description;
-import dev.riege.buildmycommand.annotation.Flag;
-import dev.riege.buildmycommand.annotation.Option;
 import dev.riege.buildmycommand.annotation.Permission;
+import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.Subcommand;
+import dev.riege.buildmycommand.annotation.SubRoute;
+import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
@@ -40,42 +40,39 @@ public final class NestedSubcommandExample {
             @Alias("perm")
             @Description("Member permission operations")
             static final class PermissionCommands {
-                @Subcommand("grant")
+                @SubRoute("grant <target:String> <permission:String>")
                 @Alias("g")
                 @Permission("team.member.permission.grant")
-                CommandResult grant(@Arg("target") String target, @Arg("permission") String permission) {
-                    return Results.success("Granted " + permission + " to " + target);
+                CommandResult grant(@RouteCtx CommandContext route) {
+                    return Results.success("Granted " + route.arg("permission", String.class)
+                        + " to " + route.arg("target", String.class));
                 }
 
-                @Subcommand("revoke")
+                @SubRoute("revoke <target:String> <permission:String>")
                 @Alias("r")
                 @Permission("team.member.permission.revoke")
-                CommandResult revoke(@Arg("target") String target, @Arg("permission") String permission) {
-                    return Results.success("Revoked " + permission + " from " + target);
+                CommandResult revoke(@RouteCtx CommandContext route) {
+                    return Results.success("Revoked " + route.arg("permission", String.class)
+                        + " from " + route.arg("target", String.class));
                 }
             }
 
             @Subcommand("role")
             @Description("Member role operations")
             static final class RoleCommands {
-                @Subcommand("set")
+                @SubRoute("set <target:String> <role:String> [--priority:Integer] [--temporary]")
                 @Permission("team.member.role.set")
-                CommandResult set(
-                    @Arg("target") String target,
-                    @Arg("role") String role,
-                    @Option("priority") Integer priority,
-                    @Flag("temporary") boolean temporary
-                ) {
-                    int effectivePriority = priority == null ? 0 : priority;
+                CommandResult set(@RouteCtx CommandContext route) {
+                    int effectivePriority = route.option("priority", Integer.class).orElse(0);
                     return Results.success(
                         "Set "
-                            + target
+                            + route.arg("target", String.class)
                             + " role="
-                            + role
+                            + route.arg("role", String.class)
                             + " priority="
                             + effectivePriority
                             + " temporary="
-                            + temporary
+                            + route.flag("temporary")
                     );
                 }
             }

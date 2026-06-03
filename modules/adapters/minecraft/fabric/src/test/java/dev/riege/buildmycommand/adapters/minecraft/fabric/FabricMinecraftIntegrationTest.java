@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class FabricMinecraftAdapterTest {
+class FabricMinecraftIntegrationTest {
     @Test
     void createsModernAndLegacyRegistrationsForFabricCommandApis() throws Exception {
         CommandFramework framework = CommandFramework.create();
@@ -30,14 +30,14 @@ class FabricMinecraftAdapterTest {
             });
 
         FabricBrigadierRegistration<FabricSource> modern =
-            FabricMinecraftAdapter.registration(framework, FabricSource::commandSource);
+            FabricMinecraftIntegration.registration(framework, FabricSource::commandSource);
         FabricBrigadierRegistration<FabricSource> legacy =
-            FabricMinecraftAdapter.legacyRegistration(framework, FabricSource::commandSource);
+            FabricMinecraftIntegration.legacyRegistration(framework, FabricSource::commandSource);
         CommandDispatcher<FabricSource> dispatcher = new CommandDispatcher<>();
 
         modern.registerInto(dispatcher);
 
-        assertEquals("fabric", FabricMinecraftAdapter.profile().id());
+        assertEquals("fabric", FabricMinecraftIntegration.profile().id());
         assertEquals("net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback",
             modern.api().callbackClassName());
         assertEquals("Modern Fabric style", modern.api().displayName());
@@ -59,7 +59,7 @@ class FabricMinecraftAdapterTest {
             .route("wecc ping")
             .executes(ctx -> Results.success("pong"));
         FabricBrigadierRegistration<FabricSource> registration =
-            FabricMinecraftAdapter.registration(framework, FabricSource::commandSource);
+            FabricMinecraftIntegration.registration(framework, FabricSource::commandSource);
         CommandDispatcher<FabricSource> dispatcher = new CommandDispatcher<>();
         dispatcher.register(LiteralArgumentBuilder.<FabricSource>literal("fabric-command-api-v2:client")
             .executes(context -> 37));
@@ -73,7 +73,7 @@ class FabricMinecraftAdapterTest {
 
     @Test
     void constructorIsNotPublic() throws Exception {
-        Constructor<FabricMinecraftAdapter> constructor = FabricMinecraftAdapter.class.getDeclaredConstructor();
+        Constructor<FabricMinecraftIntegration> constructor = FabricMinecraftIntegration.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         try {
             constructor.newInstance();

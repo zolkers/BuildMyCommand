@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ExternalDependencies">
-    <plugin id="dev.riege.buildmycommand.intellij" min-version="0.0.1" />
+    <plugin id="dev.riege.buildmycommand.intellij" min-version="0.1.0" />
   </component>
 </project>

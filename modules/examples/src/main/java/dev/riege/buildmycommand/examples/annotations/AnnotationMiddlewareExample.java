@@ -1,9 +1,9 @@
 package dev.riege.buildmycommand.examples.annotations;
 
-import dev.riege.buildmycommand.annotation.Arg;
 import dev.riege.buildmycommand.annotation.Command;
 import dev.riege.buildmycommand.annotation.Middleware;
-import dev.riege.buildmycommand.annotation.Subcommand;
+import dev.riege.buildmycommand.annotation.RouteCtx;
+import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
@@ -35,14 +35,15 @@ public final class AnnotationMiddlewareExample {
     @Command("moderation")
     @Middleware(AuditMiddleware.class)
     static final class ModerationCommands {
-        @Subcommand("warn")
+        @SubRoute("warn <target:String> <reason:String...>")
         @Middleware(StaffOnlyMiddleware.class)
-        CommandResult warn(@Arg("target") String target, @Arg("reason") String reason) {
-            return Results.success("Warned " + target + ": " + reason);
+        CommandResult warn(@RouteCtx CommandContext route) {
+            return Results.success("Warned " + route.arg("target", String.class)
+                + ": " + route.arg("reason", String.class));
         }
 
-        @Subcommand("status")
-        CommandResult status() {
+        @SubRoute("status")
+        CommandResult status(@RouteCtx CommandContext route) {
             return Results.success("Moderation online");
         }
     }

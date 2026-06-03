@@ -29,7 +29,7 @@ public final class VelocitySimpleCommand implements SimpleCommand {
         Objects.requireNonNull(invocation, "invocation");
         MinecraftRenderedResult result = adapter.execute(
             invocation.source(),
-            VelocityMinecraftAdapter.simpleCommandInput(invocation.alias(), invocation.arguments())
+            VelocityMinecraftIntegration.simpleCommandInput(invocation.alias(), invocation.arguments())
         );
         result.message().ifPresent(message -> invocation.source().sendMessage(Component.text(message)));
     }
@@ -37,7 +37,7 @@ public final class VelocitySimpleCommand implements SimpleCommand {
     @Override
     public List<String> suggest(Invocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        MinecraftInvocation input = VelocityMinecraftAdapter.simpleCommandInput(invocation.alias(), invocation.arguments());
+        MinecraftInvocation input = VelocityMinecraftIntegration.simpleCommandInput(invocation.alias(), invocation.arguments());
         return adapter.suggest(
             invocation.source(),
             input,

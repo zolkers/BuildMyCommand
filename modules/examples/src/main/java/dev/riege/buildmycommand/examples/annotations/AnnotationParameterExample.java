@@ -1,13 +1,10 @@
 package dev.riege.buildmycommand.examples.annotations;
 
 import dev.riege.buildmycommand.annotation.AnnotationCommandScanner;
-import dev.riege.buildmycommand.annotation.Arg;
-import dev.riege.buildmycommand.annotation.Command;
-import dev.riege.buildmycommand.annotation.Default;
-import dev.riege.buildmycommand.annotation.Flag;
-import dev.riege.buildmycommand.annotation.Option;
-import dev.riege.buildmycommand.annotation.OptionalArg;
+import dev.riege.buildmycommand.annotation.Route;
+import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.Suggest;
+import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -25,16 +22,16 @@ public final class AnnotationParameterExample {
     }
 
     static final class InventoryCommands {
-        @Command("kit")
-        CommandResult kit(
-            @Arg("target") String target,
-            @Arg("kit") @OptionalArg @Default("starter") @Suggest("kits") String kit,
-            @Option("amount") @Default("1") Integer amount,
-            @Flag("silent") boolean silent
-        ) {
-            return Results.success("Giving " + amount + "x " + kit + " to " + target + " silent=" + silent);
+        @Route("kit <target:String> [kit:String] [--amount:Integer] [--silent]")
+        CommandResult kit(@RouteCtx CommandContext route) {
+            String kit = route.optionalArg("kit", String.class).orElse("starter");
+            int amount = route.option("amount", Integer.class).orElse(1);
+            return Results.success("Giving " + amount + "x " + kit
+                + " to " + route.arg("target", String.class)
+                + " silent=" + route.flag("silent"));
         }
 
+        @Suggest("kit")
         List<String> kits() {
             return List.of("starter", "builder", "pvp");
         }

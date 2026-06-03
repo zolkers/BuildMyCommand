@@ -36,7 +36,7 @@ public final class MinestomCommandRegistration {
 
     public MinestomNativeCommand command() {
         if (registeredCommand == null) {
-            registeredCommand = MinestomMinecraftAdapter.nativeCommand(adapter);
+            registeredCommand = MinestomMinecraftIntegration.nativeCommand(adapter);
         }
         return registeredCommand;
     }

@@ -11,8 +11,8 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import java.util.List;
 import java.util.function.Function;
 
-public final class SpongeMinecraftAdapter {
-    private SpongeMinecraftAdapter() {
+public final class SpongeMinecraftIntegration {
+    private SpongeMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {

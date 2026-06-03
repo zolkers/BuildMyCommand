@@ -123,10 +123,8 @@ class IntellijPluginResourcesTest {
 
         assertTrue(inspection.contains("RouteCtx"));
         assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
-        assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN));
-        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Arg"));
-        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Option"));
-        assertTrue(inspection.contains("dev.riege.buildmycommand.annotation.Flag"));
+        assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_TYPE_REQUIRED));
+        assertTrue(inspection.contains(BuildMyCommandRouteInspection.ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL));
     }
 
     @Test

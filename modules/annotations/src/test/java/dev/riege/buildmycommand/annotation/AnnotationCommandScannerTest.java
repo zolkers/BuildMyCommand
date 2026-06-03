@@ -1,8 +1,10 @@
 package dev.riege.buildmycommand.annotation;
 
+import dev.riege.buildmycommand.annotation.binding.AnnotationCommandCompiler;
+import dev.riege.buildmycommand.annotation.binding.MethodCommandBinder;
 import dev.riege.buildmycommand.api.ArgumentParseContext;
-import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
@@ -11,13 +13,12 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
-import dev.riege.buildmycommand.annotation.binding.AnnotationCommandCompiler;
-import dev.riege.buildmycommand.annotation.binding.MethodCommandBinder;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -31,85 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AnnotationCommandScannerTest {
-    @Test
-    void registersAnnotatedCommandWithStringArgumentAndBooleanFlag() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new ModerationCommands());
-
-        CommandResult result = framework.dispatch(source(), "ban Steve --silent");
-
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("Steve:true"), result.reply());
-    }
+    private static final List<String> MIDDLEWARE_EVENTS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @Test
-    void registersAnnotatedCommandWithIntegerArgumentAndContext() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new NumberCommands());
-
-        CommandResult result = framework.dispatch(source(), "level Alex 7");
-
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("level Alex=7 via level Alex 7"), result.reply());
-    }
-
-    @Test
-    void rejectsUnsupportedAnnotatedParameterAtRegistration() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new InvalidCommands()));
-
-        assertEquals("unsupported annotated command parameter: reason", exception.getMessage());
-    }
-
-    @Test
-    void registersMultipleAnnotatedCommandsInDeterministicCommandOrder() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new OrderedCommands());
-
-        assertEquals("""
-            command alpha
-            command zeta""", framework.schema());
-    }
-
-    @Test
-    void registersAnnotatedCommandMetadata() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new MetadataCommands());
-
-        assertEquals("""
-            Usage: reload
-            Description: Reload configuration""", framework.help("reload"));
-        assertEquals("""
-            command reload
-              description Reload configuration
-              permission admin.reload""", framework.schema());
-
-        CommandResult result = framework.dispatch(source(), "reload");
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("reloaded"), result.reply());
-    }
-
-    @Test
-    void rejectsBlankAnnotatedCommandMetadata() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException description = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new BlankDescriptionCommands()));
-        IllegalArgumentException permission = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new BlankPermissionCommands()));
-
-        assertEquals("description must not be blank", description.getMessage());
-        assertEquals("permission must not be blank", permission.getMessage());
-    }
-
-    @Test
-    void registersAnnotatedRouteDslWithArgumentsFlagAndValuedOption() {
+    void routeDslIsCanonicalAnnotationApi() {
         CommandFramework framework = CommandFramework.create();
 
         AnnotationCommandScanner.register(framework.registry(), new InventoryCommands());
@@ -124,174 +50,48 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void registersAnnotatedRouteCommandAliasAndDslOptionAliases() {
+    void commonRouteRootsMergeIntoOneCommandTree() {
         CommandFramework framework = CommandFramework.create();
 
-        AnnotationCommandScanner.register(framework.registry(), new RouteAliasCommands());
+        AnnotationCommandScanner.register(framework.registry(), new WeccCommands());
 
-        CommandResult result = framework.dispatch(source(), "block Ada -d 30 -s");
-
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("Ada:30:true"), result.reply());
-        assertEquals("Usage: ban <target:String> [--duration:Integer|-d] [--silent|-s]", framework.help("block"));
+        assertEquals(Optional.of("pong"), framework.dispatch(source(), "wecc ping").reply());
+        assertEquals(Optional.of("bang Ada"), framework.dispatch(source(), "wecc b Ada").reply());
+        assertEquals("""
+            command wecc
+              child bang
+              child ping
+            command wecc bang
+              argument target:String required
+            command wecc ping""", framework.schema());
     }
 
     @Test
-    void rejectsMethodAnnotatedAsBothLiteralCommandAndRouteDsl() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MixedRouteCommands()));
-
-        assertEquals("annotated command method cannot mix command route annotations: mixed", exception.getMessage());
-    }
-
-    @Test
-    void registersAliasOptionalGreedyAndDefaultParameterAnnotations() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new MessagingCommands());
-
-        CommandResult defaulted = framework.dispatch(source(), "msg Ada");
-        CommandResult explicit = framework.dispatch(source(), "message Ada hello there");
-
-        assertEquals(Optional.of("Ada:No message"), defaulted.reply());
-        assertEquals(Optional.of("Ada:hello there"), explicit.reply());
-        assertEquals("Usage: msg <target:String> [message:String...]", framework.help("msg"));
-    }
-
-    @Test
-    void registersClassCommandWithMethodSubcommand() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new ServerCommands());
-
-        CommandResult result = framework.dispatch(source(), "server reload");
-
-        assertEquals(Optional.of("reloaded"), result.reply());
-        assertEquals("Usage: server reload", framework.help("server reload"));
-    }
-
-    @Test
-    void registersClassCommandWithNestedSubcommandGroups() {
+    void classCommandSubRoutesAndNestedGroupsCompose() {
         CommandFramework framework = CommandFramework.create();
 
         AnnotationCommandScanner.register(framework.registry(), new TeamCommands());
 
-        CommandResult grant = framework.dispatch(source(), "t m perm g Ada build.fly");
-        CommandResult route = framework.dispatch(source(), "team member permission put Ada build.admin -t");
-
-        assertEquals(Optional.of("grant Ada build.fly"), grant.reply());
-        assertEquals(Optional.of("set Ada build.admin temporary=true"), route.reply());
+        assertEquals(Optional.of("grant Ada build.fly"),
+            framework.dispatch(source(), "t m perm g Ada build.fly").reply());
+        assertEquals(Optional.of("set Ada admin temporary=true"),
+            framework.dispatch(source(), "team member permission put Ada admin -t").reply());
         assertEquals("Usage: team member permission grant <target:String> <permission:String>",
             framework.help("team member permission grant"));
     }
 
     @Test
-    void registersNonStaticNestedSubcommandGroups() {
+    void metadataPermissionRequirementSuggestionsAndAliasPolicyApplyToRouteDsl() {
         CommandFramework framework = CommandFramework.create();
 
-        AnnotationCommandScanner.register(framework.registry(), new NonStaticNestedCommands());
+        AnnotationCommandScanner.register(framework.registry(), new MetadataCommands());
 
-        assertEquals(Optional.of("inner"), framework.dispatch(source(), "outer inner leaf").reply());
-    }
-
-    @Test
-    void rejectsNestedSubcommandGroupWithoutUsableConstructor() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BrokenNestedCommands()));
-
-        assertEquals(true, exception.getMessage().startsWith("cannot instantiate nested @Subcommand group: "));
-    }
-
-    @Test
-    void registersClassCommandWithMethodSubRoute() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new UserCommands());
-
-        CommandResult result = framework.dispatch(source(), "user rank set Ada admin");
-
-        assertEquals(Optional.of("Ada=admin"), result.reply());
-    }
-
-    @Test
-    void registersClassCommandAndSubRouteAliases() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new AliasedUserCommands());
-
-        CommandResult result = framework.dispatch(source(), "u roles put Ada admin");
-
-        assertEquals(Optional.of("Ada=admin"), result.reply());
-        assertEquals("Usage: user rank set <target:String> <rank:String>", framework.help("u roles put"));
-    }
-
-    @Test
-    void rejectsSubcommandDslAndPointsToSubRoute() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new DslSubcommandCommands()));
-
-        assertEquals("@Subcommand only accepts one literal; use @SubRoute for route DSL: rank set <target:String>",
-            exception.getMessage());
-    }
-
-    @Test
-    void rejectsCommandDslAndPointsToRoute() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new DslCommandCommands()));
-
-        assertEquals("@Command only accepts one literal; use @Route for route DSL: ban <target:String>",
-            exception.getMessage());
-    }
-
-    @Test
-    void caseInsensitiveAnnotationEnablesLiteralAndOptionMatching() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new CaseInsensitiveCommands());
-
-        CommandResult result = framework.dispatch(source(), "BAN Ada -S --Duration 5");
-
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("Ada:5:true"), result.reply());
-    }
-
-    @Test
-    void compilerExposesFutureAnnotationMetadataBeforeRegistryMutation() {
-        AnnotationCommandCompiler.CompiledCommands compiled =
-            AnnotationCommandCompiler.compile(new FutureMetadataCommands());
-
-        AnnotationCommandCompiler.CompiledCommand command = compiled.commands().get(0);
-        MethodCommandBinder.CommandMetadata metadata = command.metadata();
-
-        assertEquals("secret", command.route());
-        assertEquals(Optional.of("moderation"), command.group());
-        assertEquals(true, metadata.hidden());
-        assertEquals(Optional.of("secret <target>"), metadata.usage());
-        assertIterableEquals(List.of("secret Ada", "secret Bob"), metadata.examples());
-        assertEquals(Optional.of(Duration.ofSeconds(30)), metadata.cooldown());
-        assertEquals(Optional.of("perm.a && perm.b"), metadata.requirement());
-        assertEquals(Optional.of("players"), command.bindings().get(0).suggestionProvider());
-        assertEquals(false, metadata.suggestAliases());
-    }
-
-    @Test
-    void appliesHiddenUsageExamplesCooldownRequirementAndSuggestionMetadata() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new FutureMetadataCommands());
-
-        assertEquals("Unknown command: secret", framework.help(permittedSource("perm.a", "perm.b"), "secret"));
         assertEquals(List.of(), framework.suggest(source(), "s", 1));
         assertEquals("Missing permission: perm.a && perm.b",
-            framework.dispatch(permittedSource(), "secret Ada").reply().orElseThrow());
-        assertEquals(Optional.of("Ada"), framework.dispatch(permittedSource("perm.a", "perm.b"), "secret Ada").reply());
-
+            framework.dispatch(permittedSource(), "s Ada").reply().orElseThrow());
+        assertEquals(Optional.of("Ada"),
+            framework.dispatch(permittedSource("perm.a", "perm.b"), "secret Ada").reply());
+        assertEquals(List.of(), framework.suggestRich(CommandInput.raw(permittedSource("perm.a", "perm.b"), "secret ")));
         assertEquals("""
             command secret
               hidden true
@@ -301,47 +101,145 @@ class AnnotationCommandScannerTest {
               example secret Bob
               cooldown PT30S
               require perm.a && perm.b
-              argument target:String required suggest=players""", framework.schema());
+              argument target:String required suggest=target""", framework.schema());
     }
 
     @Test
-    void suggestAliasesAnnotationHidesAliasesFromSuggestionsWithoutDisablingExecution() {
-        CommandFramework framework = CommandFramework.create();
+    void middlewareRunsAroundRouteDslCommands() {
+        MIDDLEWARE_EVENTS.clear();
+        CommandFramework framework = CommandFramework.builder()
+            .middleware((context, command, path, next) -> {
+                MIDDLEWARE_EVENTS.add("global:" + String.join("/", path));
+                return next.proceed(context);
+            })
+            .build();
 
-        AnnotationCommandScanner.register(framework.registry(), new AliasSuggestionCommands());
+        AnnotationCommandScanner.register(framework.registry(), new MiddlewareCommands());
 
-        assertEquals(List.of("secret"), framework.suggest(source(), "s", 1));
-        assertEquals(Optional.of("ok"), framework.dispatch(source(), "s").reply());
-    }
-
-    @Test
-    void rendersVisibleAnnotationUsageExamplesAndNamedSuggestions() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new VisibleMetadataCommands());
-
-        assertEquals("""
-            Usage: visible <player>
-            Description: Show player info
-            Example: visible Ada
-            Example: visible Bob""", framework.help(permittedSource("perm.visible"), "visible"));
+        assertEquals(Optional.of("warned Ada"),
+            framework.dispatch(permittedSource("staff"), "moderation warn Ada").reply());
         assertEquals(List.of(
-            new Suggestion("Ada", Optional.of("online"), 8, 8, SuggestionType.ARGUMENT, 10),
-            new Suggestion("Bob", Optional.empty(), 8, 8, SuggestionType.ARGUMENT, 0)
-        ), framework.suggestRich(CommandInput.raw(permittedSource("perm.visible"), "visible ")));
-        assertEquals("""
-            command visible
-              description Show player info
-              usage visible <player>
-              example visible Ada
-              example visible Bob
-              cooldown PT5S
-              require perm.visible
-              argument target:String required suggest=players""", framework.schema());
+            "global:moderation/warn",
+            "class:moderation/warn",
+            "method:moderation/warn",
+            "executor:warn",
+            "method-after",
+            "class-after"
+        ), MIDDLEWARE_EVENTS);
     }
 
     @Test
-    void metadataAnnotationsDeclareConsistentClassAndMethodTargets() {
+    void classRootMetadataAppliesWithoutOverwritingSubRouteLeaves() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new AdminCommands());
+
+        assertEquals("""
+            Usage: admin
+            Description: Admin root
+            Example: admin help""", framework.help(permittedSource("admin.root"), "admin"));
+        assertEquals(Optional.of("reloaded"),
+            framework.dispatch(permittedSource("admin.root", "admin.reload"), "admin reload").reply());
+        assertEquals("Missing permission: admin.root",
+            framework.dispatch(permittedSource("admin.reload"), "admin reload").reply().orElseThrow());
+    }
+
+    @Test
+    void commandAndSubcommandStillSupportZeroArgSimpleLeaves() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new ServerCommands());
+
+        assertEquals(Optional.of("status"), framework.dispatch(source(), "server status").reply());
+        assertEquals(Optional.of("reloaded"), framework.dispatch(source(), "server reload").reply());
+    }
+
+    @Test
+    void rejectsRouteMethodsWithoutExactlyOneRouteContext() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException missing = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MissingRouteCtxCommands()));
+        IllegalArgumentException multiple = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new MultipleRouteCtxCommands()));
+
+        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: bad",
+            missing.getMessage());
+        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: bad",
+            multiple.getMessage());
+    }
+
+    @Test
+    void rejectsUnsupportedNonContextParameters() {
+        CommandFramework framework = CommandFramework.create();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(framework.registry(), new UnsupportedParameterCommands()));
+
+        assertEquals("annotated command methods only support CommandContext or @RouteCtx CommandContext parameters: target",
+            exception.getMessage());
+    }
+
+    @Test
+    void rejectsMixedRouteAnnotationsAndDslInLiteralAnnotations() {
+        IllegalArgumentException mixed = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new MixedRouteCommands()));
+        IllegalArgumentException commandDsl = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new DslCommandCommands()));
+        IllegalArgumentException subcommandDsl = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new DslSubcommandCommands()));
+
+        assertEquals("annotated command method cannot mix command route annotations: mixed", mixed.getMessage());
+        assertEquals("@Command only accepts one literal; use @Route for route DSL: ban <target:String>",
+            commandDsl.getMessage());
+        assertEquals("@Subcommand only accepts one literal; use @SubRoute for route DSL: rank set <target:String>",
+            subcommandDsl.getMessage());
+    }
+
+    @Test
+    void rejectsAnalysisOnlyRouteTypes() {
+        IllegalArgumentException inlineEnum = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new InlineEnumRouteCommands()));
+        IllegalArgumentException constrained = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new ConstrainedRouteCommands()));
+
+        assertEquals("route argument mode uses analysis-only type enum(a,b)", inlineEnum.getMessage());
+        assertEquals("route argument amount uses analysis-only type Integer{1..5}", constrained.getMessage());
+    }
+
+    @Test
+    void compilerExposesMetadataWithoutMutatingRegistry() throws Exception {
+        AnnotationCommandCompiler.CompiledCommands compiled =
+            AnnotationCommandCompiler.compile(new MetadataCommands());
+        AnnotationCommandCompiler.CompiledCommand command = compiled.commands().get(0);
+        MethodCommandBinder.CommandMetadata metadata = command.metadata();
+
+        assertEquals("secret|s <target:String>", command.route());
+        assertEquals(Optional.of("moderation"), command.group());
+        assertEquals(true, metadata.hidden());
+        assertEquals(Optional.of("secret <target>"), metadata.usage());
+        assertIterableEquals(List.of("secret Ada", "secret Bob"), metadata.examples());
+        assertEquals(Optional.of(Duration.ofSeconds(30)), metadata.cooldown());
+        assertEquals(Optional.of("perm.a && perm.b"), metadata.requirement());
+        assertEquals(false, metadata.suggestAliases());
+        assertEquals(List.of("target"), metadata.suggestions().stream().map(MethodCommandBinder.SuggestionBinding::name).toList());
+        assertEquals(1, command.bindings().size());
+        Method signature = AnnotationCommandCompiler.class.getDeclaredMethod("signature", Method.class);
+        signature.setAccessible(true);
+        assertEquals("overloaded(dev.riege.buildmycommand.api.CommandContext,java.lang.String)",
+            signature.invoke(null, OverloadedRouteCommands.class.getDeclaredMethod(
+                "overloaded",
+                CommandContext.class,
+                String.class
+            )));
+    }
+
+    @Test
+    void metadataAnnotationsDeclareConsistentTargets() {
+        assertTargets(Route.class, ElementType.METHOD);
+        assertTargets(SubRoute.class, ElementType.METHOD);
+        assertTargets(RouteCtx.class, ElementType.PARAMETER);
+        assertTargets(Suggest.class, ElementType.METHOD);
         assertTargets(Subcommand.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Description.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Permission.class, ElementType.METHOD, ElementType.TYPE);
@@ -355,204 +253,58 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
-    void classLevelMetadataAppliesToCommandRootWithoutOverwritingLeaves() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new ClassMetadataCommands());
-
-        assertEquals("""
-            Usage: admin
-            Description: Admin root
-            Example: admin help""", framework.help(permittedSource("admin.root"), "admin"));
-        assertEquals("Missing permission: admin.root",
-            framework.dispatch(permittedSource("admin.reload"), "admin reload").reply().orElseThrow());
-
-        CommandResult result = framework.dispatch(permittedSource("admin.root", "admin.reload"), "admin reload");
-
-        assertEquals(CommandResult.Status.SUCCESS, result.status());
-        assertEquals(Optional.of("reloaded"), result.reply());
-        assertEquals("""
-            command admin
-              description Admin root
-              permission admin.root
-              usage admin
-              example admin help
-              cooldown PT5S
-              require admin.root
-              child reload
-            command admin reload
-              description Reload leaf
-              permission admin.reload
-              require admin.root""", framework.schema());
-    }
-
-    @Test
-    void annotationMiddlewareAppliesToClassAndMethodCommandsInPathOrder() {
-        MIDDLEWARE_EVENTS.clear();
-        CommandFramework framework = CommandFramework.builder()
-            .middleware((context, command, path, next) -> {
-                MIDDLEWARE_EVENTS.add("global:" + String.join("/", path));
-                return next.proceed(context);
-            })
-            .build();
-
-        AnnotationCommandScanner.register(framework.registry(), new MiddlewareAnnotatedCommands());
-
-        CommandResult ban = framework.dispatch(source(), "secure ban Ada");
-        CommandResult status = framework.dispatch(source(), "secure status");
-
-        assertEquals(Optional.of("banned Ada"), ban.reply());
-        assertEquals(Optional.of("ok"), status.reply());
-        assertEquals(List.of(
-            "global:secure/ban",
-            "class:secure/ban",
-            "method:secure/ban",
-            "executor:ban",
-            "method-after",
-            "class-after",
-            "global:secure/status",
-            "class:secure/status",
-            "executor:status",
-            "class-after"
-        ), MIDDLEWARE_EVENTS);
-    }
-
-    @Test
-    void annotationMiddlewareAppliesToContainerRouteClasses() {
-        MIDDLEWARE_EVENTS.clear();
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new RouteMiddlewareCommands());
-
-        CommandResult result = framework.dispatch(source(), "audit Ada");
-
-        assertEquals(Optional.of("audit Ada"), result.reply());
-        assertEquals(List.of("class:audit", "executor:route", "class-after"), MIDDLEWARE_EVENTS);
-    }
-
-    @Test
-    void rejectsAnnotationMiddlewareWithoutNoArgConstructor() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BrokenMiddlewareCommands()));
-
-        assertEquals(true, exception.getMessage().startsWith("command middleware must declare a no-arg constructor: "));
-    }
-
-    @Test
-    void rejectsAnnotationMiddlewareThatFailsConstruction() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(),
-                new ThrowingMiddlewareCommands()));
-
-        assertEquals(true, exception.getMessage().startsWith("cannot instantiate command middleware: "));
-    }
-
-    @Test
-    void registryDefaultsRejectApplicativeMetadataInsteadOfIgnoringSecurity() {
+    void registryDefaultsRejectRouteMetadataInsteadOfIgnoringIt() {
         UnsupportedOperationException exception = assertThrows(UnsupportedOperationException.class,
-            () -> AnnotationCommandScanner.register(new UnsupportedMetadataRegistry(), new RequireOnlyCommands()));
+            () -> AnnotationCommandScanner.register(new UnsupportedMetadataRegistry(), new MetadataCommands()));
 
-        assertEquals("command requirements are not supported by this registry", exception.getMessage());
+        assertEquals("routes are not supported", exception.getMessage());
     }
 
     @Test
-    void rejectsAmbiguousNamedSuggestionProviderMethods() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new AmbiguousSuggestCommands()));
-
-        assertEquals("ambiguous suggestion provider: players", exception.getMessage());
-    }
-
-    @Test
-    void rejectsNullSuggestionProviderElementsWithIndex() {
-        CommandFramework framework = CommandFramework.create();
-        AnnotationCommandScanner.register(framework.registry(), new NullSuggestionCommands());
-
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> framework.suggestRich(CommandInput.raw(source(), "nulls ")));
-
-        assertEquals("suggestion provider players returned null at index 1", exception.getMessage());
-    }
-
-    @Test
-    void rejectsMixedSuggestionProviderElementTypesWithIndex() {
-        CommandFramework framework = CommandFramework.create();
-        AnnotationCommandScanner.register(framework.registry(), new MixedSuggestionCommands());
-
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
-            () -> framework.suggestRich(CommandInput.raw(source(), "mixed ")));
-
-        assertEquals("suggestion provider players returned mixed element at index 1", exception.getMessage());
-    }
-
-    @Test
-    void rejectsRouteWithoutRouteContextBeforeRegistryMutation() {
+    void simpleCommandAndNestedSubcommandEdgesStillWork() {
         CommandFramework framework = CommandFramework.create();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MissingRouteArgumentCommands()));
+        AnnotationCommandScanner.register(framework.registry(), new EdgeCommands());
+        AnnotationCommandScanner.register(framework.registry(), new EdgeCommandsRoot());
+        AnnotationCommandScanner.register(framework.registry(), new NoAliasPrefixCommands());
 
-        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: ban",
-            exception.getMessage());
-        assertEquals("", framework.schema());
+        assertEquals(Optional.of("plain"), framework.dispatch(source(), "plain").reply());
+        assertEquals(Optional.of("plain"), framework.dispatch(source(), "p").reply());
+        assertEquals(Optional.of("simple"), framework.dispatch(source(), "simple").reply());
+        assertEquals(Optional.of("hidden"), framework.dispatch(source(), "edge hidden").reply());
+        assertEquals(Optional.of("deep"), framework.dispatch(source(), "edge branch leaf go").reply());
+        assertEquals(Optional.of("inner"), framework.dispatch(source(), "edge inner run").reply());
+        assertEquals(Optional.of("noalias"), framework.dispatch(source(), "noalias branch run").reply());
+        assertEquals(List.of("alpha", "beta"), framework.suggest(source(), "choose ", 7));
+        assertEquals(List.of("fast", "safe"), framework.suggest(source(), "choose --mode ", 14));
     }
 
     @Test
-    void rejectsRouteMixedWithArgumentAnnotationsBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MissingAnnotatedArgumentCommands()));
-
-        assertEquals("@Route method cannot use @Arg parameters; read route values from @RouteCtx CommandContext: ban",
-            exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsRouteWithMultipleRouteContextsBeforeRegistryMutation() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new MultipleRouteCtxCommands()));
-
-        assertEquals("@Route method must declare exactly one @RouteCtx CommandContext parameter: ban",
-            exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsInlineEnumRouteTypesWithClearAnnotationValidationError() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new InlineEnumRouteCommands()));
-
-        assertEquals("route argument mode uses analysis-only type enum(a,b)", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void rejectsConstrainedRouteTypesWithClearAnnotationValidationError() {
-        CommandFramework framework = CommandFramework.create();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-            () -> AnnotationCommandScanner.register(framework.registry(), new ConstrainedRouteCommands()));
-
-        assertEquals("route argument amount uses analysis-only type Integer{1..5}", exception.getMessage());
-        assertEquals("", framework.schema());
-    }
-
-    @Test
-    void infersArgumentNamesFromParametersWhenAvailable() {
-        CommandFramework framework = CommandFramework.create();
-
-        AnnotationCommandScanner.register(framework.registry(), new InferredParameterCommands());
-
-        CommandResult result = framework.dispatch(source(), "ban Ada repeated griefing");
-
-        assertEquals(Optional.of("Ada:repeated griefing"), result.reply());
-        assertEquals("Usage: ban <target:String> <reason:String...>", framework.help("ban"));
+    void rejectsInvalidAliasesAndClassMetadata() {
+        assertEquals("route alias must not be blank", assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BlankAliasCommands()))
+            .getMessage());
+        assertEquals("route alias is longer than route: a b c", assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new LongAliasCommands()))
+            .getMessage());
+        assertEquals("route alias can only target literal tokens: root target", assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new ArgumentAliasCommands()))
+            .getMessage());
+        assertEquals("cooldown must be positive", assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BadClassCooldownCommands()))
+            .getMessage());
+        assertEquals("command group must not be blank", assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BadCommandGroupCommands()))
+            .getMessage());
+        assertEquals("@Suggest provider does not match a route argument or option: missing",
+            assertThrows(IllegalArgumentException.class,
+                () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new UnknownSuggestCommands()))
+                .getMessage());
+        assertEquals("cannot instantiate nested @Subcommand group: "
+                + BadNestedGroupCommands.BadGroup.class.getName(),
+            assertThrows(IllegalArgumentException.class,
+                () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BadNestedGroupCommands()))
+                .getMessage());
     }
 
     private static CommandSource source() {
@@ -575,66 +327,6 @@ class AnnotationCommandScannerTest {
         assertEquals(Set.of(expectedTargets), Set.of(target.value()));
     }
 
-    private static final List<String> MIDDLEWARE_EVENTS = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-    static final class ModerationCommands {
-        @Command("ban")
-        CommandResult ban(@Arg("target") String target, @Flag("silent") boolean silent) {
-            return Results.success(target + ":" + silent);
-        }
-    }
-
-    static final class NumberCommands {
-        @Command("level")
-        public CommandResult level(CommandContext context, @Arg("target") String target, @Arg("amount") Integer amount) {
-            return Results.success("level " + target + "=" + amount + " via " + context.input());
-        }
-    }
-
-    static final class InvalidCommands {
-        @Command("bad")
-        CommandResult bad(@Arg("reason") Float reason) {
-            return Results.success(String.valueOf(reason));
-        }
-    }
-
-    static final class OrderedCommands {
-        @Command("zeta")
-        CommandResult zeta() {
-            return Results.success("zeta");
-        }
-
-        @Command("alpha")
-        CommandResult alpha() {
-            return Results.success("alpha");
-        }
-    }
-
-    static final class MetadataCommands {
-        @Command("reload")
-        @Description("Reload configuration")
-        @Permission("admin.reload")
-        CommandResult reload() {
-            return Results.success("reloaded");
-        }
-    }
-
-    static final class BlankDescriptionCommands {
-        @Command("bad-description")
-        @Description(" ")
-        CommandResult bad() {
-            return Results.silent();
-        }
-    }
-
-    static final class BlankPermissionCommands {
-        @Command("bad-permission")
-        @Permission(" ")
-        CommandResult bad() {
-            return Results.silent();
-        }
-    }
-
     static final class InventoryCommands {
         @Route("inventory give <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]")
         @Description("Give an item")
@@ -651,44 +343,16 @@ class AnnotationCommandScannerTest {
         }
     }
 
-    static final class RouteAliasCommands {
-        @Route("ban <target:String> [--duration:Integer|-d] [--silent|-s]")
-        @Alias("block")
-        CommandResult ban(@RouteCtx CommandContext route) {
-            return Results.success(
-                route.arg("target", String.class)
-                    + ":"
-                    + route.option("duration", Integer.class).orElse(null)
-                    + ":"
-                    + route.flag("silent")
-            );
+    static final class WeccCommands {
+        @Route("wecc ping")
+        CommandResult ping(@RouteCtx CommandContext route) {
+            return Results.success("pong");
         }
-    }
 
-    static final class MixedRouteCommands {
-        @Command("mixed")
-        @Route("mixed <target:String>")
-        CommandResult mixed(@Arg("target") String target) {
-            return Results.success(target);
-        }
-    }
-
-    static final class MessagingCommands {
-        @Command("msg")
-        @Alias("message")
-        CommandResult msg(
-            @Arg("target") String target,
-            @Arg("message") @OptionalArg @Greedy @Default("No message") String message
-        ) {
-            return Results.success(target + ":" + message);
-        }
-    }
-
-    @Command("server")
-    static final class ServerCommands {
-        @Subcommand("reload")
-        CommandResult reload() {
-            return Results.success("reloaded");
+        @Route("wecc bang|b <target:String>")
+        @SuggestAliases(false)
+        CommandResult bang(@RouteCtx CommandContext route) {
+            return Results.success("bang " + route.arg("target", String.class));
         }
     }
 
@@ -701,130 +365,39 @@ class AnnotationCommandScannerTest {
             @Subcommand("permission")
             @Alias("perm")
             static final class PermissionCommands {
-                @Subcommand("grant")
+                @SubRoute("grant <target:String> <permission:String>")
                 @Alias("g")
-                CommandResult grant(@Arg("target") String target, @Arg("permission") String permission) {
-                    return Results.success("grant " + target + " " + permission);
+                CommandResult grant(@RouteCtx CommandContext route) {
+                    return Results.success("grant " + route.arg("target", String.class)
+                        + " " + route.arg("permission", String.class));
                 }
 
                 @SubRoute("set <target:String> <permission:String> [--temporary|-t]")
                 @Alias("put")
                 CommandResult set(@RouteCtx CommandContext route) {
-                    return Results.success(
-                        "set "
-                            + route.arg("target", String.class)
-                            + " "
-                            + route.arg("permission", String.class)
-                            + " temporary="
-                            + route.flag("temporary")
-                    );
+                    return Results.success("set " + route.arg("target", String.class)
+                        + " " + route.arg("permission", String.class)
+                        + " temporary=" + route.flag("temporary"));
                 }
             }
         }
     }
 
-    @Command("outer")
-    static final class NonStaticNestedCommands {
-        @Subcommand("inner")
-        final class InnerCommands {
-            @Subcommand("leaf")
-            CommandResult leaf() {
-                return Results.success("inner");
-            }
-        }
-    }
-
-    @Command("broken")
-    static final class BrokenNestedCommands {
-        @Subcommand("inner")
-        static final class InnerCommands {
-            private InnerCommands(String ignored) {
-            }
-
-            @Subcommand("leaf")
-            CommandResult leaf() {
-                return Results.silent();
-            }
-        }
-    }
-
-    @Command("user")
-    static final class UserCommands {
-        @SubRoute("rank set <target:String> <rank:String>")
-        CommandResult setRank(@RouteCtx CommandContext route) {
-            return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
-        }
-    }
-
-    @Command("user")
-    @Alias("u")
-    static final class AliasedUserCommands {
-        @SubRoute("rank set <target:String> <rank:String>")
-        @Alias({"roles put"})
-        CommandResult setRank(@RouteCtx CommandContext route) {
-            return Results.success(route.arg("target", String.class) + "=" + route.arg("rank", String.class));
-        }
-    }
-
-    @Command("user")
-    static final class DslSubcommandCommands {
-        @Subcommand("rank set <target:String>")
-        CommandResult rank() {
-            return Results.silent();
-        }
-    }
-
-    static final class DslCommandCommands {
-        @Command("ban <target:String>")
-        CommandResult ban(@RouteCtx CommandContext route) {
-            return Results.success(route.input());
-        }
-    }
-
-    @CaseInsensitive
-    static final class CaseInsensitiveCommands {
-        @Route("ban <target:String> [--duration:Integer|-d] [--silent|-s]")
-        CommandResult ban(@RouteCtx CommandContext route) {
-            return Results.success(
-                route.arg("target", String.class)
-                    + ":"
-                    + route.option("duration", Integer.class).orElse(null)
-                    + ":"
-                    + route.flag("silent")
-            );
-        }
-    }
-
     @CommandGroup("moderation")
-    static final class FutureMetadataCommands {
-        @Command("secret")
+    static final class MetadataCommands {
+        @Route("secret <target:String>")
+        @Alias("s")
         @Hidden
         @Usage("secret <target>")
         @Example({"secret Ada", "secret Bob"})
         @Cooldown(30)
         @Require("perm.a && perm.b")
         @SuggestAliases(false)
-        @Alias("s")
-        CommandResult secret(@Arg("target") @Suggest("players") String target) {
-            return Results.success(target);
+        CommandResult secret(@RouteCtx CommandContext route) {
+            return Results.success(route.arg("target", String.class));
         }
 
-        List<String> players() {
-            return List.of("Ada", "Bob");
-        }
-    }
-
-    static final class VisibleMetadataCommands {
-        @Command("visible")
-        @Description("Show player info")
-        @Usage("visible <player>")
-        @Example({"visible Ada", "visible Bob"})
-        @Cooldown(5)
-        @Require("perm.visible")
-        CommandResult visible(@Arg("target") @Suggest("players") String target) {
-            return Results.success(target);
-        }
-
+        @Suggest("target")
         List<Suggestion> players(ArgumentParseContext context) {
             return List.of(
                 new Suggestion("Ada", Optional.of("online"), context.replacementStart(), context.replacementEnd(),
@@ -835,12 +408,14 @@ class AnnotationCommandScannerTest {
         }
     }
 
-    static final class AliasSuggestionCommands {
-        @Command("secret")
-        @Alias("s")
-        @SuggestAliases(false)
-        CommandResult secret() {
-            return Results.success("ok");
+    @Command("moderation")
+    @Middleware(ClassLevelMiddleware.class)
+    static final class MiddlewareCommands {
+        @SubRoute("warn <target:String>")
+        @Middleware(MethodLevelMiddleware.class)
+        CommandResult warn(@RouteCtx CommandContext route) {
+            MIDDLEWARE_EVENTS.add("executor:warn");
+            return Results.success("warned " + route.arg("target", String.class));
         }
     }
 
@@ -851,54 +426,245 @@ class AnnotationCommandScannerTest {
     @Example("admin help")
     @Cooldown(5)
     @Require("admin.root")
-    static final class ClassMetadataCommands {
-        @Subcommand("reload")
+    static final class AdminCommands {
+        @SubRoute("reload")
         @Description("Reload leaf")
         @Permission("admin.reload")
-        CommandResult reload() {
+        CommandResult reload(@RouteCtx CommandContext route) {
             return Results.success("reloaded");
         }
     }
 
-    @Command("secure")
-    @Middleware(ClassLevelMiddleware.class)
-    static final class MiddlewareAnnotatedCommands {
-        @Subcommand("ban")
-        @Middleware(MethodLevelMiddleware.class)
-        CommandResult ban(@Arg("target") String target) {
-            MIDDLEWARE_EVENTS.add("executor:ban");
-            return Results.success("banned " + target);
-        }
-
+    @Command("server")
+    static final class ServerCommands {
         @Subcommand("status")
         CommandResult status() {
-            MIDDLEWARE_EVENTS.add("executor:status");
-            return Results.success("ok");
+            return Results.success("status");
+        }
+
+        @Subcommand("reload")
+        CommandResult reload(CommandContext context) {
+            return Results.success("reloaded");
         }
     }
 
-    @Middleware(ClassLevelMiddleware.class)
-    static final class RouteMiddlewareCommands {
-        @Route("audit <target:String>")
-        CommandResult audit(@RouteCtx CommandContext route) {
-            MIDDLEWARE_EVENTS.add("executor:route");
-            return Results.success("audit " + route.arg("target", String.class));
-        }
-    }
-
-    static final class BrokenMiddlewareCommands {
-        @Command("bad")
-        @Middleware(BrokenConstructorMiddleware.class)
+    static final class MissingRouteCtxCommands {
+        @Route("bad <target:String>")
         CommandResult bad() {
             return Results.silent();
         }
     }
 
-    static final class ThrowingMiddlewareCommands {
+    static final class MultipleRouteCtxCommands {
+        @Route("bad <target:String>")
+        CommandResult bad(@RouteCtx CommandContext first, @RouteCtx CommandContext second) {
+            return Results.success(first.input() + second.input());
+        }
+    }
+
+    static final class UnsupportedParameterCommands {
         @Command("bad")
-        @Middleware(ThrowingConstructorMiddleware.class)
-        CommandResult bad() {
+        CommandResult bad(String target) {
+            return Results.success(target);
+        }
+    }
+
+    static final class MixedRouteCommands {
+        @Command("mixed")
+        @Route("mixed <target:String>")
+        CommandResult mixed(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
+        }
+    }
+
+    static final class DslCommandCommands {
+        @Command("ban <target:String>")
+        CommandResult ban(CommandContext context) {
+            return Results.success(context.input());
+        }
+    }
+
+    @Command("user")
+    static final class DslSubcommandCommands {
+        @Subcommand("rank set <target:String>")
+        CommandResult rank(CommandContext context) {
+            return Results.success(context.input());
+        }
+    }
+
+    static final class InlineEnumRouteCommands {
+        @Route("choose <mode:enum(a,b)>")
+        CommandResult choose(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
+        }
+    }
+
+    static final class ConstrainedRouteCommands {
+        @Route("ban <amount:Integer{1..5}>")
+        CommandResult ban(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
+        }
+    }
+
+    static final class EdgeCommands {
+        @Command("plain")
+        @Alias("p")
+        @Hidden
+        CommandResult plain() {
+            return Results.success("plain");
+        }
+
+        @Command("simple")
+        CommandResult simple() {
+            return Results.success("simple");
+        }
+
+        @Route("choose <target:String> [--mode:String]")
+        @CaseInsensitive(literals = true, options = true)
+        CommandResult choose(@RouteCtx CommandContext route) {
+            return Results.success(route.input());
+        }
+
+        @Suggest("target")
+        List<String> targets() {
+            return List.of("alpha", "beta");
+        }
+
+        @Suggest("mode")
+        List<String> modes() {
+            return List.of("fast", "safe");
+        }
+    }
+
+    @Command("edge")
+    @Alias("e")
+    @Hidden
+    @Usage("edge")
+    @Example("edge hidden")
+    @Cooldown(1)
+    @Require("edge.use")
+    static final class EdgeRootCommands {
+    }
+
+    @Command("edge")
+    @Alias("e")
+    @Hidden
+    @Usage("edge")
+    @Example("edge hidden")
+    @Cooldown(1)
+    @Require("edge.use")
+    @SuggestAliases(false)
+    static final class EdgeCommandsRoot {
+        @Subcommand("hidden")
+        @Hidden
+        CommandResult hidden() {
+            return Results.success("hidden");
+        }
+
+        @Subcommand("branch")
+        @Hidden
+        static final class Branch {
+            @Subcommand("leaf")
+            @Alias("l")
+            static final class Leaf {
+                @Subcommand("go")
+                @Alias("g")
+                CommandResult go() {
+                    return Results.success("deep");
+                }
+            }
+        }
+
+        @Subcommand("inner")
+        final class Inner {
+            @Subcommand("run")
+            CommandResult run() {
+                return Results.success("inner");
+            }
+        }
+    }
+
+    @Command("noalias")
+    static final class NoAliasPrefixCommands {
+        @Subcommand("branch")
+        static final class Branch {
+            @SubRoute("run")
+            CommandResult run(@RouteCtx CommandContext route) {
+                return Results.success("noalias");
+            }
+        }
+    }
+
+    static final class OverloadedRouteCommands {
+        CommandResult overloaded(CommandContext context, String value) {
             return Results.silent();
+        }
+    }
+
+    static final class BlankAliasCommands {
+        @Route("root literal")
+        @Alias(" ")
+        CommandResult bad(@RouteCtx CommandContext route) {
+            return Results.silent();
+        }
+    }
+
+    static final class LongAliasCommands {
+        @Route("root literal")
+        @Alias("a b c")
+        CommandResult bad(@RouteCtx CommandContext route) {
+            return Results.silent();
+        }
+    }
+
+    static final class ArgumentAliasCommands {
+        @Route("root <target:String>")
+        @Alias("root target")
+        CommandResult bad(@RouteCtx CommandContext route) {
+            return Results.silent();
+        }
+    }
+
+    @Command("bad")
+    @Cooldown(0)
+    static final class BadClassCooldownCommands {
+        @Subcommand("run")
+        CommandResult run() {
+            return Results.silent();
+        }
+    }
+
+    @CommandGroup(" ")
+    static final class BadCommandGroupCommands {
+        @Route("bad group")
+        CommandResult run(@RouteCtx CommandContext route) {
+            return Results.silent();
+        }
+    }
+
+    static final class UnknownSuggestCommands {
+        @Route("bad suggest <target:String>")
+        CommandResult run(@RouteCtx CommandContext route) {
+            return Results.silent();
+        }
+
+        @Suggest("missing")
+        List<String> missing() {
+            return List.of("x");
+        }
+    }
+
+    @Command("badnested")
+    static final class BadNestedGroupCommands {
+        @Subcommand("broken")
+        static final class BadGroup {
+            BadGroup(String ignored) {
+            }
+
+            @Subcommand("run")
+            CommandResult run() {
+                return Results.silent();
+            }
         }
     }
 
@@ -919,114 +685,6 @@ class AnnotationCommandScannerTest {
             CommandResult result = next.proceed(context);
             MIDDLEWARE_EVENTS.add("method-after");
             return result;
-        }
-    }
-
-    static final class BrokenConstructorMiddleware implements CommandMiddleware {
-        BrokenConstructorMiddleware(String ignored) {
-        }
-
-        @Override
-        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
-            return next.proceed(context);
-        }
-    }
-
-    static final class ThrowingConstructorMiddleware implements CommandMiddleware {
-        ThrowingConstructorMiddleware() {
-            throw new IllegalStateException("boom");
-        }
-
-        @Override
-        public CommandResult execute(CommandContext context, CommandNode command, List<String> commandPath, Chain next) {
-            return next.proceed(context);
-        }
-    }
-
-    static final class RequireOnlyCommands {
-        @Command("secure")
-        @Require("perm.secure")
-        CommandResult secure() {
-            return Results.success("secure");
-        }
-    }
-
-    static final class AmbiguousSuggestCommands {
-        @Command("amb")
-        CommandResult amb(@Arg("target") @Suggest("players") String target) {
-            return Results.success(target);
-        }
-
-        List<String> players() {
-            return List.of("Ada");
-        }
-
-        List<String> players(ArgumentParseContext context) {
-            return List.of(context.rawToken());
-        }
-    }
-
-    static final class NullSuggestionCommands {
-        @Command("nulls")
-        CommandResult nulls(@Arg("target") @Suggest("players") String target) {
-            return Results.success(target);
-        }
-
-        List<String> players() {
-            return Arrays.asList("Ada", null);
-        }
-    }
-
-    static final class MixedSuggestionCommands {
-        @Command("mixed")
-        CommandResult mixed(@Arg("target") @Suggest("players") String target) {
-            return Results.success(target);
-        }
-
-        List<Object> players() {
-            return List.of("Ada", new Suggestion("Bob", Optional.empty(), 0, 0, SuggestionType.ARGUMENT, 0));
-        }
-    }
-
-    static final class MissingRouteArgumentCommands {
-        @Route("ban <target:String>")
-        CommandResult ban() {
-            return Results.silent();
-        }
-    }
-
-    static final class MissingAnnotatedArgumentCommands {
-        @Route("ban <target:String>")
-        CommandResult ban(@Arg("missing") String target) {
-            return Results.success(target);
-        }
-    }
-
-    static final class MultipleRouteCtxCommands {
-        @Route("ban <target:String>")
-        CommandResult ban(@RouteCtx CommandContext first, @RouteCtx CommandContext second) {
-            return Results.success(first.input() + second.input());
-        }
-    }
-
-    static final class InlineEnumRouteCommands {
-        @Route("choose <mode:enum(a,b)>")
-        CommandResult choose(@RouteCtx CommandContext route) {
-            return Results.success(route.input());
-        }
-    }
-
-    static final class ConstrainedRouteCommands {
-        @Route("ban <amount:Integer{1..5}>")
-        CommandResult ban(@RouteCtx CommandContext route) {
-            return Results.success(route.input());
-        }
-    }
-
-    static final class InferredParameterCommands {
-        @Command("ban")
-        CommandResult ban(String target, @Greedy String reason) {
-            return Results.success(target + ":" + reason);
         }
     }
 

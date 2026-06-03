@@ -11,8 +11,8 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.bukkit.command.CommandSender;
 
-public final class SpigotMinecraftAdapter {
-    private SpigotMinecraftAdapter() {
+public final class SpigotMinecraftIntegration {
+    private SpigotMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {

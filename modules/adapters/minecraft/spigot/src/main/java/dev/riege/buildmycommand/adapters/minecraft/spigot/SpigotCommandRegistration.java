@@ -43,7 +43,7 @@ public final class SpigotCommandRegistration {
     }
 
     public MinecraftCommandRegistrationPlan plan() {
-        return MinecraftCommandRegistrationPlan.fromNativeAdapter(SpigotMinecraftAdapter.profile(), adapter);
+        return MinecraftCommandRegistrationPlan.fromNativeAdapter(SpigotMinecraftIntegration.profile(), adapter);
     }
 
     public List<SpigotNativeCommand> commands() {

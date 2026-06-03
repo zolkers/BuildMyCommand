@@ -17,6 +17,10 @@ import dev.riege.buildmycommand.annotation.Subcommand;
 import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.dsl.ArgumentRouteStep;
+import dev.riege.buildmycommand.dsl.OptionRouteStep;
+import dev.riege.buildmycommand.dsl.RouteParser;
+import dev.riege.buildmycommand.dsl.RouteStep;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -267,6 +271,7 @@ public final class AnnotationCommandCompiler {
             Optional.empty(),
             Optional.empty(),
             true,
+            List.of(),
             List.of()
         );
     }
@@ -335,6 +340,7 @@ public final class AnnotationCommandCompiler {
             cooldownDuration,
             requirement == null ? Optional.empty() : Optional.of(validateMetadata(requirement.value(), "requirement")),
             !owner.isAnnotationPresent(SuggestAliases.class) || owner.getAnnotation(SuggestAliases.class).value(),
+            List.of(),
             MethodCommandBinder.annotatedMiddlewares(owner)
         );
     }
@@ -525,7 +531,6 @@ public final class AnnotationCommandCompiler {
                 if (!aliases.isEmpty()) {
                     builder.aliases(aliases.toArray(String[]::new));
                 }
-                applyBindings(builder);
                 builder.executes(boundMethod::invoke);
             });
         }
@@ -538,25 +543,11 @@ public final class AnnotationCommandCompiler {
                     description.ifPresent(child::description);
                     permission.ifPresent(child::permission);
                     applyMetadata(child);
-                    applyBindings(child);
                     child.executes(boundMethod::invoke);
                 } else {
                     registerSubcommandPath(child, index + 1);
                 }
             });
-        }
-
-        private void applyBindings(CommandRegistry.CommandBuilder builder) {
-            for (MethodCommandBinder.ParameterBinding binding : boundMethod.bindings()) {
-                binding.apply(builder);
-                binding.suggestionProviderFunction().ifPresent(provider -> {
-                    if (binding.kind() == MethodCommandBinder.Kind.ARGUMENT) {
-                        builder.argumentSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
-                    } else {
-                        builder.optionSuggestions(binding.name(), binding.suggestionProvider().orElse(null), provider);
-                    }
-                });
-            }
         }
 
         private void applyMetadata(CommandRegistry.CommandBuilder builder) {
@@ -583,8 +574,33 @@ public final class AnnotationCommandCompiler {
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
             builder.suggestAliases(metadata.suggestAliases());
+            applyRouteSuggestions(builder, metadata.suggestions());
             metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
+        }
+
+        private void applyRouteSuggestions(
+            CommandRegistry.RouteBuilder builder,
+            List<MethodCommandBinder.SuggestionBinding> suggestions
+        ) {
+            List<RouteStep> steps = RouteParser.parse(route).steps();
+            for (MethodCommandBinder.SuggestionBinding suggestion : suggestions) {
+                boolean applied = false;
+                for (RouteStep step : steps) {
+                    if (step instanceof ArgumentRouteStep argument && argument.name().equals(suggestion.name())) {
+                        builder.argumentSuggestions(suggestion.name(), suggestion.name(), suggestion.provider());
+                        applied = true;
+                    }
+                    if (step instanceof OptionRouteStep option && option.name().equals(suggestion.name())) {
+                        builder.optionSuggestions(suggestion.name(), suggestion.name(), suggestion.provider());
+                        applied = true;
+                    }
+                }
+                if (!applied) {
+                    throw new IllegalArgumentException("@Suggest provider does not match a route argument or option: "
+                        + suggestion.name());
+                }
+            }
         }
     }
 

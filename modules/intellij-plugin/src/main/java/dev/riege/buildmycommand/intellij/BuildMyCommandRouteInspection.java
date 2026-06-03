@@ -27,8 +27,6 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "Route DSL methods must declare exactly one @RouteCtx CommandContext parameter";
     static final String ROUTE_CONTEXT_TYPE_REQUIRED =
         "@RouteCtx parameter must be dev.riege.buildmycommand.api.CommandContext";
-    static final String ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN =
-        "Route DSL methods should read values from @RouteCtx CommandContext instead of @Arg/@Option/@Flag parameters";
     static final String SUB_ROUTE_OWNER_REQUIRED =
         "@SubRoute methods must be declared inside a @Command class";
     static final String SUBCOMMAND_OWNER_REQUIRED =
@@ -44,9 +42,6 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
-    private static final String ARG = "dev.riege.buildmycommand.annotation.Arg";
-    private static final String OPTION = "dev.riege.buildmycommand.annotation.Option";
-    private static final String FLAG = "dev.riege.buildmycommand.annotation.Flag";
     private static final String COMMAND = "dev.riege.buildmycommand.annotation.Command";
     private static final String SUBCOMMAND = "dev.riege.buildmycommand.annotation.Subcommand";
     private static final String PERMISSION = "dev.riege.buildmycommand.annotation.Permission";
@@ -98,9 +93,6 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                         if (!COMMAND_CONTEXT.equals(parameter.getType().getCanonicalText())) {
                             holder.registerProblem(parameter, ROUTE_CONTEXT_TYPE_REQUIRED);
                         }
-                    }
-                    if (hasAnnotation(parameter, ARG) || hasAnnotation(parameter, OPTION) || hasAnnotation(parameter, FLAG)) {
-                        holder.registerProblem(parameter, ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN);
                     }
                 }
                 if (routeContextCount != 1) {

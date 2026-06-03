@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class BungeeMinecraftAdapter {
-    private BungeeMinecraftAdapter() {
+public final class BungeeMinecraftIntegration {
+    private BungeeMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {
@@ -62,7 +62,7 @@ public final class BungeeMinecraftAdapter {
     }
 
     public static MinecraftNativeCommandAdapter<CommandSender> commandAdapter(CommandFramework framework) {
-        return commandAdapter(framework, BungeeMinecraftAdapter::commandSource);
+        return commandAdapter(framework, BungeeMinecraftIntegration::commandSource);
     }
 
     public static BungeeNativeCommand nativeCommand(

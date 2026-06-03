@@ -25,9 +25,6 @@ public final class BuildMyCommandImplicitUsageProvider implements ImplicitUsageP
         "dev.riege.buildmycommand.annotation.SubRoute"
     );
     private static final Set<String> COMMAND_PARAMETER_ANNOTATIONS = Set.of(
-        "dev.riege.buildmycommand.annotation.Arg",
-        "dev.riege.buildmycommand.annotation.Option",
-        "dev.riege.buildmycommand.annotation.Flag",
         "dev.riege.buildmycommand.annotation.RouteCtx"
     );
     private static final Set<String> COMMAND_METADATA_ANNOTATIONS = Set.of(
@@ -41,9 +38,7 @@ public final class BuildMyCommandImplicitUsageProvider implements ImplicitUsageP
         "dev.riege.buildmycommand.annotation.Middleware",
         "dev.riege.buildmycommand.annotation.Hidden",
         "dev.riege.buildmycommand.annotation.Suggest",
-        "dev.riege.buildmycommand.annotation.Default",
-        "dev.riege.buildmycommand.annotation.OptionalArg",
-        "dev.riege.buildmycommand.annotation.Greedy"
+        "dev.riege.buildmycommand.annotation.SuggestAliases"
     );
 
     @Override

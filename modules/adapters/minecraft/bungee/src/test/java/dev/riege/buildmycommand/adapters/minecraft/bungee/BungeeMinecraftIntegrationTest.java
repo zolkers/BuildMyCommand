@@ -28,11 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class BungeeMinecraftAdapterTest {
+class BungeeMinecraftIntegrationTest {
     @Test
     void keepsBoundLabelForBungeeTabExecutor() {
-        assertTrue(BungeeMinecraftAdapter.profile().edgeCases().contains(MinecraftCommandEdgeCase.BUNGEE_TAB_COMPLETE));
-        assertEquals("server lobby", BungeeMinecraftAdapter.commandInput("server", new String[] {"lobby"}).normalizedInput());
+        assertTrue(BungeeMinecraftIntegration.profile().edgeCases().contains(MinecraftCommandEdgeCase.BUNGEE_TAB_COMPLETE));
+        assertEquals("server lobby", BungeeMinecraftIntegration.commandInput("server", new String[] {"lobby"}).normalizedInput());
     }
 
     @Test
@@ -40,7 +40,7 @@ class BungeeMinecraftAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("server|srv <name:String>").executes(ctx -> Results.silent());
 
-        MinecraftNativeCommandAdapter<Object> adapter = BungeeMinecraftAdapter.commandAdapter(
+        MinecraftNativeCommandAdapter<Object> adapter = BungeeMinecraftIntegration.commandAdapter(
             framework,
             sender -> new CommandSource() {
             }
@@ -53,7 +53,7 @@ class BungeeMinecraftAdapterTest {
     void mapsBungeeSenderToCommandSource() {
         RecordingSender sender = new RecordingSender("Ada", "proxy.server");
 
-        CommandSource source = BungeeMinecraftAdapter.commandSource(sender.proxy());
+        CommandSource source = BungeeMinecraftIntegration.commandSource(sender.proxy());
 
         assertEquals(Optional.of("Ada"), source.name());
         assertTrue(source.hasPermission("proxy.server"));
@@ -61,7 +61,7 @@ class BungeeMinecraftAdapterTest {
         assertEquals(Optional.of(sender.proxy()), source.unwrap(CommandSender.class));
         source.reply("Hello");
         assertEquals(List.of("Hello"), sender.messages());
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.commandSource(null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.commandSource(null));
     }
 
     @Test
@@ -71,8 +71,8 @@ class BungeeMinecraftAdapterTest {
             .executes(ctx -> Results.success("Switching " + ctx.arg("name", String.class)));
         RecordingSender sender = new RecordingSender("Ada");
 
-        BungeeNativeCommand command = BungeeMinecraftAdapter.nativeCommand(
-            BungeeMinecraftAdapter.commandAdapter(framework)
+        BungeeNativeCommand command = BungeeMinecraftIntegration.nativeCommand(
+            BungeeMinecraftIntegration.commandAdapter(framework)
         );
 
         command.execute(sender.proxy(), new String[] {"lobby"});
@@ -90,8 +90,8 @@ class BungeeMinecraftAdapterTest {
         framework.registry().route("server|srv survival").executes(ctx -> Results.silent());
         RecordingSender sender = new RecordingSender("Ada");
 
-        BungeeNativeCommand command = BungeeMinecraftAdapter.nativeCommand(
-            BungeeMinecraftAdapter.commandAdapter(framework)
+        BungeeNativeCommand command = BungeeMinecraftIntegration.nativeCommand(
+            BungeeMinecraftIntegration.commandAdapter(framework)
         );
 
         assertEquals(List.of("survival"), toList(command.onTabComplete(sender.proxy(), new String[] {"s"})));
@@ -104,9 +104,9 @@ class BungeeMinecraftAdapterTest {
         Plugin plugin = uninitializedPlugin();
         RecordingRegistrar registrar = new RecordingRegistrar();
 
-        BungeeCommandRegistration registration = BungeeMinecraftAdapter.registration(
+        BungeeCommandRegistration registration = BungeeMinecraftIntegration.registration(
             plugin,
-            BungeeMinecraftAdapter.commandAdapter(framework)
+            BungeeMinecraftIntegration.commandAdapter(framework)
         );
 
         assertThrows(RuntimeException.class, () -> registration.register(uninitializedPluginManager()));
@@ -129,7 +129,7 @@ class BungeeMinecraftAdapterTest {
     void pluginManagerRegistrarDelegatesToBungeePluginManager() {
         Plugin plugin = uninitializedPlugin();
         PluginManager manager = uninitializedPluginManager();
-        Command command = new BungeeNativeCommand("server", new String[] {}, BungeeMinecraftAdapter.commandAdapter(CommandFramework.create()));
+        Command command = new BungeeNativeCommand("server", new String[] {}, BungeeMinecraftIntegration.commandAdapter(CommandFramework.create()));
         BungeeCommandRegistrar registrar = BungeeCommandRegistrar.pluginManager(manager);
 
         assertThrows(RuntimeException.class, () -> registrar.register(plugin, command));
@@ -142,17 +142,17 @@ class BungeeMinecraftAdapterTest {
     void rejectsInvalidBungeeRegistrationAndNativeCommandInputs() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("server").executes(ctx -> Results.silent());
-        var adapter = BungeeMinecraftAdapter.commandAdapter(framework);
-        BungeeNativeCommand command = BungeeMinecraftAdapter.nativeCommand(adapter);
+        var adapter = BungeeMinecraftIntegration.commandAdapter(framework);
+        BungeeNativeCommand command = BungeeMinecraftIntegration.nativeCommand(adapter);
         Plugin plugin = uninitializedPlugin();
 
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.commandInput("server", null));
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.nativeCommand(null));
-        assertThrows(IllegalStateException.class, () -> BungeeMinecraftAdapter.nativeCommand(BungeeMinecraftAdapter.commandAdapter(CommandFramework.create())));
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(null, adapter));
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, null));
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, adapter).register((BungeeCommandRegistrar) null));
-        assertThrows(NullPointerException.class, () -> BungeeMinecraftAdapter.registration(plugin, adapter).unregister((BungeeCommandRegistrar) null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.commandInput("server", null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.nativeCommand(null));
+        assertThrows(IllegalStateException.class, () -> BungeeMinecraftIntegration.nativeCommand(BungeeMinecraftIntegration.commandAdapter(CommandFramework.create())));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.registration(null, adapter));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.registration(plugin, null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.registration(plugin, adapter).register((BungeeCommandRegistrar) null));
+        assertThrows(NullPointerException.class, () -> BungeeMinecraftIntegration.registration(plugin, adapter).unregister((BungeeCommandRegistrar) null));
         assertThrows(NullPointerException.class, () -> new BungeeNativeCommand(null, new String[] {}, adapter));
         assertThrows(IllegalArgumentException.class, () -> new BungeeNativeCommand(" ", new String[] {}, adapter));
         assertThrows(NullPointerException.class, () -> new BungeeNativeCommand("server", null, adapter));

@@ -16,8 +16,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
-public final class MinestomMinecraftAdapter {
-    private MinestomMinecraftAdapter() {
+public final class MinestomMinecraftIntegration {
+    private MinestomMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {
@@ -46,11 +46,11 @@ public final class MinestomMinecraftAdapter {
     public static MinecraftNativeCommandAdapter<Object> commandAdapter(
         CommandFramework framework
     ) {
-        return new MinecraftNativeCommandAdapter<>(framework, MinestomMinecraftAdapter::commandSource);
+        return new MinecraftNativeCommandAdapter<>(framework, MinestomMinecraftIntegration::commandSource);
     }
 
     public static BrigadierCommandAdapter<Object> brigadierBridge(CommandFramework framework) {
-        return MinecraftBrigadierAdapters.create(profile(), framework, MinestomMinecraftAdapter::commandSource);
+        return MinecraftBrigadierAdapters.create(profile(), framework, MinestomMinecraftIntegration::commandSource);
     }
 
     public static <N> BrigadierCommandAdapter<N> brigadierBridge(

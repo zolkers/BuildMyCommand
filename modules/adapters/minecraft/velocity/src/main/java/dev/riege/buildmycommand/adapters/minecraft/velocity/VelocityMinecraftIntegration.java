@@ -15,8 +15,8 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class VelocityMinecraftAdapter {
-    private VelocityMinecraftAdapter() {
+public final class VelocityMinecraftIntegration {
+    private VelocityMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {
@@ -57,7 +57,7 @@ public final class VelocityMinecraftAdapter {
     public static MinecraftNativeCommandAdapter<com.velocitypowered.api.command.CommandSource> simpleCommandAdapter(
         CommandFramework framework
     ) {
-        return simpleCommandAdapter(framework, VelocityMinecraftAdapter::commandSource);
+        return simpleCommandAdapter(framework, VelocityMinecraftIntegration::commandSource);
     }
 
     public static VelocitySimpleCommand simpleCommand(
@@ -76,7 +76,7 @@ public final class VelocityMinecraftAdapter {
     public static BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> brigadierBridge(
         CommandFramework framework
     ) {
-        return MinecraftBrigadierAdapters.create(profile(), framework, VelocityMinecraftAdapter::commandSource);
+        return MinecraftBrigadierAdapters.create(profile(), framework, VelocityMinecraftIntegration::commandSource);
     }
 
     public static VelocityBrigadierRegistration brigadierRegistration(

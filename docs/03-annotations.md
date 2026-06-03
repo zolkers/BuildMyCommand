@@ -8,7 +8,7 @@ The annotations module turns Java classes into command registrations. The recomm
 | --- | --- | --- |
 | 1 | `@Command` + `@SubRoute` + `@RouteCtx` | Most production commands, especially nested commands. |
 | 2 | `@Route` + `@RouteCtx` | Standalone commands or examples. |
-| 3 | `@Command` / `@Subcommand` + parameter annotations | Simple Java-native commands. |
+| 3 | `@Command` / nested `@Subcommand` + `@SubRoute` leaves | Java-shaped grouping when you want nested classes. |
 | 4 | Builder API | Dynamic/generated commands or adapter internals. |
 
 ## Registration
@@ -28,20 +28,41 @@ AnnotationCommandScanner.register(framework.registry(), new ModerationCommands()
 | `@Subcommand("literal")` | Class, method | Single literal segment. Can nest through classes. | Supported, but less ergonomic. |
 | `@Alias("x")` | Class, method | Alias for command/subcommand literal. | Useful for public command aliases. |
 
-## Parameter Binding Annotations
+## Route Context Binding
 
-| Annotation | Target | Meaning | RouteCtx alternative |
+| Annotation | Target | Meaning | Notes |
 | --- | --- | --- | --- |
 | `@RouteCtx` | Parameter | Injects `CommandContext`. | Preferred. |
-| `@Arg("name")` | Parameter | Required positional arg. | `ctx.arg("name", Type.class)` |
-| `@OptionalArg("name")` | Parameter | Optional positional arg. | `ctx.optionalArg("name", Type.class)` |
-| `@Option("name")` | Parameter | Named option value. | `ctx.option("name", Type.class)` |
-| `@Flag("name")` | Parameter | Boolean flag. | `ctx.flag("name")` |
-| `@Default("value")` | Parameter | Default for optional binding. | `orElse(...)` in Java. |
-| `@Greedy` | Parameter | Greedy string binding. | `<name:String...>` in route DSL. |
-| `@Suggest(...)` | Parameter | Suggestion provider binding. | Same command graph metadata. |
 
-When using `@Route` or `@SubRoute`, prefer `@RouteCtx`. Mixing route DSL and repeated parameter annotations is supported for compatibility, but the route already contains the command schema.
+`@Route` and `@SubRoute` methods must declare exactly one `@RouteCtx CommandContext` parameter. Read args, options, and flags from that context:
+
+| Route DSL | Runtime read |
+| --- | --- |
+| `<target:String>` | `ctx.arg("target", String.class)` |
+| `[<target:String>]` | `ctx.optionalArg("target", String.class)` |
+| `[--amount:Integer|-a]` | `ctx.option("amount", Integer.class)` |
+| `[--silent|-s]` | `ctx.flag("silent")` |
+| `<reason:String...>` | `ctx.arg("reason", String.class)` |
+
+This keeps the schema in one place: the route string.
+
+## Suggestions
+
+Use `@Suggest("name")` on provider methods. The provider name matches a route argument or option name.
+
+```java
+@Route("kit <target:String> [kit:String]")
+CommandResult kit(@RouteCtx CommandContext ctx) {
+    return Results.success("Kit " + ctx.optionalArg("kit", String.class).orElse("starter"));
+}
+
+@Suggest("kit")
+List<String> kits() {
+    return List.of("starter", "builder", "pvp");
+}
+```
+
+Providers may return `List<String>` or `List<Suggestion>`, and may accept no parameter or one `ArgumentParseContext`.
 
 ## Metadata Annotations
 

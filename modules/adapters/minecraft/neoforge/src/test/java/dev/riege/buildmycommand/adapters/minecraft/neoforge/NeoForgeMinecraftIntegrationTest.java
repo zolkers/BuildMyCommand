@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class NeoForgeMinecraftAdapterTest {
+class NeoForgeMinecraftIntegrationTest {
     @Test
     void createsRegistrationForNeoForgeRegisterCommandsEvent() throws Exception {
         CommandFramework framework = CommandFramework.create();
@@ -26,12 +26,12 @@ class NeoForgeMinecraftAdapterTest {
             });
 
         NeoForgeBrigadierRegistration<NeoForgeSource> registration =
-            NeoForgeMinecraftAdapter.registration(framework, NeoForgeSource::commandSource);
+            NeoForgeMinecraftIntegration.registration(framework, NeoForgeSource::commandSource);
         CommandDispatcher<NeoForgeSource> dispatcher = new CommandDispatcher<>();
 
         registration.registerInto(dispatcher);
 
-        assertEquals("neoforge", NeoForgeMinecraftAdapter.profile().id());
+        assertEquals("neoforge", NeoForgeMinecraftIntegration.profile().id());
         assertEquals("net.neoforged.neoforge.event.RegisterCommandsEvent",
             registration.api().eventClassName());
         assertEquals("NeoForge RegisterCommandsEvent", registration.api().displayName());
@@ -43,7 +43,7 @@ class NeoForgeMinecraftAdapterTest {
 
     @Test
     void constructorIsNotPublic() throws Exception {
-        Constructor<NeoForgeMinecraftAdapter> constructor = NeoForgeMinecraftAdapter.class.getDeclaredConstructor();
+        Constructor<NeoForgeMinecraftIntegration> constructor = NeoForgeMinecraftIntegration.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         try {
             constructor.newInstance();

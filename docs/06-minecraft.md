@@ -77,11 +77,11 @@ static final class AdminCommands {
 | Area | Guidance |
 | --- | --- |
 | Minecraft 1.16.5+ | Prefer the dedicated loader adapter when it exists; it wraps Brigadier registration while preserving loader-specific lifecycle details. |
-| Fabric 1.16.5 | Use `FabricMinecraftAdapter.legacyRegistration(...)` for Command API v1 callbacks. |
-| Fabric modern | Use `FabricMinecraftAdapter.registration(...)` for Command API v2 callbacks. |
-| Forge 1.16.5 | Use `ForgeMinecraftAdapter.legacyRegistration(...)` in `RegisterCommandsEvent`. |
-| Forge modern | Use `ForgeMinecraftAdapter.registration(...)` in `RegisterCommandsEvent`. |
-| NeoForge | Use `NeoForgeMinecraftAdapter.registration(...)` in NeoForge's `RegisterCommandsEvent`. |
+| Fabric 1.16.5 | Use `FabricMinecraftIntegration.legacyRegistration(...)` for Command API v1 callbacks. |
+| Fabric modern | Use `FabricMinecraftIntegration.registration(...)` for Command API v2 callbacks. |
+| Forge 1.16.5 | Use `ForgeMinecraftIntegration.legacyRegistration(...)` in `RegisterCommandsEvent`. |
+| Forge modern | Use `ForgeMinecraftIntegration.registration(...)` in `RegisterCommandsEvent`. |
+| NeoForge | Use `NeoForgeMinecraftIntegration.registration(...)` in NeoForge's `RegisterCommandsEvent`. |
 | Spigot/Paper | Paper can expose richer command behavior; Spigot compatibility remains important. |
 | Proxies | Bungee and Velocity need source/result mapping that fits proxy sender models. |
 | Mod loaders without a dedicated module | Use `adapters-brigadier` plus `adapters-minecraft-common` directly. |
@@ -95,7 +95,7 @@ Fabric 1.16.5 uses `net.fabricmc.fabric.api.command.v1.CommandRegistrationCallba
 ```java
 CommandFramework framework = CommandFramework.create();
 FabricBrigadierRegistration<ServerCommandSource> registration =
-    FabricMinecraftAdapter.legacyRegistration(framework, FabricCommandSources::map);
+    FabricMinecraftIntegration.legacyRegistration(framework, FabricCommandSources::map);
 
 CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
     registration.registerInto(dispatcher);
@@ -106,7 +106,7 @@ For modern Fabric:
 
 ```java
 FabricBrigadierRegistration<CommandSourceStack> registration =
-    FabricMinecraftAdapter.registration(framework, FabricCommandSources::map);
+    FabricMinecraftIntegration.registration(framework, FabricCommandSources::map);
 
 CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
     registration.registerInto(dispatcher);
@@ -119,7 +119,7 @@ Forge 1.16.5 and modern Forge both register during `RegisterCommandsEvent`; the 
 
 ```java
 ForgeBrigadierRegistration<CommandSource> registration =
-    ForgeMinecraftAdapter.legacyRegistration(framework, ForgeCommandSources::map);
+    ForgeMinecraftIntegration.legacyRegistration(framework, ForgeCommandSources::map);
 
 @SubscribeEvent
 public void registerCommands(RegisterCommandsEvent event) {
@@ -131,7 +131,7 @@ NeoForge follows the same shape with its own event package:
 
 ```java
 NeoForgeBrigadierRegistration<CommandSourceStack> registration =
-    NeoForgeMinecraftAdapter.registration(framework, NeoForgeCommandSources::map);
+    NeoForgeMinecraftIntegration.registration(framework, NeoForgeCommandSources::map);
 
 @SubscribeEvent
 public void registerCommands(RegisterCommandsEvent event) {

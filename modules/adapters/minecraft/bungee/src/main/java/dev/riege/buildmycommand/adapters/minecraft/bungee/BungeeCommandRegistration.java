@@ -38,12 +38,12 @@ public final class BungeeCommandRegistration {
     }
 
     public MinecraftCommandRegistrationPlan plan() {
-        return MinecraftCommandRegistrationPlan.fromNativeAdapter(BungeeMinecraftAdapter.profile(), adapter);
+        return MinecraftCommandRegistrationPlan.fromNativeAdapter(BungeeMinecraftIntegration.profile(), adapter);
     }
 
     public BungeeNativeCommand command() {
         if (registeredCommand == null) {
-            registeredCommand = BungeeMinecraftAdapter.nativeCommand(adapter);
+            registeredCommand = BungeeMinecraftIntegration.nativeCommand(adapter);
         }
         return registeredCommand;
     }

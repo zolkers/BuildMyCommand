@@ -7,8 +7,8 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdap
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.core.CommandFramework;
 
-public final class FabricMinecraftAdapter {
-    private FabricMinecraftAdapter() {
+public final class FabricMinecraftIntegration {
+    private FabricMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {

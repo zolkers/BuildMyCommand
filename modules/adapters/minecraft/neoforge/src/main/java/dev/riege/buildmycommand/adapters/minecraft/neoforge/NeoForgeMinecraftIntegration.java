@@ -7,8 +7,8 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdap
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftSourceMapper;
 import dev.riege.buildmycommand.core.CommandFramework;
 
-public final class NeoForgeMinecraftAdapter {
-    private NeoForgeMinecraftAdapter() {
+public final class NeoForgeMinecraftIntegration {
+    private NeoForgeMinecraftIntegration() {
     }
 
     public static MinecraftBackendProfile profile() {
