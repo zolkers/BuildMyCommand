@@ -122,6 +122,16 @@ public interface CommandRegistry {
 
         CommandBuilder subcommand(String literal, Consumer<CommandBuilder> configure);
 
+        default RouteBuilder subRoute(String pattern) {
+            throw new UnsupportedOperationException("relative route DSL is not supported by this registry");
+        }
+
+        default CommandBuilder subRoute(String pattern, Consumer<RouteBuilder> configure) {
+            Objects.requireNonNull(configure, "configure");
+            configure.accept(subRoute(pattern));
+            return this;
+        }
+
         default CommandBuilder path(String literalPath, Consumer<CommandBuilder> configure) {
             Objects.requireNonNull(configure, "configure");
             String[] literals = literalPathTokens(literalPath);

@@ -144,7 +144,7 @@ class IntellijPluginResourcesTest {
         String intellijBuildScript = Files.readString(root.resolve("modules/intellij-plugin/build.gradle.kts"));
 
         assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
-        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.intellij\" min-version=\"0.0.1\" />"));
+        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.intellij\" min-version=\"0.0.4-SNAPSHOT\" />"));
         assertTrue(powerShellScript.contains("dev.riege.buildmycommand.intellij"));
         assertTrue(powerShellScript.contains(":intellij-plugin:buildPlugin"));
         assertTrue(powerShellScript.contains("$Install"));

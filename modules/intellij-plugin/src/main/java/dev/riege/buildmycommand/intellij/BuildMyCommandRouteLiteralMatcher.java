@@ -60,7 +60,8 @@ final class BuildMyCommandRouteLiteralMatcher {
         if (!(call instanceof PsiMethodCallExpression methodCall)) {
             return false;
         }
-        if (!"route".equals(methodCall.getMethodExpression().getReferenceName())) {
+        String methodName = methodCall.getMethodExpression().getReferenceName();
+        if (!"route".equals(methodName) && !"subRoute".equals(methodName)) {
             return false;
         }
         return expressionList.getExpressions().length > 0 && expressionList.getExpressions()[0] == literal;

@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.MessageLevel;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionProvider;
 import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.api.Arguments;
 import dev.riege.buildmycommand.api.CommandErrorHandler;
@@ -907,6 +908,96 @@ class CommandFrameworkTest {
             + "Description: Promote a user", framework.help("user rank set promote").replace("\r\n", "\n"));
         assertEquals(List.of("promote", "demote"), framework.suggest(new CommandSource() {
         }, "user rank set ", 14));
+    }
+
+    @Test
+    void dispatchesRelativeRouteDslBuilderUnderCommandRoot() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        AtomicInteger middlewareCalls = new AtomicInteger();
+        CommandSource permittedSource = new CommandSource() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return true;
+            }
+        };
+
+        framework.registry().command("wecc", wecc -> wecc
+            .subRoute("bang|b <target:String> [--silent|-s]", bang -> bang
+                .description("Bang a target")
+                .suggestAliases(false)
+                .argumentSuggestions("target", ctx -> List.of("Ada", "Linus"))
+                .executes(ctx -> Results.success(
+                    ctx.arg("target", String.class) + " silent=" + ctx.flag("silent"))))
+            .subRoute("ping", ping -> ping.executes(ctx -> Results.success("pong")))
+            .subRoute("secret", secret -> secret
+                .hidden()
+                .executes(ctx -> Results.success("secret")))
+            .subRoute("meta <target:String> [--mode:String|-m] [--level:String]", meta -> meta
+                .permission("wecc.meta")
+                .usage("/wecc meta <target> [--mode <mode>]")
+                .example("/wecc meta Ada --mode inspect")
+                .cooldown(Duration.ofSeconds(1))
+                .requirement("staff || owner")
+                .group("diagnostics")
+                .middleware((context, command, path, next) -> {
+                    middlewareCalls.incrementAndGet();
+                    return next.proceed(context);
+                })
+                .argumentSuggestions("target", "targets", ctx -> List.of("Ada"))
+                .optionSuggestions("mode", "modes", ctx -> List.of("inspect"))
+                .optionSuggestions("level", ctx -> List.of("debug"))
+                .executes(ctx -> Results.success(
+                    ctx.arg("target", String.class)
+                        + " mode="
+                        + ctx.option("mode", String.class).orElse("default")))));
+
+        CommandResult canonical = framework.dispatch(new CommandSource() {
+        }, "wecc bang Ada --silent");
+        CommandResult alias = framework.dispatch(new CommandSource() {
+        }, "wecc b Linus -s");
+        CommandResult sibling = framework.dispatch(new CommandSource() {
+        }, "wecc ping");
+        CommandResult meta = framework.dispatch(permittedSource, "wecc meta Ada --mode inspect");
+
+        assertEquals(Optional.of("Ada silent=true"), canonical.reply());
+        assertEquals(Optional.of("Linus silent=true"), alias.reply());
+        assertEquals(Optional.of("pong"), sibling.reply());
+        assertEquals(Optional.of("Ada mode=inspect"), meta.reply());
+        assertEquals(1, middlewareCalls.get());
+        assertEquals("Usage: wecc bang <target:String> [--silent|-s]\n"
+            + "Description: Bang a target", framework.help("wecc bang").replace("\r\n", "\n"));
+        assertEquals(List.of("bang", "ping", "meta"), framework.suggest(new CommandSource() {
+        }, "wecc ", 5));
+        assertEquals(List.of("Ada", "Linus"), framework.suggest(new CommandSource() {
+        }, "wecc bang ", 10));
+        assertEquals(List.of("Ada"), framework.suggest(permittedSource, "wecc meta ", 10));
+        assertEquals(List.of("inspect"), framework.suggest(permittedSource, "wecc meta Ada --mode ", 21));
+        assertEquals(List.of("debug"), framework.suggest(permittedSource, "wecc meta Ada --level ", 22));
+        assertEquals(List.of("Ada"), framework.suggestRich(CommandInput.normalized(permittedSource, "wecc meta "))
+            .stream()
+            .map(Suggestion::value)
+            .toList());
+        assertEquals("Usage: /wecc meta <target> [--mode <mode>]\n"
+                + "Example: /wecc meta Ada --mode inspect",
+            framework.help(permittedSource, "wecc meta").replace("\r\n", "\n"));
+
+        assertThrows(NullPointerException.class, () -> framework.registry().command("bad", bad ->
+            bad.subRoute(null)));
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("bad", bad ->
+            bad.subRoute(" ")));
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("bad", bad ->
+            bad.subRoute("<target:String>")));
+        assertThrows(IllegalArgumentException.class, () -> framework.registry().command("bad", bad ->
+            bad.subRoute("leaf [optional:String] <required:String>").executes(ctx -> Results.silent())));
+
+        Class<?> providerType = Class.forName(
+            "dev.riege.buildmycommand.core.registry.SimpleCommandBuilder$NamedSuggestionProvider");
+        java.lang.reflect.Constructor<?> constructor = providerType
+            .getDeclaredConstructor(String.class, SuggestionProvider.class);
+        constructor.setAccessible(true);
+        SuggestionProvider provider = (SuggestionProvider) constructor
+            .newInstance("direct", (SuggestionProvider) ctx -> List.of("direct"));
+        assertEquals(List.of("direct"), provider.suggestions(null));
     }
 
     @Test

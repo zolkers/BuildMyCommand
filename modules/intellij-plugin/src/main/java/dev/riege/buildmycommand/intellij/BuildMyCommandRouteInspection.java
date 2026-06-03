@@ -39,6 +39,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "@RouteCtx is only valid on @Route/@SubRoute methods";
     static final String PERMISSION_BOOLEAN_EXPRESSION =
         "@Permission accepts one permission node; use @Require for boolean expressions";
+    static final String DEEP_SUBCOMMAND_TREE_DISCOURAGED =
+        "Deep @Subcommand nesting is supported but @SubRoute route DSL is recommended for command paths";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
@@ -61,6 +63,9 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 if (!hasCommandTreeOwner(psiClass)) {
                     holder.registerProblem(psiClass.getNameIdentifier(), SUBCOMMAND_OWNER_REQUIRED);
                 }
+                if (isNestedSubcommandGroup(psiClass)) {
+                    holder.registerProblem(psiClass.getNameIdentifier(), DEEP_SUBCOMMAND_TREE_DISCOURAGED);
+                }
             }
 
             @Override
@@ -76,6 +81,9 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                     inspectLiteralOnly(subcommand, SUBCOMMAND_LITERAL_ONLY, holder);
                     if (!hasCommandTreeOwner(method)) {
                         holder.registerProblem(method.getNameIdentifier(), SUBCOMMAND_OWNER_REQUIRED);
+                    }
+                    if (isDeepSubcommandLeaf(method)) {
+                        holder.registerProblem(method.getNameIdentifier(), DEEP_SUBCOMMAND_TREE_DISCOURAGED);
                     }
                 }
                 if (subRoute && !hasCommandTreeOwner(method)) {
@@ -181,6 +189,34 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
             current = current.getContainingClass();
         }
         return sawSubcommandGroup && false;
+    }
+
+    private static boolean isNestedSubcommandGroup(PsiClass owner) {
+        PsiClass current = owner.getContainingClass();
+        while (current != null) {
+            if (hasAnnotation(current.getModifierList().getAnnotations(), SUBCOMMAND)) {
+                return true;
+            }
+            if (hasAnnotation(current.getModifierList().getAnnotations(), COMMAND)) {
+                return false;
+            }
+            current = current.getContainingClass();
+        }
+        return false;
+    }
+
+    private static boolean isDeepSubcommandLeaf(PsiMethod method) {
+        PsiClass current = method.getContainingClass();
+        while (current != null) {
+            if (hasAnnotation(current.getModifierList().getAnnotations(), SUBCOMMAND)) {
+                return true;
+            }
+            if (hasAnnotation(current.getModifierList().getAnnotations(), COMMAND)) {
+                return false;
+            }
+            current = current.getContainingClass();
+        }
+        return false;
     }
 
     private static boolean hasAnnotation(PsiMethod method, String qualifiedName) {

@@ -469,8 +469,15 @@ class ApiContractTest {
             next.proceed(context)));
         assertThrows(UnsupportedOperationException.class, () -> builder.argumentSuggestions("a", ctx -> List.of()));
         assertThrows(UnsupportedOperationException.class, () -> builder.optionSuggestions("o", ctx -> List.of()));
+        assertThrows(UnsupportedOperationException.class, () -> builder.subRoute("child"));
         assertSame(delegatingBuilder, delegatingBuilder.argumentSuggestions("a", "named", ctx -> List.of()));
         assertSame(delegatingBuilder, delegatingBuilder.optionSuggestions("o", "named", ctx -> List.of()));
+        assertSame(delegatingBuilder, delegatingBuilder.subRoute("child <target:String>", route -> {
+            assertSame(delegatingBuilder.routeBuilder, route);
+            route.description("child route");
+        }));
+        assertEquals("child <target:String>", delegatingBuilder.subRoutePattern);
+        assertThrows(NullPointerException.class, () -> delegatingBuilder.subRoute("child", null));
 
         builder.path("single", child -> child.executes(ctx -> Results.success("ok")));
         builder.path("admin user promote", child -> child.executes(ctx -> Results.success("ok")));
@@ -623,6 +630,15 @@ class ApiContractTest {
     }
 
     private static final class DelegatingCommandBuilder extends RecordingCommandBuilder {
+        private final RecordingRouteBuilder routeBuilder = new RecordingRouteBuilder();
+        private String subRoutePattern;
+
+        @Override
+        public CommandRegistry.RouteBuilder subRoute(String pattern) {
+            subRoutePattern = pattern;
+            return routeBuilder;
+        }
+
         @Override
         public CommandRegistry.CommandBuilder argumentSuggestions(String name, SuggestionProvider provider) {
             return this;

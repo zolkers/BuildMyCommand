@@ -3,9 +3,11 @@ package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
+import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
@@ -128,6 +130,16 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         RegistryNodeMerger.registerAll(children, child.literals(), child, "subcommand already registered: ",
             matchingPolicy);
         return this;
+    }
+
+    @Override
+    public CommandRegistry.RouteBuilder subRoute(String pattern) {
+        Objects.requireNonNull(pattern, "pattern");
+        String trimmed = pattern.trim();
+        if (trimmed.isBlank()) {
+            throw new IllegalArgumentException("sub route pattern must not be blank");
+        }
+        return new RelativeRouteBuilder(RoutePatternParser.parse(literal + " " + trimmed));
     }
 
     @Override
@@ -310,6 +322,197 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
             Validators.literal(token, "literal");
         }
         return tokens;
+    }
+
+    private final class RelativeRouteBuilder implements CommandRegistry.RouteBuilder {
+        private final RoutePattern route;
+        private String description;
+        private String permission;
+        private final CommandMetadata.Builder routeMetadata = new CommandMetadata.Builder();
+        private final Map<String, SuggestionProvider> argumentSuggestions = new LinkedHashMap<>();
+        private final Map<String, SuggestionProvider> optionSuggestions = new LinkedHashMap<>();
+
+        private RelativeRouteBuilder(RoutePattern route) {
+            if (route.steps().isEmpty() || !(route.steps().get(0) instanceof LiteralRouteStep)) {
+                throw new IllegalArgumentException("sub route pattern must start with a literal below " + literal);
+            }
+            this.route = route;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder description(String description) {
+            this.description = Validators.metadata(description, "description");
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder permission(String permission) {
+            this.permission = Validators.metadata(permission, "permission");
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder hidden() {
+            routeMetadata.hidden();
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder usage(String usage) {
+            routeMetadata.usage(usage);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder example(String example) {
+            routeMetadata.example(example);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder cooldown(Duration cooldown) {
+            routeMetadata.cooldown(cooldown);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder requirement(String requirement) {
+            routeMetadata.requirement(requirement);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder group(String group) {
+            routeMetadata.group(group);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder suggestAliases(boolean suggestAliases) {
+            routeMetadata.suggestAliases(suggestAliases);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder middleware(CommandMiddleware middleware) {
+            routeMetadata.middleware(middleware);
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder argumentSuggestions(String name, SuggestionProvider provider) {
+            return argumentSuggestions(name, null, provider);
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder argumentSuggestions(
+            String name,
+            String providerName,
+            SuggestionProvider provider
+        ) {
+            argumentSuggestions.put(
+                Objects.requireNonNull(name, "name"),
+                namedProvider(providerName, Objects.requireNonNull(provider, "provider"))
+            );
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder optionSuggestions(String name, SuggestionProvider provider) {
+            return optionSuggestions(name, null, provider);
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder optionSuggestions(
+            String name,
+            String providerName,
+            SuggestionProvider provider
+        ) {
+            optionSuggestions.put(
+                Objects.requireNonNull(name, "name"),
+                namedProvider(providerName, Objects.requireNonNull(provider, "provider"))
+            );
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.CommandBuilder executes(CommandRegistry.CommandExecutor executor) {
+            Objects.requireNonNull(executor, "executor");
+            return configureRoute(SimpleCommandBuilder.this, 0, route.steps(), executor);
+        }
+
+        private SimpleCommandBuilder configureRoute(
+            SimpleCommandBuilder builder,
+            int stepIndex,
+            List<RouteStep> steps,
+            CommandRegistry.CommandExecutor executor
+        ) {
+            try {
+                if (stepIndex >= steps.size()) {
+                    applyMetadata(builder);
+                    builder.executes(executor);
+                    return builder;
+                }
+
+                RouteStep step = steps.get(stepIndex);
+                if (step instanceof LiteralRouteStep literalStep) {
+                    SimpleCommandBuilder child = new SimpleCommandBuilder(literalStep.value(), matchingPolicy);
+                    child.aliases(literalStep.aliases().toArray(String[]::new));
+                    SimpleCommandBuilder leafBuilder = configureRoute(child, stepIndex + 1, steps, executor);
+                    RegistryNodeMerger.mergeChild(builder.children, child.node(), matchingPolicy);
+                    return leafBuilder;
+                }
+
+                ((ElementRouteStep) step).element().apply(builder);
+                return configureRoute(builder, stepIndex + 1, steps, executor);
+            } catch (IllegalStateException exception) {
+                throw new IllegalArgumentException("invalid sub route pattern", exception);
+            }
+        }
+
+        private void applyMetadata(SimpleCommandBuilder builder) {
+            if (description != null) {
+                builder.description(description);
+            }
+            if (permission != null) {
+                builder.permission(permission);
+            }
+            CommandMetadata builtMetadata = routeMetadata.build();
+            if (builtMetadata.hidden()) {
+                builder.hidden();
+            }
+            builtMetadata.usage().ifPresent(builder::usage);
+            builtMetadata.examples().forEach(builder::example);
+            builtMetadata.cooldown().ifPresent(builder::cooldown);
+            builtMetadata.requirement().ifPresent(builder::requirement);
+            builtMetadata.group().ifPresent(builder::group);
+            builder.suggestAliases(builtMetadata.suggestAliases());
+            builtMetadata.middlewares().forEach(builder::middleware);
+            argumentSuggestions.forEach((name, provider) ->
+                builder.argumentSuggestions(name, providerName(provider), provider));
+            optionSuggestions.forEach((name, provider) ->
+                builder.optionSuggestions(name, providerName(provider), provider));
+        }
+
+        private SuggestionProvider namedProvider(String name, SuggestionProvider provider) {
+            return name == null ? provider : new NamedSuggestionProvider(name, provider);
+        }
+
+        private String providerName(SuggestionProvider provider) {
+            return provider instanceof NamedSuggestionProvider named ? named.name() : null;
+        }
+    }
+
+    private record NamedSuggestionProvider(String name, SuggestionProvider delegate) implements SuggestionProvider {
+        @Override
+        public List<String> suggestions(ArgumentParseContext context) {
+            return delegate.suggestions(context);
+        }
+
+        @Override
+        public List<Suggestion> richSuggestions(ArgumentParseContext context) {
+            return delegate.richSuggestions(context);
+        }
     }
 
 }

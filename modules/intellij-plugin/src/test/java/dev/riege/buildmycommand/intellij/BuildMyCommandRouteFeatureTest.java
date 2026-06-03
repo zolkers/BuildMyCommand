@@ -53,6 +53,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
                 void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
                     registry.route("call [--force|-f]", null);
+                    registry.command("root", root -> root.subRoute("relative|rel <target:String>").executes(ctx -> null));
                     registry.route("first", "second");
                     registry.other("not route method");
                     new String("new expression literal");
@@ -66,6 +67,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiLiteralExpression annotation = literal(file, "root <target:String>");
         PsiLiteralExpression shortSubRoute = literal(file, "branch <id:String>");
         PsiLiteralExpression registry = literal(file, "call [--force|-f]");
+        PsiLiteralExpression relativeSubRoute = literal(file, "relative|rel <target:String>");
         PsiLiteralExpression secondArgument = literal(file, "second");
         PsiLiteralExpression otherMethod = literal(file, "not route method");
         PsiLiteralExpression newExpression = literal(file, "new expression literal");
@@ -88,6 +90,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(annotation));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(shortSubRoute));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(registry));
+        assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(relativeSubRoute));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(secondArgument));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(otherMethod));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(newExpression));
@@ -202,6 +205,10 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 static final class Owner {
                     @Subcommand("nested")
                     static final class Nested {
+                        @Subcommand("deeper")
+                        static final class Deeper {
+                        }
+
                         @Subcommand("leaf")
                         void nestedLeaf() {
                         }
@@ -225,6 +232,10 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                     String plain = "not a route";
                 }
             }
+
+            @Subcommand("top")
+            final class TopLevelSubcommand {
+            }
             """);
 
         RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
@@ -245,6 +256,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_OWNER_REQUIRED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.COMMAND_LITERAL_ONLY));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_LITERAL_ONLY));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.DEEP_SUBCOMMAND_TREE_DISCOURAGED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL));
         assertTrue(descriptions.contains("Unknown argument type: Player"));
         assertNotNull(file);
