@@ -29,6 +29,7 @@ import dev.riege.buildmycommand.examples.dsl.RouteDslExample;
 import dev.riege.buildmycommand.examples.lifecycle.CooldownExample;
 import dev.riege.buildmycommand.examples.lifecycle.MiddlewareAndErrorsExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftBrigadierExample;
+import dev.riege.buildmycommand.examples.minecraft.MinecraftLoaderAdaptersExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftNativeAdapterExample;
 import dev.riege.buildmycommand.examples.permissions.PermissionExample;
 import dev.riege.buildmycommand.examples.suggestions.SuggestionExample;
@@ -256,6 +257,38 @@ class ExampleSmokeTest {
                 new MinecraftBrigadierExample.FakeStack(Set.of("minecraft.command.worldborder")),
                 "/wb set 10"
             ));
+
+        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> fabricLegacy =
+            new CommandDispatcher<>();
+        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> fabricModern =
+            new CommandDispatcher<>();
+        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> forgeLegacy =
+            new CommandDispatcher<>();
+        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> forgeModern =
+            new CommandDispatcher<>();
+        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> neoForge =
+            new CommandDispatcher<>();
+        MinecraftLoaderAdaptersExample.NativeCommandSource loaderSource =
+            new MinecraftLoaderAdaptersExample.NativeCommandSource("Ada", true);
+        MinecraftLoaderAdaptersExample.NativeCommandSource guestSource =
+            new MinecraftLoaderAdaptersExample.NativeCommandSource("Guest", false);
+
+        MinecraftLoaderAdaptersExample.registerFabric1165(fabricLegacy);
+        MinecraftLoaderAdaptersExample.registerFabricModern(fabricModern);
+        MinecraftLoaderAdaptersExample.registerForge1165(forgeLegacy);
+        MinecraftLoaderAdaptersExample.registerForgeModern(forgeModern);
+        MinecraftLoaderAdaptersExample.registerNeoForge(neoForge);
+
+        assertEquals("Ada", loaderSource.name());
+        assertTrue(guestSource.hasPermission(""));
+        assertEquals(false, guestSource.hasPermission("mod.reload"));
+        assertEquals(Optional.of("Ada"),
+            MinecraftLoaderAdaptersExample.fabricModernRegistration().bridge().mapSource(loaderSource).name());
+        assertEquals(1, fabricLegacy.execute("mod reload config", loaderSource));
+        assertEquals(1, fabricModern.execute("moderation reload cache", loaderSource));
+        assertEquals(1, forgeLegacy.execute("mod reload users", loaderSource));
+        assertEquals(1, forgeModern.execute("moderation reload permissions", loaderSource));
+        assertEquals(1, neoForge.execute("moderation reload permissions", loaderSource));
     }
 
     private static void assertSuccess(CommandResult result, String reply) {

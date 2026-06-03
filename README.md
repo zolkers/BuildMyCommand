@@ -39,6 +39,9 @@ Artifacts are prepared for Maven Central with group `io.github.zolkers` and vers
 | `adapters-discord` | `:adapters:discord` | Discord-style adapter foundation. |
 | `adapters-brigadier` | `:adapters:brigadier` | Generic Mojang Brigadier bridge. |
 | `adapters-minecraft-common` | `:adapters:minecraft:common` | Shared Minecraft adapter contracts and capability model. |
+| `adapters-minecraft-fabric` | `:adapters:minecraft:fabric` | Fabric command registration bridge for legacy v1 and modern v2 command callbacks. |
+| `adapters-minecraft-forge` | `:adapters:minecraft:forge` | Forge `RegisterCommandsEvent` bridge for 1.16.5+ style command registration. |
+| `adapters-minecraft-neoforge` | `:adapters:minecraft:neoforge` | NeoForge `RegisterCommandsEvent` bridge. |
 | `adapters-minecraft-spigot` | `:adapters:minecraft:spigot` | Spigot integration layer. |
 | `adapters-minecraft-paper` | `:adapters:minecraft:paper` | Paper integration layer. |
 | `adapters-minecraft-bungee` | `:adapters:minecraft:bungee` | BungeeCord integration layer. |
@@ -65,6 +68,7 @@ Add only the adapter modules you need:
 ```kotlin
 implementation("io.github.zolkers:adapters-terminal:0.0.1")
 implementation("io.github.zolkers:adapters-brigadier:0.0.1")
+implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.1")
 implementation("io.github.zolkers:adapters-minecraft-paper:0.0.1")
 ```
 

@@ -32,6 +32,9 @@ Artifact ids are derived from Gradle paths by replacing `:` with `-`.
 | `:adapters:discord` | `io.github.zolkers:adapters-discord:0.0.1` |
 | `:adapters:brigadier` | `io.github.zolkers:adapters-brigadier:0.0.1` |
 | `:adapters:minecraft:common` | `io.github.zolkers:adapters-minecraft-common:0.0.1` |
+| `:adapters:minecraft:fabric` | `io.github.zolkers:adapters-minecraft-fabric:0.0.1` |
+| `:adapters:minecraft:forge` | `io.github.zolkers:adapters-minecraft-forge:0.0.1` |
+| `:adapters:minecraft:neoforge` | `io.github.zolkers:adapters-minecraft-neoforge:0.0.1` |
 | `:adapters:minecraft:spigot` | `io.github.zolkers:adapters-minecraft-spigot:0.0.1` |
 | `:adapters:minecraft:paper` | `io.github.zolkers:adapters-minecraft-paper:0.0.1` |
 | `:adapters:minecraft:bungee` | `io.github.zolkers:adapters-minecraft-bungee:0.0.1` |
@@ -59,6 +62,9 @@ Minecraft users should import only the adapter matching their platform:
 | Platform | Dependency |
 | --- | --- |
 | Generic Brigadier runtime | `io.github.zolkers:adapters-brigadier:0.0.1` |
+| Fabric | `io.github.zolkers:adapters-minecraft-fabric:0.0.1` |
+| Forge | `io.github.zolkers:adapters-minecraft-forge:0.0.1` |
+| NeoForge | `io.github.zolkers:adapters-minecraft-neoforge:0.0.1` |
 | Paper | `io.github.zolkers:adapters-minecraft-paper:0.0.1` |
 | Spigot | `io.github.zolkers:adapters-minecraft-spigot:0.0.1` |
 | BungeeCord | `io.github.zolkers:adapters-minecraft-bungee:0.0.1` |

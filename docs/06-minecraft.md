@@ -8,6 +8,9 @@ Minecraft integration is split into a generic Brigadier bridge and platform-spec
 | --- | --- | --- |
 | Generic Brigadier | `adapters-brigadier` | Converts BuildMyCommand graph to Brigadier nodes. |
 | Shared Minecraft model | `adapters-minecraft-common` | Capabilities, runtime profiles, result rendering, edge cases. |
+| Fabric | `adapters-minecraft-fabric` | Fabric Command API v1/v2 bridge for 1.16.5+ style registration. |
+| Forge | `adapters-minecraft-forge` | Forge `RegisterCommandsEvent` bridge for 1.16.5+ style registration. |
+| NeoForge | `adapters-minecraft-neoforge` | NeoForge `RegisterCommandsEvent` bridge. |
 | Spigot | `adapters-minecraft-spigot` | Bukkit/Spigot command integration. |
 | Paper | `adapters-minecraft-paper` | Paper-specific layer plus Spigot base. |
 | BungeeCord | `adapters-minecraft-bungee` | Proxy command integration. |
@@ -73,12 +76,70 @@ static final class AdminCommands {
 
 | Area | Guidance |
 | --- | --- |
-| Minecraft 1.16+ | Prefer platform adapters that expose Brigadier/native registration where available. |
+| Minecraft 1.16.5+ | Prefer the dedicated loader adapter when it exists; it wraps Brigadier registration while preserving loader-specific lifecycle details. |
+| Fabric 1.16.5 | Use `FabricMinecraftAdapter.legacyRegistration(...)` for Command API v1 callbacks. |
+| Fabric modern | Use `FabricMinecraftAdapter.registration(...)` for Command API v2 callbacks. |
+| Forge 1.16.5 | Use `ForgeMinecraftAdapter.legacyRegistration(...)` in `RegisterCommandsEvent`. |
+| Forge modern | Use `ForgeMinecraftAdapter.registration(...)` in `RegisterCommandsEvent`. |
+| NeoForge | Use `NeoForgeMinecraftAdapter.registration(...)` in NeoForge's `RegisterCommandsEvent`. |
 | Spigot/Paper | Paper can expose richer command behavior; Spigot compatibility remains important. |
 | Proxies | Bungee and Velocity need source/result mapping that fits proxy sender models. |
-| Mod loaders | If the environment exposes Brigadier, prefer the generic Brigadier bridge plus Minecraft common behavior. |
+| Mod loaders without a dedicated module | Use `adapters-brigadier` plus `adapters-minecraft-common` directly. |
 
 Always test on the target platform/version because command registration APIs differ across server/proxy implementations.
+
+## Fabric Registration Shape
+
+Fabric 1.16.5 uses `net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback`; modern Fabric uses command API v2. The adapter keeps both paths explicit:
+
+```java
+CommandFramework framework = CommandFramework.create();
+FabricBrigadierRegistration<ServerCommandSource> registration =
+    FabricMinecraftAdapter.legacyRegistration(framework, FabricCommandSources::map);
+
+CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
+    registration.registerInto(dispatcher);
+});
+```
+
+For modern Fabric:
+
+```java
+FabricBrigadierRegistration<CommandSourceStack> registration =
+    FabricMinecraftAdapter.registration(framework, FabricCommandSources::map);
+
+CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+    registration.registerInto(dispatcher);
+});
+```
+
+## Forge And NeoForge Registration Shape
+
+Forge 1.16.5 and modern Forge both register during `RegisterCommandsEvent`; the source type name differs by mapping/version, so the adapter is generic over the native source:
+
+```java
+ForgeBrigadierRegistration<CommandSource> registration =
+    ForgeMinecraftAdapter.legacyRegistration(framework, ForgeCommandSources::map);
+
+@SubscribeEvent
+public void registerCommands(RegisterCommandsEvent event) {
+    registration.registerInto(event.getDispatcher());
+}
+```
+
+NeoForge follows the same shape with its own event package:
+
+```java
+NeoForgeBrigadierRegistration<CommandSourceStack> registration =
+    NeoForgeMinecraftAdapter.registration(framework, NeoForgeCommandSources::map);
+
+@SubscribeEvent
+public void registerCommands(RegisterCommandsEvent event) {
+    registration.registerInto(event.getDispatcher());
+}
+```
+
+The mapper is where platform permissions, sender identity, locale, metadata, and replies become a BuildMyCommand `CommandSource`.
 
 ## Testing Matrix
 
