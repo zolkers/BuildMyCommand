@@ -14,7 +14,9 @@ import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionContext;
 import dev.riege.buildmycommand.api.SuggestionProvider;
+import dev.riege.buildmycommand.api.SuggestionSet;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
@@ -146,10 +148,16 @@ public final class MethodCommandBinder {
     }
 
     private static void validateSuggestionProvider(Method method) {
+        boolean validParameter = method.getParameterCount() == 0
+            || (method.getParameterCount() == 1
+            && (method.getParameterTypes()[0] == ArgumentParseContext.class
+            || method.getParameterTypes()[0] == SuggestionContext.class));
+        boolean validReturn = List.class.isAssignableFrom(method.getReturnType())
+            || method.getReturnType() == SuggestionSet.class;
         if (method.getParameterCount() > 1
-            || (method.getParameterCount() == 1 && method.getParameterTypes()[0] != ArgumentParseContext.class)
-            || !List.class.isAssignableFrom(method.getReturnType())) {
-            throw new IllegalArgumentException("@Suggest provider must return List and accept zero args or ArgumentParseContext: "
+            || !validParameter
+            || !validReturn) {
+            throw new IllegalArgumentException("@Suggest provider must return List or SuggestionSet and accept zero args, ArgumentParseContext, or SuggestionContext: "
                 + method.getName());
         }
     }
@@ -175,13 +183,16 @@ public final class MethodCommandBinder {
             return List.of();
         }
         try {
-            Object value = method.getParameterCount() == 0
-                ? method.invoke(target)
-                : method.invoke(target, context);
-            if (!(value instanceof List<?> list)) {
-                throw new IllegalStateException("suggestion provider did not return a List: " + method.getName());
+            Object value = method.getParameterCount() == 0 ? method.invoke(target) : method.invoke(target,
+                providerArgument(method, context));
+            if (value instanceof SuggestionSet set) {
+                return set.toSuggestions(SuggestionContext.from(context));
             }
-            return suggestions(method.getName(), list, context);
+            if (value instanceof List<?> list) {
+                return suggestions(method.getName(), list, context);
+            }
+            throw new IllegalStateException("suggestion provider did not return a List or SuggestionSet: "
+                + method.getName());
         } catch (IllegalAccessException exception) {
             throw new IllegalStateException("cannot invoke suggestion provider: " + method.getName(), exception);
         } catch (InvocationTargetException exception) {
@@ -194,6 +205,13 @@ public final class MethodCommandBinder {
             }
             throw new IllegalStateException("suggestion provider failed: " + method.getName(), cause);
         }
+    }
+
+    private static Object providerArgument(Method method, ArgumentParseContext context) {
+        if (method.getParameterTypes()[0] == SuggestionContext.class) {
+            return SuggestionContext.from(context);
+        }
+        return context;
     }
 
     private static List<Suggestion> suggestions(String providerName, List<?> values, ArgumentParseContext context) {

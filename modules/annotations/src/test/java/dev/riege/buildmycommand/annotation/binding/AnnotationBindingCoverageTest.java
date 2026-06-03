@@ -19,6 +19,8 @@ import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionContext;
+import dev.riege.buildmycommand.api.SuggestionSet;
 import dev.riege.buildmycommand.api.SuggestionType;
 import org.junit.jupiter.api.Test;
 
@@ -99,6 +101,26 @@ class AnnotationBindingCoverageTest {
     }
 
     @Test
+    void binderAcceptsSuggestionContextAndSuggestionSetProviders() throws Exception {
+        InvocationFailureCommands target = new InvocationFailureCommands();
+        ArgumentParseContext parseContext = new ArgumentParseContext(
+            source(),
+            CommandInput.raw(source(), "bad A"),
+            "target",
+            String.class,
+            "A",
+            4,
+            5,
+            SuggestionType.ARGUMENT
+        );
+
+        assertEquals(List.of("ctxset:target:A"),
+            providerWithSuggestionContext(target, "withSuggestionContext").provider().suggestions(parseContext));
+        assertEquals(List.of(new Suggestion("Ada", Optional.of("online"), 4, 5, SuggestionType.ARGUMENT, 3)),
+            provider(target, "set").provider().richSuggestions(parseContext));
+    }
+
+    @Test
     void binderRejectsInvalidMetadataMiddlewareAndSuggestionProviders() throws Exception {
         assertBindError(new BadUsageCommands(), "bad", "usage must not be blank", CommandContext.class);
         assertBindError(new BadExampleCommands(), "bad", "example must not be blank", CommandContext.class);
@@ -108,7 +130,10 @@ class AnnotationBindingCoverageTest {
             "command middleware must declare a no-arg constructor: "
                 + BadConstructorMiddleware.class.getName(), CommandContext.class);
         assertBindError(new BadSuggestionSignatureCommands(), "bad",
-            "@Suggest provider must return List and accept zero args or ArgumentParseContext: broken",
+            "@Suggest provider must return List or SuggestionSet and accept zero args, ArgumentParseContext, or SuggestionContext: broken",
+            CommandContext.class);
+        assertBindError(new BadSuggestionParameterCommands(), "bad",
+            "@Suggest provider must return List or SuggestionSet and accept zero args, ArgumentParseContext, or SuggestionContext: broken",
             CommandContext.class);
     }
 
@@ -131,7 +156,7 @@ class AnnotationBindingCoverageTest {
         assertEquals(List.of("ctx:target"), providerWithContext(target, "withContext").provider().suggestions(parseContext()));
         assertEquals(List.of(new Suggestion("Rich", Optional.empty(), 4, 4, SuggestionType.ARGUMENT, 1)),
             provider(target, "rich").provider().richSuggestions(parseContext()));
-        assertEquals("suggestion provider did not return a List: notAList",
+        assertEquals("suggestion provider did not return a List or SuggestionSet: notAList",
             assertThrows(IllegalStateException.class, () -> invokePrivateProvider(target, "notAList"))
                 .getMessage());
         assertEquals("cannot invoke suggestion provider: privateStrings",
@@ -260,6 +285,15 @@ class AnnotationBindingCoverageTest {
 
     private static MethodCommandBinder.SuggestionBinding providerWithContext(Object target, String methodName) throws Exception {
         Method method = method(InvocationFailureCommands.class, methodName, ArgumentParseContext.class);
+        method.setAccessible(true);
+        return provider(target, method);
+    }
+
+    private static MethodCommandBinder.SuggestionBinding providerWithSuggestionContext(
+        Object target,
+        String methodName
+    ) throws Exception {
+        Method method = method(InvocationFailureCommands.class, methodName, SuggestionContext.class);
         method.setAccessible(true);
         return provider(target, method);
     }
@@ -414,6 +448,17 @@ class AnnotationBindingCoverageTest {
         }
     }
 
+    static final class BadSuggestionParameterCommands {
+        CommandResult bad(@RouteCtx CommandContext context) {
+            return Results.silent();
+        }
+
+        @Suggest("target")
+        List<String> broken(String ignored) {
+            return List.of(ignored);
+        }
+    }
+
     static final class NullSuggestionCommands {
         CommandResult bad(@RouteCtx CommandContext context) {
             return Results.silent();
@@ -505,6 +550,17 @@ class AnnotationBindingCoverageTest {
 
         List<String> withContext(ArgumentParseContext context) {
             return List.of("ctx:" + context.name());
+        }
+
+        SuggestionSet withSuggestionContext(SuggestionContext context) {
+            return SuggestionSet.of("ctxset:" + context.name() + ":" + context.currentToken());
+        }
+
+        SuggestionSet set() {
+            return SuggestionSet.of("Ada", "Bob")
+                .filteringCurrentToken()
+                .tooltip("online")
+                .priority(3);
         }
 
         List<Suggestion> rich() {

@@ -32,6 +32,7 @@ import dev.riege.buildmycommand.examples.minecraft.MinecraftBrigadierExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftLoaderAdaptersExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftNativeAdapterExample;
 import dev.riege.buildmycommand.examples.permissions.PermissionExample;
+import dev.riege.buildmycommand.examples.suggestions.DynamicSuggestionSetExample;
 import dev.riege.buildmycommand.examples.suggestions.SuggestionExample;
 import dev.riege.buildmycommand.examples.testing.TestKitExample;
 import org.junit.jupiter.api.Test;
@@ -209,6 +210,16 @@ class ExampleSmokeTest {
         assertEquals(CommandResult.Status.FAILURE,
             SuggestionExample.create().dispatch(source(), "message \"\" hello").status());
         assertEquals(List.of("Ada", "Alex"), SuggestionExample.suggestTargets("message A", 9));
+        assertEquals(List.of("Ada", "Alex"),
+            DynamicSuggestionSetExample.suggestAnnotation(List.of("Ada", "Alex", "Bob"), "party invite A", 14));
+        assertEquals(List.of("Bob"),
+            DynamicSuggestionSetExample.suggestBuilder(List.of("Ada", "Alex", "Bob"), "party invite B", 14));
+        assertEquals(List.of("Ada:online player"),
+            DynamicSuggestionSetExample.richTooltipValues(List.of("Ada", "Bob"), "party invite A"));
+        assertEquals(List.of(), DynamicSuggestionSetExample.suggestWithoutPlayerMetadata("party invite A", 14));
+        assertSuccess(DynamicSuggestionSetExample.dispatchAnnotation("party invite Ada"), "invite Ada");
+        assertSuccess(DynamicSuggestionSetExample.dispatchBuilder("party invite Bob"), "invite Bob");
+        assertEquals(Optional.empty(), DynamicSuggestionSetExample.metadata(List.of("Ada"), "world"));
         assertSuccess(TestKitExample.exerciseCommand(), "Banned Ada");
     }
 

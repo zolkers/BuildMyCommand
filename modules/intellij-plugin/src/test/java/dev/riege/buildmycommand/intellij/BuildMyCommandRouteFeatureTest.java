@@ -137,6 +137,52 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertEquals(List.of(PsiLiteralExpression.class), injector.elementsToInjectIn());
     }
 
+    public void testRequirementLiteralMatcherAndInjectorUseRequirementLanguageOnly() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @dev.riege.buildmycommand.annotation.Require("staff && !banned")
+                @Require("")
+                @Permission("plain.node")
+                void annotated() {
+                    registry.route("admin reload")
+                        .requirement("owner || staff")
+                        .permission("admin.reload");
+                    String plain = "staff && owner";
+                }
+            }
+            """);
+        PsiLiteralExpression annotation = literal(file, "staff && !banned");
+        PsiLiteralExpression builder = literal(file, "owner || staff");
+        PsiLiteralExpression empty = literal(file, "");
+        PsiLiteralExpression permission = literal(file, "plain.node");
+        PsiLiteralExpression plain = literal(file, "staff && owner");
+        PsiLiteralExpression orphanAnnotationValue = literalWithParent(nameValuePairWithParent(null));
+        PsiLiteralExpression orphanRequirementCall = literalWithParent(expressionListForMethodCall("requirement",
+            new PsiExpression[] {literalWithText("\"route\"")}, file));
+        PsiLiteralExpression emptyRequirementCall = literalWithParent(expressionListForMethodCall("requirement",
+            new PsiExpression[0], null));
+        RecordingRegistrar registrar = new RecordingRegistrar();
+        BuildMyCommandRequirementInjector injector = new BuildMyCommandRequirementInjector();
+
+        assertTrue(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(annotation));
+        assertTrue(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(builder));
+        assertFalse(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(permission));
+        assertFalse(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(plain));
+        assertFalse(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(orphanAnnotationValue));
+        assertFalse(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(orphanRequirementCall));
+        assertFalse(BuildMyCommandRequirementLiteralMatcher.isRequirementLiteral(emptyRequirementCall));
+
+        injector.getLanguagesToInject(registrar, annotation);
+        injector.getLanguagesToInject(new RecordingRegistrar(), permission);
+        injector.getLanguagesToInject(new RecordingRegistrar(), empty);
+
+        assertSame(BuildMyCommandRequirementLanguage.INSTANCE, registrar.language);
+        assertSame(annotation, registrar.host);
+        assertEquals(TextRange.create(1, annotation.getText().length() - 1), registrar.range);
+        assertTrue(registrar.done);
+        assertEquals(List.of(PsiLiteralExpression.class), injector.elementsToInjectIn());
+    }
+
     public void testAnnotatorHighlightsAndWarnsForRouteDsl() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -161,6 +207,44 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(holder.records.stream().anyMatch(record ->
             record.severity == HighlightSeverity.WARNING
                 && "Unknown argument type: Player".equals(record.message)));
+    }
+
+    public void testRequirementAnnotatorHighlightsBooleanDslAndWarnsMalformedExpressions() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @dev.riege.buildmycommand.annotation.Require("staff && (!banned || owner)")
+                void valid() {
+                }
+
+                @Require("staff && (owner || )")
+                void invalid() {
+                    String plain = "staff && owner";
+                }
+            }
+            """);
+        PsiLiteralExpression valid = literal(file, "staff && (!banned || owner)");
+        PsiLiteralExpression invalid = literal(file, "staff && (owner || )");
+        PsiLiteralExpression plain = literal(file, "staff && owner");
+        RecordingAnnotationHolder holder = new RecordingAnnotationHolder();
+        BuildMyCommandRequirementAnnotator annotator = new BuildMyCommandRequirementAnnotator();
+
+        annotator.annotate(file, holder.proxy());
+        annotator.annotate(plain, holder.proxy());
+        annotator.annotate(valid, holder.proxy());
+        annotator.annotate(invalid, holder.proxy());
+
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandRequirementSyntaxHighlighter.PERMISSION.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandRequirementSyntaxHighlighter.OPERATOR.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandRequirementSyntaxHighlighter.GROUPING.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.WARNING
+                && BuildMyCommandRequirementDsl.MISSING_OPERAND.equals(record.message)));
     }
 
     public void testInspectionReportsRouteContractAndDslProblems() {
@@ -357,6 +441,8 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
     public void testSyntaxHighlighterMapsEveryTokenAndFallback() {
         BuildMyCommandRouteSyntaxHighlighter highlighter = new BuildMyCommandRouteSyntaxHighlighter();
+        BuildMyCommandRequirementSyntaxHighlighter requirementHighlighter =
+            new BuildMyCommandRequirementSyntaxHighlighter();
 
         assertHighlight(highlighter, BuildMyCommandRouteTokenType.LITERAL, BuildMyCommandRouteSyntaxHighlighter.LITERAL);
         assertHighlight(highlighter, BuildMyCommandRouteTokenType.ARGUMENT, BuildMyCommandRouteSyntaxHighlighter.ARGUMENT);
@@ -367,10 +453,21 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertHighlight(highlighter, BuildMyCommandRouteTokenType.MARKUP, BuildMyCommandRouteSyntaxHighlighter.MARKUP);
         assertEquals(0, highlighter.getTokenHighlights(TokenType.WHITE_SPACE).length);
         assertNotNull(new BuildMyCommandRouteSyntaxHighlighterFactory().getSyntaxHighlighter(null, null));
+        assertRequirementHighlight(requirementHighlighter, BuildMyCommandRequirementTokenType.PERMISSION,
+            BuildMyCommandRequirementSyntaxHighlighter.PERMISSION);
+        assertRequirementHighlight(requirementHighlighter, BuildMyCommandRequirementTokenType.OPERATOR,
+            BuildMyCommandRequirementSyntaxHighlighter.OPERATOR);
+        assertRequirementHighlight(requirementHighlighter, BuildMyCommandRequirementTokenType.NEGATION,
+            BuildMyCommandRequirementSyntaxHighlighter.OPERATOR);
+        assertRequirementHighlight(requirementHighlighter, BuildMyCommandRequirementTokenType.GROUPING,
+            BuildMyCommandRequirementSyntaxHighlighter.GROUPING);
+        assertEquals(0, requirementHighlighter.getTokenHighlights(TokenType.WHITE_SPACE).length);
+        assertNotNull(new BuildMyCommandRequirementSyntaxHighlighterFactory().getSyntaxHighlighter(null, null));
     }
 
     public void testLexerCoversWhitespaceOffsetsAndTokenBoundaries() {
         Lexer lexer = new BuildMyCommandRouteLexer();
+        Lexer requirementLexer = new BuildMyCommandRequirementLexer();
 
         lexer.start("  give <target:String> . ! - [--flag|-f]", 2, 39, 0);
         assertEquals(0, lexer.getState());
@@ -412,6 +509,26 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertEquals(BuildMyCommandRouteTokenType.LITERAL, lexer.getTokenType());
         lexer.start("_", 0, 1, 0);
         assertEquals(BuildMyCommandRouteTokenType.LITERAL, lexer.getTokenType());
+
+        requirementLexer.start(" staff && (!banned || owner)", 1, 28, 0);
+        assertEquals(BuildMyCommandRequirementTokenType.PERMISSION, requirementLexer.getTokenType());
+        assertEquals("staff", tokenText(requirementLexer));
+        requirementLexer.advance();
+        assertEquals(TokenType.WHITE_SPACE, requirementLexer.getTokenType());
+        requirementLexer.advance();
+        assertEquals(BuildMyCommandRequirementTokenType.OPERATOR, requirementLexer.getTokenType());
+        requirementLexer.advance();
+        requirementLexer.advance();
+        assertEquals(BuildMyCommandRequirementTokenType.GROUPING, requirementLexer.getTokenType());
+        requirementLexer.advance();
+        assertEquals(BuildMyCommandRequirementTokenType.NEGATION, requirementLexer.getTokenType());
+        requirementLexer.start("$", 0, 1, 0);
+        assertEquals(BuildMyCommandRequirementTokenType.PERMISSION, requirementLexer.getTokenType());
+        assertEquals(0, requirementLexer.getState());
+        assertEquals(1, requirementLexer.getBufferEnd());
+        requirementLexer.advance();
+        assertNull(requirementLexer.getTokenType());
+        assertEquals(1, requirementLexer.getTokenStart());
     }
 
     public void testDslValidationCoversMalformedInputsAndCompletionFallbacks() throws Exception {
@@ -552,10 +669,18 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
     }
 
     private static PsiExpressionList expressionListForRouteCall(PsiExpression[] expressions) {
+        return expressionListForMethodCall("route", expressions, null);
+    }
+
+    private static PsiExpressionList expressionListForMethodCall(
+        String methodName,
+        PsiExpression[] expressions,
+        PsiElement parentOverride
+    ) {
         PsiReferenceExpression methodExpression = (PsiReferenceExpression) Proxy.newProxyInstance(
             PsiReferenceExpression.class.getClassLoader(),
             new Class<?>[] {PsiReferenceExpression.class},
-            (proxy, method, args) -> "getReferenceName".equals(method.getName()) ? "route" : null
+            (proxy, method, args) -> "getReferenceName".equals(method.getName()) ? methodName : null
         );
         PsiMethodCallExpression call = (PsiMethodCallExpression) Proxy.newProxyInstance(
             PsiMethodCallExpression.class.getClassLoader(),
@@ -566,7 +691,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
             PsiExpressionList.class.getClassLoader(),
             new Class<?>[] {PsiExpressionList.class},
             (proxy, method, args) -> switch (method.getName()) {
-                case "getParent" -> call;
+                case "getParent" -> parentOverride == null ? call : parentOverride;
                 case "getExpressions" -> expressions;
                 default -> null;
             }
@@ -579,6 +704,14 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
     private static void assertHighlight(
         BuildMyCommandRouteSyntaxHighlighter highlighter,
+        IElementType tokenType,
+        TextAttributesKey key
+    ) {
+        assertEquals(key, highlighter.getTokenHighlights(tokenType)[0]);
+    }
+
+    private static void assertRequirementHighlight(
+        BuildMyCommandRequirementSyntaxHighlighter highlighter,
         IElementType tokenType,
         TextAttributesKey key
     ) {

@@ -353,6 +353,15 @@ class ApiContractTest {
     @Test
     void parseResultsSuggestionsAndProvidersValidateShape() {
         CommandSource source = new CommandSource() {
+            @Override
+            public Optional<Object> metadata(String key) {
+                return "players".equals(key) ? Optional.of(List.of("Ada", "Alex", "Bob")) : Optional.empty();
+            }
+
+            @Override
+            public <T> Optional<T> unwrap(Class<T> type) {
+                return type == String.class ? Optional.of(type.cast("native-source")) : Optional.empty();
+            }
         };
         ArgumentParseContext context = new ArgumentParseContext(
             source,
@@ -366,6 +375,7 @@ class ApiContractTest {
         );
         ArgumentParser<String> parser = (rawToken, parseContext) -> ArgumentParseResult.success(rawToken);
         SuggestionProvider provider = ctx -> List.of("Ada", "Alex");
+        SuggestionContext suggestionContext = SuggestionContext.from(context);
 
         assertEquals(Optional.of("Ada"), ArgumentParseResult.success("Ada").value());
         assertEquals(Optional.of("bad"), ArgumentParseResult.failure("bad").failure());
@@ -374,6 +384,48 @@ class ApiContractTest {
             new Suggestion("Ada", Optional.empty(), 5, 6, SuggestionType.ARGUMENT, 0),
             new Suggestion("Alex", Optional.empty(), 5, 6, SuggestionType.ARGUMENT, 0)
         ), provider.richSuggestions(context));
+        assertSame(context, suggestionContext.parseContext());
+        assertEquals(source, suggestionContext.source());
+        assertEquals(context.input(), suggestionContext.input());
+        assertEquals("target", suggestionContext.name());
+        assertEquals(String.class, suggestionContext.type());
+        assertEquals("A", suggestionContext.currentToken());
+        assertEquals(5, suggestionContext.replacementStart());
+        assertEquals(6, suggestionContext.replacementEnd());
+        assertEquals(SuggestionType.ARGUMENT, suggestionContext.suggestionType());
+        assertEquals(Optional.of(List.of("Ada", "Alex", "Bob")), suggestionContext.sourceMetadata("players"));
+        assertEquals(Optional.of("native-source"), suggestionContext.unwrapSource(String.class));
+        assertEquals(List.of(
+            new Suggestion("Ada", Optional.of("online"), 5, 6, SuggestionType.ARGUMENT, 5),
+            new Suggestion("Alex", Optional.of("online"), 5, 6, SuggestionType.ARGUMENT, 5)
+        ), SuggestionSet.of("Ada", "Alex", "Bob")
+            .filteringCurrentToken()
+            .tooltip("online")
+            .priority(5)
+            .limit(2)
+            .toSuggestions(suggestionContext));
+        assertEquals(List.of(new Suggestion("Rich", Optional.of("rich tooltip"), 5, 6, SuggestionType.ARGUMENT, 7)),
+            SuggestionSet.rich(List.of(new Suggestion("Rich", Optional.of("rich tooltip"), 0, 0,
+                SuggestionType.COMMAND, 7))).toSuggestions(suggestionContext));
+        assertEquals(List.of("Bob"), Suggestions.dynamic(ctx -> SuggestionSet.of(
+            ctx.sourceMetadata("players")
+                .filter(List.class::isInstance)
+                .map(List.class::cast)
+                .orElse(List.of())
+        )
+            .filteringCurrentToken()
+        ).suggestions(new ArgumentParseContext(
+            source,
+            CommandInput.raw(source, "ping B"),
+            "target",
+            String.class,
+            "B",
+            5,
+            6,
+            SuggestionType.ARGUMENT
+        )));
+        assertEquals(List.of("one", "two"), Suggestions.list("one", "two").suggestions(context));
+        assertEquals(List.of(), Suggestions.set(SuggestionSet.empty()).suggestions(context));
 
         assertThrows(NullPointerException.class, () -> ArgumentParseResult.success(null));
         assertThrows(NullPointerException.class, () -> ArgumentParseResult.failure(null));
@@ -396,6 +448,16 @@ class ApiContractTest {
             ""), "x", String.class, "", 2, 1, SuggestionType.ARGUMENT));
         assertThrows(IllegalArgumentException.class, () -> new ArgumentParseContext(source, CommandInput.raw(source,
             ""), "x", String.class, "", -1, 0, SuggestionType.ARGUMENT));
+        assertThrows(NullPointerException.class, () -> SuggestionContext.from(null));
+        assertThrows(NullPointerException.class, () -> suggestionContext.unwrapSource(null));
+        assertThrows(NullPointerException.class, () -> SuggestionSet.of((String[]) null));
+        assertThrows(NullPointerException.class, () -> SuggestionSet.of((List<String>) null));
+        assertThrows(NullPointerException.class, () -> SuggestionSet.rich(null));
+        assertThrows(NullPointerException.class, () -> SuggestionSet.of("Ada").tooltip(null));
+        assertThrows(IllegalArgumentException.class, () -> SuggestionSet.of("Ada").limit(0));
+        assertThrows(NullPointerException.class, () -> SuggestionSet.of("Ada").toSuggestions(null));
+        assertThrows(NullPointerException.class, () -> Suggestions.dynamic(null));
+        assertThrows(NullPointerException.class, () -> Suggestions.set(null));
     }
 
     @Test

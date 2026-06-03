@@ -12,6 +12,8 @@ import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionContext;
+import dev.riege.buildmycommand.api.SuggestionSet;
 import dev.riege.buildmycommand.api.SuggestionType;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
@@ -102,6 +104,19 @@ class AnnotationCommandScannerTest {
               cooldown PT30S
               require perm.a && perm.b
               argument target:String required suggest=target""", framework.schema());
+    }
+
+    @Test
+    void routeDslSuggestionsCanUseSuggestionContextAndSuggestionSets() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new DynamicSuggestionCommands());
+
+        assertEquals(List.of("Ada", "Alex"), framework.suggest(sourceWithMetadata("players", List.of("Ada", "Alex",
+            "Bob")), "party invite A", 14));
+        assertEquals(List.of(new Suggestion("Bob", Optional.of("online player"), 13, 14, SuggestionType.ARGUMENT, 4)),
+            framework.suggestRich(CommandInput.raw(sourceWithMetadata("players", List.of("Ada", "Alex", "Bob")),
+                "party invite B")));
     }
 
     @Test
@@ -321,6 +336,15 @@ class AnnotationCommandScannerTest {
         };
     }
 
+    private static CommandSource sourceWithMetadata(String key, Object value) {
+        return new CommandSource() {
+            @Override
+            public Optional<Object> metadata(String requestedKey) {
+                return key.equals(requestedKey) ? Optional.of(value) : Optional.empty();
+            }
+        };
+    }
+
     private static void assertTargets(Class<?> annotation, ElementType... expectedTargets) {
         Target target = annotation.getAnnotation(Target.class);
         assertNotNull(target, annotation.getName());
@@ -405,6 +429,25 @@ class AnnotationCommandScannerTest {
                 new Suggestion("Bob", Optional.empty(), context.replacementStart(), context.replacementEnd(),
                     context.suggestionType(), 0)
             );
+        }
+    }
+
+    static final class DynamicSuggestionCommands {
+        @Route("party invite <target:String>")
+        CommandResult invite(@RouteCtx CommandContext route) {
+            return Results.success("invite " + route.arg("target", String.class));
+        }
+
+        @Suggest("target")
+        SuggestionSet players(SuggestionContext context) {
+            List<?> players = context.sourceMetadata("players")
+                .filter(List.class::isInstance)
+                .map(List.class::cast)
+                .orElse(List.of());
+            return SuggestionSet.of(players.stream().map(String::valueOf).toList())
+                .filteringCurrentToken()
+                .tooltip("online player")
+                .priority(4);
         }
     }
 

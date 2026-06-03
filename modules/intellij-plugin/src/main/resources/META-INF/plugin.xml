@@ -18,8 +18,10 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
+        <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementInjector"/>
         <implicitUsageProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandImplicitUsageProvider"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteAnnotator"/>
+        <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementAnnotator"/>
         <completion.contributor language="BuildMyCommandRoute"
                                 implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteCompletionContributor"/>
         <localInspection language="JAVA"
@@ -31,6 +33,8 @@
                          implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInspection"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRoute"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
+        <lang.syntaxHighlighterFactory language="BuildMyCommandRequirement"
+                                       implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementSyntaxHighlighterFactory"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
         <additionalTextAttributes scheme="Default" file="colorSchemes/BuildMyCommandRoute.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/BuildMyCommandRouteDarcula.xml"/>

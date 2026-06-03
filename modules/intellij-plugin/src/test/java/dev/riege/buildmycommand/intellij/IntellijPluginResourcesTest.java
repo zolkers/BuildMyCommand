@@ -26,8 +26,11 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("textmate.bundleProvider"));
         assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
+        assertTrue(pluginXml.contains("BuildMyCommandRequirementSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
+        assertTrue(pluginXml.contains("BuildMyCommandRequirementInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteAnnotator"));
+        assertTrue(pluginXml.contains("BuildMyCommandRequirementAnnotator"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteCompletionContributor"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInspection"));
         assertTrue(pluginXml.contains("localInspection"));
@@ -69,9 +72,13 @@ class IntellijPluginResourcesTest {
         assertTrue(light.contains("VARIABLE_PARAMETER_ARGUMENT_BUILDMYCOMMAND_ROUTE"));
         assertTrue(light.contains("STORAGE_TYPE_BUILDMYCOMMAND_ROUTE"));
         assertTrue(light.contains("ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(light.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REQUIRE"));
+        assertTrue(light.contains("KEYWORD_OPERATOR_BUILDMYCOMMAND_REQUIRE"));
+        assertTrue(light.contains("PUNCTUATION_GROUP_BUILDMYCOMMAND_REQUIRE"));
         assertTrue(dark.contains("<attributes>"));
         assertTrue(!dark.contains("<scheme"));
         assertTrue(dark.contains("TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE"));
+        assertTrue(dark.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REQUIRE"));
     }
 
     @Test
@@ -99,6 +106,19 @@ class IntellijPluginResourcesTest {
         assertHighlights(lexer, highlighter, "--duration", "ENTITY_NAME_OPTION_LONG_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "Integer", "STORAGE_TYPE_BUILDMYCOMMAND_ROUTE");
         assertHighlights(lexer, highlighter, "-d", "ENTITY_NAME_OPTION_ALIAS_BUILDMYCOMMAND_ROUTE");
+    }
+
+    @Test
+    void requirementLexerHighlightsPermissionNodesOperatorsAndGroups() {
+        BuildMyCommandRequirementSyntaxHighlighter highlighter = new BuildMyCommandRequirementSyntaxHighlighter();
+        Lexer lexer = highlighter.getHighlightingLexer();
+
+        lexer.start("staff && (!banned || owner)");
+
+        assertRequirementHighlights(lexer, highlighter, "staff", "ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REQUIRE");
+        assertRequirementHighlights(lexer, highlighter, "&&", "KEYWORD_OPERATOR_BUILDMYCOMMAND_REQUIRE");
+        assertRequirementHighlights(lexer, highlighter, "(", "PUNCTUATION_GROUP_BUILDMYCOMMAND_REQUIRE");
+        assertRequirementHighlights(lexer, highlighter, "!", "KEYWORD_OPERATOR_BUILDMYCOMMAND_REQUIRE");
     }
 
     @Test
@@ -170,6 +190,28 @@ class IntellijPluginResourcesTest {
     private static void assertHighlights(
         Lexer lexer,
         BuildMyCommandRouteSyntaxHighlighter highlighter,
+        String text,
+        String key
+    ) {
+        while (lexer.getTokenType() != null) {
+            String tokenText = lexer.getBufferSequence().subSequence(lexer.getTokenStart(), lexer.getTokenEnd()).toString();
+            if (tokenText.equals(text)) {
+                TextAttributesKey[] highlights = highlighter.getTokenHighlights(lexer.getTokenType());
+                assertTrue(
+                    Arrays.stream(highlights).anyMatch(highlight -> highlight.getExternalName().equals(key)),
+                    "Expected " + text + " to use " + key
+                );
+                lexer.advance();
+                return;
+            }
+            lexer.advance();
+        }
+        assertTrue(false, "Missing token: " + text);
+    }
+
+    private static void assertRequirementHighlights(
+        Lexer lexer,
+        BuildMyCommandRequirementSyntaxHighlighter highlighter,
         String text,
         String key
     ) {
