@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,6 +93,77 @@ class IntellijPluginResourcesTest {
 
         assertTrue(bundles.stream().anyMatch(bundle -> bundle.getName().equals("BuildMyCommand Route DSL")));
         assertTrue(bundles.stream().anyMatch(bundle -> bundle.getPath().toString().contains("buildmycommand-route")));
+    }
+
+    @Test
+    void textMateBundleProviderExtractsBundleDirectoriesFromPluginJars() throws IOException {
+        Path jar = Files.createTempFile("buildmycommand-textmate", ".jar");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry("ignored.txt"));
+            output.write("ignored".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+            output.putNextEntry(new JarEntry("textmate/buildmycommand-route/syntaxes/"));
+            output.closeEntry();
+            output.putNextEntry(new JarEntry("textmate/buildmycommand-route/package.json"));
+            output.write("{\"name\":\"buildmycommand-route\"}".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+            output.putNextEntry(new JarEntry("textmate/buildmycommand-route/syntaxes/buildmycommand-route.tmLanguage.json"));
+            output.write("{\"scopeName\":\"source.buildmycommand.route\"}".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        var bundle = BuildMyCommandTextMateBundleProvider.bundle(
+            "BuildMyCommand Route DSL",
+            new java.net.URL("jar:" + jar.toUri() + "!/textmate/buildmycommand-route")
+        );
+
+        assertTrue(Files.isDirectory(bundle.getPath()));
+        assertTrue(Files.readString(bundle.getPath().resolve("package.json")).contains("buildmycommand-route"));
+        assertTrue(Files.exists(bundle.getPath().resolve("syntaxes/buildmycommand-route.tmLanguage.json")));
+    }
+
+    @Test
+    void textMateBundleProviderRejectsJarUrlsWithoutBundleEntry() throws IOException {
+        Path jar = Files.createTempFile("buildmycommand-textmate-empty", ".jar");
+        try (JarOutputStream ignored = new JarOutputStream(Files.newOutputStream(jar))) {
+        }
+
+        IllegalStateException exception = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> BuildMyCommandTextMateBundleProvider.bundle(
+                "BuildMyCommand Route DSL",
+                new java.net.URL("jar:" + jar.toUri() + "!/")
+            ));
+
+        assertTrue(exception.getMessage().contains("Invalid BuildMyCommand TextMate bundle path"));
+    }
+
+    @Test
+    void textMateBundleProviderWrapsInvalidJarFileUrls() throws IOException {
+        IllegalStateException exception = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> BuildMyCommandTextMateBundleProvider.bundle(
+                "BuildMyCommand Route DSL",
+                new java.net.URL("jar:file:/broken[plugin.jar!/textmate/buildmycommand-route")
+            ));
+
+        assertTrue(exception.getMessage().contains("Invalid BuildMyCommand TextMate bundle path"));
+    }
+
+    @Test
+    void textMateBundleProviderRejectsEscapingJarEntries() throws IOException {
+        Path jar = Files.createTempFile("buildmycommand-textmate-escape", ".jar");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
+            output.putNextEntry(new JarEntry("textmate/buildmycommand-route/../evil.txt"));
+            output.write("nope".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        IllegalStateException exception = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> BuildMyCommandTextMateBundleProvider.bundle(
+                "BuildMyCommand Route DSL",
+                new java.net.URL("jar:" + jar.toUri() + "!/textmate/buildmycommand-route")
+            ));
+
+        assertTrue(exception.getMessage().contains("Invalid BuildMyCommand TextMate bundle path"));
     }
 
     @Test
