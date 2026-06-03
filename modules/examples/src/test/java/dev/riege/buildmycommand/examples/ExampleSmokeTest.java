@@ -13,6 +13,7 @@ import dev.riege.buildmycommand.examples.annotations.AnnotationGroupExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationMiddlewareExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationParameterExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteExample;
+import dev.riege.buildmycommand.examples.annotations.AnnotationRouteMiddlewareExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteSubcommandExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationSubcommandExample;
 import dev.riege.buildmycommand.examples.annotations.DeepAnnotationNestingExample;
@@ -137,6 +138,18 @@ class ExampleSmokeTest {
             "Moderation online [moderation/status]");
         assertSuccess(AnnotationRouteExample.create().dispatch(source("mod.punish"), "mod punish Ada spam -d 30 -s"),
             "Punished Ada for 30m silent=true: spam");
+        assertSuccess(AnnotationRouteMiddlewareExample.dispatch(
+                source("mod.punish", "staff"),
+                "mod punish Ada spam -d 30 -s"
+            ),
+            "Punished Ada for 30m silent=true: spam [moderation/punish]");
+        CommandResult annotationRouteMiddlewareDenied = AnnotationRouteMiddlewareExample.dispatch(
+            source("mod.punish"),
+            "mod punish Ada spam"
+        );
+        assertEquals(CommandResult.Status.FAILURE, annotationRouteMiddlewareDenied.status());
+        assertEquals(Optional.of("Missing permission: staff [moderation/punish]"),
+            annotationRouteMiddlewareDenied.reply());
         assertSuccess(AnnotationRouteSubcommandExample.dispatch("u roles put Ada admin -s"),
             "Set Ada to admin silent=true");
         assertSuccess(AnnotationRouteSubcommandExample.dispatch("user note add Ada hello there -p"),
