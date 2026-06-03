@@ -12,6 +12,16 @@ import java.util.concurrent.TimeUnit;
  * <p>The cooldown middleware uses this metadata to reject repeated execution until
  * the duration has elapsed for the relevant source/scope. Apply it to a group to
  * protect a subtree, or to a route method to protect only that command leaf.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @SubRoute("daily reward")
+ * @Cooldown(value = 24, unit = TimeUnit.HOURS)
+ * CommandResult reward(@RouteCtx CommandContext route) {
+ *     return Results.success("claimed");
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

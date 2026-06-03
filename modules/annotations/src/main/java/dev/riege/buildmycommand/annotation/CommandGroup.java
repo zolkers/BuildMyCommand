@@ -11,6 +11,19 @@ import java.lang.annotation.Target;
  * <p>Groups are metadata only: they do not change parsing, permissions, middleware,
  * aliases, or execution. Use them to organize generated help pages, examples, or
  * external documentation.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @Command("admin")
+ * @CommandGroup("moderation")
+ * final class AdminModerationCommands {
+ *     @SubRoute("punish <target:String>")
+ *     CommandResult punish(@RouteCtx CommandContext route) {
+ *         return Results.success("punished");
+ *     }
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

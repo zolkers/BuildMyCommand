@@ -11,6 +11,16 @@ import java.lang.annotation.Target;
  * <p>Examples should be copy-pasteable user input, usually including the platform
  * prefix when the target platform has one. Multiple examples can be declared in one
  * annotation value.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @SubRoute("punish <target:String> <reason:String...>")
+ * @Example({"/mod punish Ada spam", "/mod punish Linus griefing"})
+ * CommandResult punish(@RouteCtx CommandContext route) {
+ *     return Results.success("punished");
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

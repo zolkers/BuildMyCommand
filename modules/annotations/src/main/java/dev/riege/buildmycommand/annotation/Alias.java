@@ -17,6 +17,19 @@ import java.lang.annotation.Target;
  * <p>Aliases are command literals, not permission aliases and not option aliases.
  * Option/flag aliases belong in route DSL with {@code |-s} or in builder calls such
  * as {@code flag("silent", "s")}.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @Command("moderation")
+ * @Alias({"mod", "staff"})
+ * final class ModerationCommands {
+ *     @SubRoute("punish <target:String>")
+ *     CommandResult punish(@RouteCtx CommandContext route) {
+ *         return Results.success(route.arg("target", String.class));
+ *     }
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE, ElementType.PARAMETER})

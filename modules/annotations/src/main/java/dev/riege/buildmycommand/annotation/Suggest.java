@@ -15,6 +15,23 @@ import java.lang.annotation.Target;
  *
  * <p>The name should match an argument or option name declared in {@link Route} or
  * {@link SubRoute}, or a provider name referenced through builder metadata.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @Command("wecc")
+ * final class WeccCommands {
+ *     @SubRoute("bang <target:String>")
+ *     CommandResult bang(@RouteCtx CommandContext route) {
+ *         return Results.success(route.arg("target", String.class));
+ *     }
+ *
+ *     @Suggest("target")
+ *     SuggestionSet onlinePlayers(SuggestionContext context) {
+ *         return SuggestionSet.of("Ada", "Linus").filteringCurrentToken();
+ *     }
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

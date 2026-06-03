@@ -14,6 +14,16 @@ import java.lang.annotation.Target;
  *
  * <p>Keep descriptions operational and short. Use {@link Usage} and {@link Example}
  * for syntax and concrete samples instead of packing everything into this string.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @SubRoute("ping")
+ * @Description("Checks whether the command bridge is alive.")
+ * CommandResult ping(@RouteCtx CommandContext route) {
+ *     return Results.success("pong");
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

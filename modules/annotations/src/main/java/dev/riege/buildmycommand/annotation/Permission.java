@@ -19,6 +19,16 @@ import java.lang.annotation.Target;
  * {@code "staff || owner"} or {@code "staff && !banned"}, use {@link Require}
  * instead. The IntelliJ plugin intentionally warns when {@code @Permission} looks
  * like a boolean requirement.</p>
+ *
+ * <p>Example:</p>
+ *
+ * <pre>{@code
+ * @SubRoute("reload")
+ * @Permission("admin.reload")
+ * CommandResult reload(@RouteCtx CommandContext route) {
+ *     return Results.success("reloaded");
+ * }
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
