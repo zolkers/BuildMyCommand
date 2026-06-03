@@ -76,7 +76,8 @@ public final class SuggestionEngine {
         if (tokens.isEmpty() || (tokens.size() == 1 && !prefixInput.endsWith(" "))) {
             return registry.roots().stream()
                 .filter(command -> CommandPermissions.canDiscover(source, List.of(command), command))
-                .map(RegistryCommandNode::literal)
+                .flatMap(command -> command.literals().stream())
+                .distinct()
                 .filter(literal -> startsWith(literal, current))
                 .map(value -> new Suggestion(value, Optional.empty(), replacementStart, replacementEnd,
                     typeFor(value, current), 0))
@@ -129,7 +130,8 @@ public final class SuggestionEngine {
                 return List.of();
             }
             return command.options().stream()
-                .map(option -> "--" + option.name())
+                .flatMap(option -> optionLabels(option).stream())
+                .distinct()
                 .filter(name -> optionStartsWith(name, current))
                 .map(value -> new Suggestion(value, Optional.empty(), replacementStart, replacementEnd,
                     typeFor(value, current), 0))
@@ -157,10 +159,10 @@ public final class SuggestionEngine {
         }
 
         List<RegistryCommandNode> suggestionPath = matchedNodes;
-        return command.children().values().stream()
-            .distinct()
+        return command.uniqueChildren().stream()
             .filter(child -> CommandPermissions.canDiscover(source, CommandPermissions.append(suggestionPath, child), child))
-            .map(RegistryCommandNode::literal)
+            .flatMap(child -> child.literals().stream())
+            .distinct()
             .filter(literal -> startsWith(literal, current))
             .map(value -> new Suggestion(value, Optional.empty(), replacementStart, replacementEnd,
                 typeFor(value, current), 0))
@@ -272,6 +274,13 @@ public final class SuggestionEngine {
             return token.length() > 2;
         }
         return token.length() > 1 && token.charAt(0) == '-' && !Character.isDigit(token.charAt(1));
+    }
+
+    private static List<String> optionLabels(RegistryOptionSpec option) {
+        List<String> labels = new ArrayList<>();
+        labels.add("--" + option.name());
+        option.aliasOptional().ifPresent(alias -> labels.add("-" + alias));
+        return labels;
     }
 
     private static ArgumentParseContext context(

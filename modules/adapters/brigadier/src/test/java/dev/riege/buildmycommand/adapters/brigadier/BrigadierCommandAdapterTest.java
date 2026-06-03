@@ -15,6 +15,7 @@ import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,7 +47,7 @@ class BrigadierCommandAdapterTest {
 
         assertEquals("user", root.getName());
         assertNotNull(target.getCustomSuggestions());
-        assertTrue(target.getChild("_bmc_flags").getName().startsWith("_bmc_flags"));
+        assertTrue(target.getChild("_bmc_input").getName().startsWith("_bmc_input"));
         assertEquals(1, result);
         assertEquals("Ada:true", executed.get());
     }
@@ -64,6 +65,25 @@ class BrigadierCommandAdapterTest {
 
         assertEquals("p", alias.getName());
         assertEquals("ping", alias.getRedirect().getName());
+    }
+
+    @Test
+    void dispatcherExecutesNestedLiteralAliasesThroughFramework() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        AtomicReference<String> executed = new AtomicReference<>();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("user rank|roles set|put <target:String>")
+            .executes(ctx -> {
+                executed.set(ctx.arg("target", String.class));
+                return Results.success("ok");
+            });
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(1, dispatcher.execute("user roles put Ada", new NativeSource()));
+        assertEquals("Ada", executed.get());
     }
 
     @Test
@@ -123,8 +143,113 @@ class BrigadierCommandAdapterTest {
         assertEquals("ping", dispatcher.getRoot().getChild("p").getRedirect().getName());
     }
 
+    @Test
+    void dispatcherHonorsFrameworkCaseInsensitiveLiteralsThroughFallbackTunnel() throws Exception {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .caseInsensitiveOptions()
+            .build();
+        AtomicReference<String> executed = new AtomicReference<>();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("admin ban <target:String> [--silent|-s]")
+            .executes(ctx -> {
+                executed.set(ctx.arg("target", String.class) + ":" + ctx.flag("silent"));
+                return Results.success("ok");
+            });
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertNotNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertEquals(1, dispatcher.execute("ADMIN ban Ada --SILENT", new NativeSource()));
+        assertEquals("Ada:true", executed.get());
+        assertEquals(1, dispatcher.execute("admin BAN Ada -S", new NativeSource()));
+        assertEquals("Ada:true", executed.get());
+    }
+
+    @Test
+    void dispatcherFallbackTunnelDelegatesSuggestionsToFramework() throws Exception {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("admin ban <target:String>")
+            .executes(ctx -> Results.success("ok"));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(List.of("admin"), suggestions(dispatcher, "A"));
+        assertEquals(List.of("ban"), suggestions(dispatcher, "admin B"));
+    }
+
+    @Test
+    void dispatcherSuggestionsIncludeAliasesAndShortOptions() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("give|grant <target:String> [--silent|-s] [--amount:Integer|-a]")
+            .executes(ctx -> Results.success("ok"));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(List.of("give", "grant"), suggestions(dispatcher, "g"));
+        assertEquals(java.util.Set.of("--silent", "-s", "--amount", "-a"),
+            java.util.Set.copyOf(suggestions(dispatcher, "give Ada -")));
+    }
+
+    @Test
+    void dispatcherDelegatesStrictFailuresToFramework() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("pong")));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertNotNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertEquals(0, dispatcher.execute("PING", new NativeSource()));
+    }
+
+    @Test
+    void dispatcherDelegatesDeniedInvalidArgumentInputToFrameworkPermissionCheck() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("user rank set <level:Integer>")
+            .permission("rank.set")
+            .executes(ctx -> Results.success("ok"));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(0, dispatcher.execute("user rank set nope", new NativeSource(false)));
+    }
+
+    @Test
+    void renderMapsOnlySuccessToBrigadierSuccessCode() {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry().command("quiet", command -> command.executes(ctx -> Results.silent()));
+
+        assertEquals(0, bridge.execute(new NativeSource(), "missing"));
+        assertEquals(0, bridge.execute(new NativeSource(), "quiet"));
+    }
+
     private static LiteralCommandNode<NativeSource> literal(LiteralCommandNode<NativeSource> parent, String name) {
         return assertInstanceOf(LiteralCommandNode.class, parent.getChild(name));
+    }
+
+    private static List<String> suggestions(CommandDispatcher<NativeSource> dispatcher, String input) throws Exception {
+        return dispatcher.getCompletionSuggestions(dispatcher.parse(input, new NativeSource()))
+            .get()
+            .getList()
+            .stream()
+            .map(com.mojang.brigadier.suggestion.Suggestion::getText)
+            .toList();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -133,9 +258,17 @@ class BrigadierCommandAdapterTest {
             StringRange.at(0), null, null, false);
     }
 
-    private record NativeSource() {
+    private record NativeSource(boolean allowed) {
+        private NativeSource() {
+            this(true);
+        }
+
         CommandSource source() {
             return new CommandSource() {
+                @Override
+                public boolean hasPermission(String permission) {
+                    return allowed;
+                }
             };
         }
     }

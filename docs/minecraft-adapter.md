@@ -32,17 +32,19 @@ The platform modules keep native Paper, Bukkit, BungeeCord, and Velocity jars at
 
 This mirrors the clean part of Imperat's Brigadier integration: a dedicated Brigadier manager wraps the native source, maps framework argument metadata to Brigadier argument types, projects the internal command tree, and sends execution plus suggestions back through the framework dispatcher. BuildMyCommand keeps that model in `adapters/brigadier`, while Minecraft modules only exist when platform APIs add lifecycle, ownership, or non-Brigadier command behavior.
 
+The Brigadier projection deliberately avoids making Brigadier the final parser. Non-greedy framework arguments are registered as string nodes, greedy arguments stay greedy, and a `_bmc_input` fallback argument delegates unmatched tails back to the framework. This means framework-owned behavior still applies for argument conversion, permission failures, option and flag aliases, nested route aliases, case-insensitive literals/options, and rich suggestions. Brigadier remains useful for client-visible command trees, but BuildMyCommand remains the authority.
+
 `MinecraftBackendProfile` and `MinecraftBackendProfiles` describe capabilities and edge cases per backend. These profiles are tested so adapters do not silently forget platform-specific constraints.
 
 Spigot, Paper, BungeeCord, and Velocity expose native command adapter factories. Paper, Velocity, Fabric, Forge, NeoForge, Sponge, and Minestom can consume the shared Brigadier adapter through their native registration hooks instead of duplicating parsing, permission checks, suggestions, or dispatch behavior.
 
-`CommandFramework.builder().caseInsensitiveLiterals()` and `caseInsensitiveOptions()` make the core dispatcher tolerant once input reaches BuildMyCommand. Native Brigadier literal nodes compare the input with the literal exactly while parsing, so a plain `literal(...)` projection cannot make arbitrary-cased literals parse on its own. Use the native adapter path whenever the platform can route `label + args[]` to BuildMyCommand. Use Brigadier projection when the platform requires a native command tree for client-visible syntax, native completions, and loader registration. A future hybrid strategy can register a Brigadier catch-all argument under each root label, but that is deliberately separate because it changes the shape of the native command tree.
+`CommandFramework.builder().caseInsensitiveLiterals()` and `caseInsensitiveOptions()` make the core dispatcher tolerant once input reaches BuildMyCommand. Native Brigadier literal nodes compare the input with the literal exactly while parsing, so the adapter also registers framework fallback tunnels that forward unmatched input to BuildMyCommand. Use the native adapter path whenever the platform can route `label + args[]` to BuildMyCommand. Use Brigadier projection when the platform requires a native command tree for client-visible syntax, native completions, and loader registration.
 
 ## Adapter Selection
 
 - `MinecraftNativeCommandAdapter`: best for Spigot, Bukkit, Paper fallback command map, BungeeCord, and Velocity simple/raw commands. It preserves the framework as the real parser and is the path for case-insensitive command policies.
-- `BrigadierCommandAdapter`: best for any API that exposes a `CommandDispatcher<S>`, including Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom. It exports literals, arguments, permissions, aliases, and suggestions, but Brigadier literal matching remains exact before execution reaches the framework.
-- Hybrid registration: reserve for platforms where both native tree visibility and framework-level permissive matching are required. The adapter layer should expose it explicitly instead of hiding it behind `brigadierBridge(...)`.
+- `BrigadierCommandAdapter`: best for any API that exposes a `CommandDispatcher<S>`, including Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom. It exports literals, argument positions, aliases, and suggestions while delegating framework semantics back to core through executors and `_bmc_input` fallback nodes.
+- Hybrid platform registration: reserve for hosts that need both Brigadier registration and a separate non-Brigadier command API. Keep that composition in the platform module or user integration code; do not duplicate parsing outside core.
 
 ## Backend Edge Cases
 

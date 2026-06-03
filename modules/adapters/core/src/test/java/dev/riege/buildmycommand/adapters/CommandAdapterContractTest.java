@@ -82,8 +82,8 @@ class CommandAdapterContractTest {
             2
         );
 
-        assertEquals(List.of("ping"), adapter.suggest(new NativeSource("1", "Ada"), new NativeInput("!P", 2), 2));
-        assertEquals(List.of("ping"), richSuggestions.stream().map(Suggestion::value).toList());
+        assertEquals(List.of("ping", "p"), adapter.suggest(new NativeSource("1", "Ada"), new NativeInput("!P", 2), 2));
+        assertEquals(List.of("ping", "p"), richSuggestions.stream().map(Suggestion::value).toList());
         assertEquals(new AdapterMatchingPolicy(true, true, true), adapter.matchingPolicy());
     }
 

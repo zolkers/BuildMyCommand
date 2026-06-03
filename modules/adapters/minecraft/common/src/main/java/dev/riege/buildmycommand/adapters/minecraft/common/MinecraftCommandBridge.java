@@ -10,6 +10,7 @@ import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.List;
@@ -97,6 +98,13 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
     }
 
     @Override
+    public List<Suggestion> suggestRich(S source, MinecraftInvocation invocation, int cursor) {
+        Objects.requireNonNull(invocation, "invocation");
+        Objects.requireNonNull(source, "source");
+        return runtime.framework().suggestRich(input(source, invocation, cursor));
+    }
+
+    @Override
     public AdapterRuntime runtime() {
         return runtime;
     }
@@ -131,8 +139,12 @@ public final class MinecraftCommandBridge<S> implements CommandAdapter<S, Minecr
     }
 
     private CommandInput input(S source, MinecraftInvocation invocation) {
+        return input(source, invocation, invocation.cursor());
+    }
+
+    private CommandInput input(S source, MinecraftInvocation invocation, int normalizedCursor) {
         String prefix = invocation.rawInput().startsWith("/") ? "/" : "";
-        int cursor = prefix.isEmpty() ? invocation.cursor() : invocation.cursor() + prefix.length();
+        int cursor = prefix.isEmpty() ? normalizedCursor : normalizedCursor + prefix.length();
         return new CommandInput(
             mapSource(source),
             invocation.rawInput(),

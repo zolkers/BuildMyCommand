@@ -50,3 +50,12 @@ The Brigadier adapter follows the same architecture as frameworks such as Impera
 command model, project that model into Brigadier nodes, wrap native sources into framework sources,
 map argument types at the projection boundary, and delegate execution/suggestions back to the
 framework. In BuildMyCommand this lives in `BrigadierCommandAdapter` and `BrigadierRegistration`.
+
+BuildMyCommand treats Brigadier as a native visibility and completion surface, not as the command
+source of truth. Literal and argument nodes are projected so hosts can expose a normal Brigadier
+tree, but execution, permissions, option parsing, aliases, case policy, and suggestions delegate
+back to `CommandFramework`. The adapter intentionally projects non-greedy arguments as string
+arguments so Brigadier does not reject framework-valid input before BuildMyCommand can parse it.
+A `_bmc_input` greedy fallback is registered under projected nodes and at dispatcher root so
+case-insensitive literals, strict failures, short options, nested aliases, and framework suggestions
+can still be handled by the core dispatcher when Brigadier's exact parser would otherwise stop early.

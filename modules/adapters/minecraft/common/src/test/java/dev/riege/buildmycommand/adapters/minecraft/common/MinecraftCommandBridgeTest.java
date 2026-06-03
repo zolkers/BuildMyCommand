@@ -101,12 +101,38 @@ class MinecraftCommandBridgeTest {
     @Test
     void exposesSuggestionsForMinecraftCommandBackends() {
         CommandFramework framework = CommandFramework.create();
-        framework.registry().route("gamemode set <target:String>").executes(ctx -> Results.silent());
+        framework.registry()
+            .route("gamemode|gm set|apply <target:String> [--silent|-s]")
+            .executes(ctx -> Results.silent());
 
         MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(framework, sender -> new CommandSource() {
         });
 
         assertEquals(List.of("gamemode"), bridge.suggest(new FakeSender(Set.of()), "/ga", 3));
+        assertEquals(List.of("gamemode", "gm"), bridge.suggest(new FakeSender(Set.of()), "/g", 2));
+        assertEquals(List.of("set", "apply"), bridge.suggest(new FakeSender(Set.of()), "/gamemode ", 10));
+        assertEquals(List.of("--silent", "-s"), bridge.suggest(new FakeSender(Set.of()),
+            MinecraftInvocation.slash("/gamemode set Ada -", 19)));
+    }
+
+    @Test
+    void canUseRootLabelHonorsAliasesCasePolicyPermissionsAndUnknownLabels() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+        framework.registry()
+            .route("ban|block <target:String>")
+            .permission("mod.ban")
+            .executes(ctx -> Results.success("ok"));
+        MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(
+            framework,
+            sender -> permissionSource(sender.permissions())
+        );
+
+        assertTrue(bridge.canUseRootLabel(new FakeSender(Set.of("mod.ban")), "ban"));
+        assertTrue(bridge.canUseRootLabel(new FakeSender(Set.of("mod.ban")), "BLOCK"));
+        assertFalse(bridge.canUseRootLabel(new FakeSender(Set.of()), "block"));
+        assertTrue(bridge.canUseRootLabel(new FakeSender(Set.of()), "unknown"));
     }
 
     @Test
@@ -204,6 +230,24 @@ class MinecraftCommandBridgeTest {
         assertEquals("minecraft", adapter.runtime().platform().id());
         assertEquals("home", adapter.mapInput(new FakeSender(Set.of()), MinecraftInvocation.slash("/home", 5))
             .normalizedInput());
+    }
+
+    @Test
+    void nativeAdapterRendersFailureAndSilentResultsThroughSdkContract() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().command("quiet", command -> command.executes(ctx -> Results.silent()));
+        MinecraftNativeCommandAdapter<FakeSender> adapter = new MinecraftNativeCommandAdapter<>(
+            framework,
+            sender -> permissionSource(sender.permissions())
+        );
+
+        MinecraftRenderedResult failure = adapter.execute(new FakeSender(Set.of()), MinecraftInvocation.slash("/missing", 8));
+        MinecraftRenderedResult silent = adapter.execute(new FakeSender(Set.of()), MinecraftInvocation.slash("/quiet", 6));
+
+        assertEquals(0, failure.numericResult());
+        assertEquals(Optional.of("Unknown command: missing"), failure.message());
+        assertEquals(0, silent.numericResult());
+        assertEquals(Optional.empty(), silent.message());
     }
 
     @Test

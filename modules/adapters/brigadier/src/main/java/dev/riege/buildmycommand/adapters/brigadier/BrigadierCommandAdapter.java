@@ -3,14 +3,11 @@ package dev.riege.buildmycommand.adapters.brigadier;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.LiteralMessage;
 import com.mojang.brigadier.arguments.ArgumentType;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
 import dev.riege.buildmycommand.adapters.AdapterConfig;
@@ -31,7 +28,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, String, Integer> {
-    private static final String FLAG_TUNNEL = "_bmc_flags";
+    private static final String FRAMEWORK_TUNNEL = "_bmc_input";
 
     private final CommandFramework framework;
     private final Function<N, CommandSource> sourceMapper;
@@ -85,7 +82,6 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             LiteralCommandNode<N> rootNode = convertRoot(root).build();
             List<LiteralCommandNode<N>> aliasRoots = root.aliases().stream()
                 .map(alias -> LiteralArgumentBuilder.<N>literal(alias)
-                    .requires(rootNode.getRequirement())
                     .executes(rootNode.getCommand())
                     .redirect(rootNode)
                     .build())
@@ -99,27 +95,36 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         return framework.graph().roots().stream().map(CommandNode::literal).toList();
     }
 
+    public boolean caseInsensitiveLiterals() {
+        return framework.caseInsensitiveLiterals();
+    }
+
+    public ArgumentCommandNode<N, String> frameworkFallbackRoot() {
+        RequiredArgumentBuilder<N, String> fallback =
+            RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
+        attachFrameworkSuggestions(fallback);
+        attachExecutor(fallback);
+        return fallback.build();
+    }
+
     public BrigadierRegistration<N> registration() {
         return new BrigadierRegistration<>(this);
     }
 
     private LiteralArgumentBuilder<N> convertRoot(CommandNode node) {
-        LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal())
-            .requires(nativeSource -> canAccess(nativeSource, node));
+        LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal());
         attachExecutor(builder);
         attachNodeContents(builder, node);
         return builder;
     }
 
     private com.mojang.brigadier.tree.CommandNode<N> convertChild(CommandNode node) {
-        LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal())
-            .requires(nativeSource -> canAccess(nativeSource, node));
+        LiteralArgumentBuilder<N> builder = LiteralArgumentBuilder.<N>literal(node.literal());
         attachExecutor(builder);
         attachNodeContents(builder, node);
         com.mojang.brigadier.tree.LiteralCommandNode<N> built = builder.build();
         for (String alias : node.aliases()) {
             built.addChild(LiteralArgumentBuilder.<N>literal(alias)
-                .requires(built.getRequirement())
                 .executes(built.getCommand())
                 .redirect(built)
                 .build());
@@ -163,22 +168,23 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         for (CommandNode child : node.children()) {
             builder.then(convertChild(child));
         }
-        if (!node.flags().isEmpty()) {
-            RequiredArgumentBuilder<N, String> tunnel =
-                RequiredArgumentBuilder.argument(FLAG_TUNNEL, StringArgumentType.greedyString());
-            tunnel.suggests((context, suggestionsBuilder) -> {
-                CommandSource source = sourceMapper.apply(context.getSource());
-                CommandInput input = input(source, context.getInput(), context.getInput().length());
-                for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
-                    if (suggestion.value().startsWith("-")) {
-                        suggestionsBuilder.suggest(suggestion.value());
-                    }
-                }
-                return suggestionsBuilder.buildFuture();
-            });
-            attachExecutor(tunnel);
-            builder.then(tunnel);
-        }
+        RequiredArgumentBuilder<N, String> tunnel =
+            RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
+        attachFrameworkSuggestions(tunnel);
+        attachExecutor(tunnel);
+        builder.then(tunnel);
+    }
+
+    private void attachFrameworkSuggestions(RequiredArgumentBuilder<N, String> builder) {
+        builder.suggests((context, suggestionsBuilder) -> {
+            CommandSource source = sourceMapper.apply(context.getSource());
+            CommandInput input = input(source, context.getInput(), context.getInput().length());
+            for (dev.riege.buildmycommand.api.Suggestion suggestion : framework.suggestRich(input)) {
+                suggestionsBuilder.suggest(suggestion.value(),
+                    suggestion.tooltip().map(LiteralMessage::new).orElse(null));
+            }
+            return suggestionsBuilder.buildFuture();
+        });
     }
 
     private void attachExecutor(ArgumentBuilder<N, ?> builder) {
@@ -187,26 +193,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         });
     }
 
-    private boolean canAccess(N nativeSource, CommandNode node) {
-        return node.permission()
-            .map(permission -> sourceMapper.apply(nativeSource).hasPermission(permission))
-            .orElse(true);
-    }
-
     private static ArgumentType<?> brigadierArgument(ArgumentSpec<?> argument) {
-        Class<?> type = argument.type();
-        if (type == int.class || type == Integer.class) {
-            return IntegerArgumentType.integer();
-        }
-        if (type == long.class || type == Long.class) {
-            return LongArgumentType.longArg();
-        }
-        if (type == double.class || type == Double.class) {
-            return DoubleArgumentType.doubleArg();
-        }
-        if (type == boolean.class || type == Boolean.class) {
-            return BoolArgumentType.bool();
-        }
         if (argument.kind() == ArgumentSpec.Kind.GREEDY || argument.kind() == ArgumentSpec.Kind.OPTIONAL_GREEDY) {
             return StringArgumentType.greedyString();
         }

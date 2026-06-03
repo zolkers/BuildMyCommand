@@ -182,6 +182,38 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void suggestionsIncludeRootAndNestedAliases() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("ban|block rank|roles set|put <target:String>")
+            .executes(ctx -> Results.success("ok"));
+
+        assertEquals(List.of("ban", "block"), framework.suggest(new CommandSource() {
+        }, "b", 1));
+        assertEquals(List.of("rank", "roles"), framework.suggest(new CommandSource() {
+        }, "ban r", 5));
+        assertEquals(List.of("set", "put"), framework.suggest(new CommandSource() {
+        }, "ban rank ", 9));
+    }
+
+    @Test
+    void suggestionsIncludeLongAndShortOptionLabels() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("give <target:String> [--silent|-s] [--amount:Integer|-a]")
+            .executes(ctx -> Results.success("ok"));
+
+        assertEquals(List.of("--silent", "-s", "--amount", "-a"), framework.suggest(new CommandSource() {
+        }, "give Ada -", 10));
+        assertEquals(List.of("-s"), framework.suggest(new CommandSource() {
+        }, "give Ada -s", 11));
+        assertEquals(List.of("--amount"), framework.suggest(new CommandSource() {
+        }, "give Ada --a", 12));
+    }
+
+    @Test
     void exposesPublicCommandGraphSnapshotForAdapters() {
         CommandFramework framework = CommandFramework.create();
 
