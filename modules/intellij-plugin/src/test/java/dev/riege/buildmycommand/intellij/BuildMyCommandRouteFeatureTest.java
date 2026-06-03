@@ -44,6 +44,10 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void annotated() {
                 }
 
+                @SubRoute("branch <id:String>")
+                void shortSubRoute() {
+                }
+
                 void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
                     registry.route("call [--force|-f]", null);
                     registry.route("first", "second");
@@ -57,6 +61,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
             """);
 
         PsiLiteralExpression annotation = literal(file, "root <target:String>");
+        PsiLiteralExpression shortSubRoute = literal(file, "branch <id:String>");
         PsiLiteralExpression registry = literal(file, "call [--force|-f]");
         PsiLiteralExpression secondArgument = literal(file, "second");
         PsiLiteralExpression otherMethod = literal(file, "not route method");
@@ -78,6 +83,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiLiteralExpression emptyRouteCallArgument = literalWithParent(expressionListForRouteCall(new PsiExpression[0]));
 
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(annotation));
+        assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(shortSubRoute));
         assertTrue(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(registry));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(secondArgument));
         assertFalse(BuildMyCommandRouteLiteralMatcher.isRouteLiteral(otherMethod));
@@ -169,6 +175,33 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void shortSubRoute(@RouteCtx Object context) {
                 }
 
+                @SubRoute("orphan child")
+                void orphanSubRoute(@dev.riege.buildmycommand.annotation.RouteCtx dev.riege.buildmycommand.api.CommandContext context) {
+                }
+
+                @Command("bad root <target:String>")
+                void commandDsl() {
+                }
+
+                @Command
+                void commandWithoutValue() {
+                }
+
+                @Subcommand("orphan")
+                void orphanSubcommand() {
+                }
+
+                @dev.riege.buildmycommand.annotation.Command("owner")
+                static final class Owner {
+                    @Subcommand("bad child <target:String>")
+                    void subcommandDsl() {
+                    }
+
+                    @dev.riege.buildmycommand.annotation.Subcommand("child")
+                    void routeContextOnPlainSubcommand(@dev.riege.buildmycommand.annotation.RouteCtx dev.riege.buildmycommand.api.CommandContext context) {
+                    }
+                }
+
                 @dev.riege.buildmycommand.annotation.Route("give <target:Player>")
                 void invalid(@dev.riege.buildmycommand.annotation.Arg String target,
                              @dev.riege.buildmycommand.annotation.Option Integer amount,
@@ -192,7 +225,13 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         List<String> descriptions = holder.messages;
 
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_REQUIRED));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CONTEXT_TYPE_REQUIRED));
         assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_PARAMETER_ANNOTATIONS_FORBIDDEN));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUB_ROUTE_OWNER_REQUIRED));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_OWNER_REQUIRED));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.COMMAND_LITERAL_ONLY));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.SUBCOMMAND_LITERAL_ONLY));
+        assertTrue(descriptions.contains(BuildMyCommandRouteInspection.ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL));
         assertTrue(descriptions.contains("Unknown argument type: Player"));
         assertNotNull(file);
     }

@@ -10,6 +10,7 @@ import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
+import dev.riege.buildmycommand.core.CommandFramework;
 import dev.riege.buildmycommand.core.route.ArgumentToken;
 import dev.riege.buildmycommand.core.route.RoutePatternParser;
 import dev.riege.buildmycommand.core.support.Validators;
@@ -351,6 +352,30 @@ class RegistryModelCoverageTest {
         assertTrue(listener.events.contains("updated:root sibling"));
         assertThrows(IllegalArgumentException.class, () -> registry.route("broken [a:String] <b:String>")
             .executes(ctx -> Results.silent()));
+    }
+
+    @Test
+    void builderSupportsDeepSubcommandNestingWithoutArtificialDepthLimit() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry().command("root", root -> root
+            .subcommand("l1", l1 -> l1
+                .subcommand("l2", l2 -> l2
+                    .subcommand("l3", l3 -> l3
+                        .subcommand("l4", l4 -> l4
+                            .subcommand("l5", l5 -> l5
+                                .subcommand("l6", l6 -> l6
+                                    .subcommand("l7", l7 -> l7
+                                        .subcommand("l8", l8 -> l8
+                                            .argument("target", String.class)
+                                            .executes(ctx -> Results.success(
+                                                "deep " + ctx.arg("target", String.class))))))))))));
+
+        assertEquals(Optional.of("deep Ada"), framework.dispatch(source(Set.of()), "root l1 l2 l3 l4 l5 l6 l7 l8 Ada").reply());
+        SimpleCommandRegistry registry = (SimpleCommandRegistry) framework.registry();
+        assertEquals("l8", registry.findPath(List.of("root", "l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8"))
+            .node()
+            .literal());
     }
 
     @Test

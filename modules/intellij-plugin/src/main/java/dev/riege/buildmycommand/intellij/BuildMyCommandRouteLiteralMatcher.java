@@ -13,7 +13,9 @@ import java.util.Set;
 final class BuildMyCommandRouteLiteralMatcher {
     private static final Set<String> ROUTE_ANNOTATIONS = Set.of(
         "dev.riege.buildmycommand.annotation.Route",
-        "dev.riege.buildmycommand.annotation.SubRoute"
+        "dev.riege.buildmycommand.annotation.SubRoute",
+        "Route",
+        "SubRoute"
     );
 
     private BuildMyCommandRouteLiteralMatcher() {
