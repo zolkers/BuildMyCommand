@@ -92,7 +92,7 @@ The master plan is much broader. The largest missing areas are not only annotati
 | Generic game chat adapter | Missing | No platform-neutral game chat adapter. |
 | Discord adapter | Missing | No text/slash command adapter, ephemeral replies, Discord permissions, or slash sync. |
 | Minecraft common | Partial | Good scaffolding for profiles, invocation normalization, source descriptors, result rendering, and edge cases. Missing generic Minecraft adapter config, native command registration contracts, suggestion bridge, version bridge, and message renderer variants. |
-| Bukkit/Spigot/Paper/Velocity/Fabric/Forge/NeoForge | Partial | Modules exist with lightweight profile adapters. Missing real native API integration, command registration, lifecycle unregister, permission source mapping, native tab completion, Adventure/MiniMessage renderers, async completions where available. |
+| Bukkit/Spigot/Paper/Velocity/Brigadier-based mod loaders | Partial | Dedicated modules exist only where the platform adds lifecycle, ownership, or non-Brigadier APIs. Fabric, Forge, and NeoForge should consume the generic Brigadier adapter directly from their command registration events. Missing deeper native integrations include lifecycle unregister, permission source mapping, native tab completion, Adventure/MiniMessage renderers, and async completions where available. |
 | Minestom/Sponge | Missing | Listed in the plan but no modules. |
 | LuckPerms extension | Missing | Optional future extension not present. |
 

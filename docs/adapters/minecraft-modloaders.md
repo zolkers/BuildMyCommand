@@ -1,8 +1,15 @@
 # Minecraft Mod Loader Adapters
 
-Fabric, Forge, and NeoForge expose registration helpers around their command registration events.
+Fabric, Forge, and NeoForge expose Mojang Brigadier dispatchers during their command registration events.
 
-The mod loader adapters use the common Brigadier bridge so the framework command graph remains the source of truth.
+BuildMyCommand does not publish separate Fabric, Forge, or NeoForge adapter modules. Use `modules/adapters/brigadier` directly from the loader event:
+
+```java
+BrigadierCommandAdapter<NativeSource> adapter = BrigadierCommandAdapter.create(framework, sourceMapper);
+adapter.registration().register(dispatcher);
+```
+
+This keeps the framework command graph as the source of truth without wrapping each mod loader in a module that only forwards to `CommandDispatcher<S>`.
 
 Key constraints:
 

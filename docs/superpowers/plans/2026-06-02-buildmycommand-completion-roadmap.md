@@ -398,9 +398,7 @@ git commit -m "feat: add generic adapter sdk"
 - Modify: `modules/adapters/minecraft/paper/build.gradle.kts`
 - Modify: `modules/adapters/minecraft/bungee/build.gradle.kts`
 - Modify: `modules/adapters/minecraft/velocity/build.gradle.kts`
-- Modify: `modules/adapters/minecraft/fabric/build.gradle.kts`
-- Modify: `modules/adapters/minecraft/forge/build.gradle.kts`
-- Modify: `modules/adapters/minecraft/neoforge/build.gradle.kts`
+- Use: `modules/adapters/brigadier/build.gradle.kts` for Fabric, Forge, and NeoForge command dispatcher integration.
 - Create native registration classes per platform under each module.
 - Test: one test class per platform module.
 
@@ -465,13 +463,12 @@ Add:
 - tab completion bridge
 - proxy sender renderer
 
-- [ ] **Step 5: Fabric/Forge/NeoForge integration**
+- [ ] **Step 5: Brigadier mod-loader integration**
 
 Add real registration helpers around:
 
-- Fabric command callback
-- Forge `RegisterCommandsEvent`
-- NeoForge `RegisterCommandsEvent`
+- Document direct `BrigadierCommandAdapter` use from Fabric command callbacks.
+- Document direct `BrigadierCommandAdapter` use from Forge and NeoForge `RegisterCommandsEvent`.
 
 Keep Brigadier projection explicit and document case-sensitivity limits.
 

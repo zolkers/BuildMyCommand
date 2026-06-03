@@ -10,11 +10,8 @@ BuildMyCommand targets Minecraft through a family of adapter modules instead of 
 - `modules/adapters/minecraft/spigot`: Bukkit/Spigot `CommandExecutor` and `TabCompleter` profile.
 - `modules/adapters/minecraft/bungee`: BungeeCord proxy command and tab-complete profile.
 - `modules/adapters/minecraft/velocity`: Velocity command API profile.
-- `modules/adapters/minecraft/fabric`: Fabric `CommandRegistrationCallback` profile.
-- `modules/adapters/minecraft/forge`: Forge `RegisterCommandsEvent` profile.
-- `modules/adapters/minecraft/neoforge`: NeoForge `RegisterCommandsEvent` profile.
 
-The platform modules keep native Paper, Bukkit, BungeeCord, Velocity, Fabric, Forge, and NeoForge jars at their boundaries. Shared command tree projection lives in `adapters/brigadier`, never in platform modules or `core`.
+The platform modules keep native Paper, Bukkit, BungeeCord, and Velocity jars at their boundaries when those APIs add lifecycle, ownership, or fallback behavior. Fabric, Forge, and NeoForge expose Mojang Brigadier dispatchers for command registration, so they use `modules/adapters/brigadier` directly instead of separate adapter artifacts. Shared command tree projection lives in `adapters/brigadier`, never in platform modules or `core`.
 
 ## Neutral Model
 
@@ -31,7 +28,7 @@ The platform modules keep native Paper, Bukkit, BungeeCord, Velocity, Fabric, Fo
 
 `MinecraftNativeCommandAdapter<S>` is the first-class adapter for platform APIs that expose a root label plus an args array, such as Bukkit/Spigot/Paper command executors, BungeeCord commands, and Velocity simple commands. It registers every root label exported by the framework, including aliases from `ban|block` or `@Alias`, and executes through the core dispatcher. This path honors BuildMyCommand parsing, permissions, option aliases, route aliases, and `caseInsensitiveLiterals()` / `caseInsensitiveOptions()` once the platform has routed the command to the adapter.
 
-`BrigadierCommandAdapter<N>` projects the BuildMyCommand graph into Mojang Brigadier nodes and can register directly into any `CommandDispatcher<N>` through `adapter.registration().register(dispatcher)`. It keeps BuildMyCommand as the source of truth: Brigadier executors call back into `CommandFramework.dispatch`, and Brigadier suggestions call back into the framework suggestion engine. Minecraft platforms create it through `MinecraftBrigadierAdapters` so the generic adapter is configured with Minecraft platform metadata.
+`BrigadierCommandAdapter<N>` projects the BuildMyCommand graph into Mojang Brigadier nodes and can register directly into any `CommandDispatcher<N>` through `adapter.registration().register(dispatcher)`. It keeps BuildMyCommand as the source of truth: Brigadier executors call back into `CommandFramework.dispatch`, and Brigadier suggestions call back into the framework suggestion engine. Minecraft mod loaders that expose a dispatcher, including Fabric, Forge, and NeoForge, should consume this adapter directly from their command registration event.
 
 `MinecraftBackendProfile` and `MinecraftBackendProfiles` describe capabilities and edge cases per backend. These profiles are tested so adapters do not silently forget platform-specific constraints.
 
@@ -42,7 +39,7 @@ Spigot, Paper, BungeeCord, and Velocity expose native command adapter factories.
 ## Adapter Selection
 
 - `MinecraftNativeCommandAdapter`: best for Spigot, Bukkit, Paper fallback command map, BungeeCord, and Velocity simple/raw commands. It preserves the framework as the real parser and is the path for case-insensitive command policies.
-- `BrigadierCommandAdapter`: best for Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom when a loader wants a real Brigadier tree. It exports literals, arguments, permissions, aliases, and suggestions, but Brigadier literal matching remains exact before execution reaches the framework.
+- `BrigadierCommandAdapter`: best for any API that exposes a `CommandDispatcher<S>`, including Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom. It exports literals, arguments, permissions, aliases, and suggestions, but Brigadier literal matching remains exact before execution reaches the framework.
 - Hybrid registration: reserve for platforms where both native tree visibility and framework-level permissive matching are required. The adapter layer should expose it explicitly instead of hiding it behind `brigadierBridge(...)`.
 
 ## Backend Edge Cases
@@ -51,8 +48,7 @@ Spigot, Paper, BungeeCord, and Velocity expose native command adapter factories.
 - Spigot: `label + args[]` reconstruction, trailing empty tab argument, alias label preservation, coarse plugin.yml permissions.
 - BungeeCord: command objects bind root labels, tab completion lacks a label parameter, message-only results, unregister-before-reregister reloads.
 - Velocity: proxy command ownership, aliases through metadata, Brigadier/Simple/Raw command trade-offs.
-- Fabric: dedicated environment flag, command tree caching, Brigadier `.requires(...)` permission filtering.
-- Forge and NeoForge: event-bus registration, reload rebuilds, version-specific source/context signatures.
+- Fabric, Forge, and NeoForge: register the generic Brigadier adapter from the loader command event; loader-specific event classes stay in the user's mod, not in BuildMyCommand.
 
 ## References
 
