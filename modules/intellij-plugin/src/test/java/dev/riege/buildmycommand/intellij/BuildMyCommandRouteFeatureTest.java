@@ -471,6 +471,188 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
             .count());
     }
 
+    public void testInspectionReportsConcreteAnnotationContractProblems() {
+        addBuildMyCommandApiStubs();
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @Alias({"contracts", ""})
+                @Middleware({GoodImplicitMiddleware.class, GoodExplicitMiddleware.class, NotMiddleware.class, MissingMiddleware.class})
+                static final class ClassLevelMiddlewareContracts {
+                }
+
+                @Middleware
+                static final class MissingMiddlewareValue {
+                }
+
+                @Route("private")
+                private dev.riege.buildmycommand.api.CommandResult privateRoute(
+                    @RouteCtx dev.riege.buildmycommand.api.CommandContext route
+                ) {
+                    return dev.riege.buildmycommand.api.Results.silent();
+                }
+
+                @Route("protected")
+                protected dev.riege.buildmycommand.api.CommandResult protectedRoute(
+                    @RouteCtx dev.riege.buildmycommand.api.CommandContext route
+                ) {
+                    return dev.riege.buildmycommand.api.Results.silent();
+                }
+
+                @Route("bad-return")
+                String badReturn(@RouteCtx dev.riege.buildmycommand.api.CommandContext route) {
+                    return "";
+                }
+
+                @Route("bad-param <target:String>")
+                dev.riege.buildmycommand.api.CommandResult badParam(String raw) {
+                    return dev.riege.buildmycommand.api.Results.silent();
+                }
+
+                @Suggest("")
+                String badSuggestReturn(String raw) {
+                    return "";
+                }
+
+                @Suggest("target")
+                java.util.List<String> goodSuggest(dev.riege.buildmycommand.api.SuggestionContext context) {
+                    return java.util.List.of();
+                }
+
+                @Cooldown(0)
+                @Usage("")
+                @Example("")
+                @Middleware(BadConstructorMiddleware.class)
+                @Route("metadata")
+                dev.riege.buildmycommand.api.CommandResult badMetadata(
+                    @RouteCtx dev.riege.buildmycommand.api.CommandContext route
+                ) {
+                    return dev.riege.buildmycommand.api.Results.silent();
+                }
+
+                static final class GoodImplicitMiddleware implements dev.riege.buildmycommand.api.CommandMiddleware {
+                    public dev.riege.buildmycommand.api.CommandResult execute(
+                        dev.riege.buildmycommand.api.CommandContext context,
+                        dev.riege.buildmycommand.api.CommandNode command,
+                        java.util.List<String> commandPath,
+                        dev.riege.buildmycommand.api.CommandMiddleware.Chain next
+                    ) {
+                        return next.proceed(context);
+                    }
+                }
+
+                static final class GoodExplicitMiddleware implements dev.riege.buildmycommand.api.CommandMiddleware {
+                    GoodExplicitMiddleware() {
+                    }
+
+                    public dev.riege.buildmycommand.api.CommandResult execute(
+                        dev.riege.buildmycommand.api.CommandContext context,
+                        dev.riege.buildmycommand.api.CommandNode command,
+                        java.util.List<String> commandPath,
+                        dev.riege.buildmycommand.api.CommandMiddleware.Chain next
+                    ) {
+                        return next.proceed(context);
+                    }
+                }
+
+                static final class BadConstructorMiddleware implements dev.riege.buildmycommand.api.CommandMiddleware {
+                    BadConstructorMiddleware(String value) {
+                    }
+
+                    public dev.riege.buildmycommand.api.CommandResult execute(
+                        dev.riege.buildmycommand.api.CommandContext context,
+                        dev.riege.buildmycommand.api.CommandNode command,
+                        java.util.List<String> commandPath,
+                        dev.riege.buildmycommand.api.CommandMiddleware.Chain next
+                    ) {
+                        return next.proceed(context);
+                    }
+                }
+
+                static final class NotMiddleware {
+                }
+            }
+            """);
+
+        RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
+        JavaElementVisitor visitor = (JavaElementVisitor) new BuildMyCommandRouteInspection().buildVisitor(holder, true);
+        for (PsiClass psiClass : PsiTreeUtil.findChildrenOfType(file, PsiClass.class)) {
+            visitor.visitClass(psiClass);
+        }
+        for (PsiMethod method : PsiTreeUtil.findChildrenOfType(file, PsiMethod.class)) {
+            visitor.visitMethod(method);
+        }
+
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.COMMAND_METHOD_VISIBILITY_REQUIRED));
+        assertEquals(2, holder.messages.stream()
+            .filter(BuildMyCommandRouteInspection.COMMAND_METHOD_VISIBILITY_REQUIRED::equals)
+            .count());
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.COMMAND_METHOD_RETURN_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.COMMAND_METHOD_PARAMETER_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.SUGGEST_PROVIDER_SIGNATURE_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.SUGGEST_VALUE_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.COOLDOWN_POSITIVE_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.METADATA_NOT_BLANK));
+        assertEquals(3, holder.messages.stream()
+            .filter(BuildMyCommandRouteInspection.METADATA_NOT_BLANK::equals)
+            .count());
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.MIDDLEWARE_TYPE_REQUIRED));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.MIDDLEWARE_NO_ARG_CONSTRUCTOR_REQUIRED));
+    }
+
+    public void testInspectionPrivateFallbackHelpersCoverSyntheticEdges() throws Exception {
+        addBuildMyCommandApiStubs();
+        PsiElement file = myFixture.configureByText("Demo.java", "final class Demo {}");
+        RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
+        Method problemElement = BuildMyCommandRouteInspection.class.getDeclaredMethod(
+            "problemElement",
+            PsiElement.class,
+            PsiElement.class
+        );
+        Method isMiddlewareClass = BuildMyCommandRouteInspection.class.getDeclaredMethod(
+            "isMiddlewareClass",
+            PsiClass.class,
+            PsiElement.class
+        );
+        problemElement.setAccessible(true);
+        isMiddlewareClass.setAccessible(true);
+
+        assertSame(file, problemElement.invoke(null, null, file));
+        assertNotNull(isMiddlewareClass.invoke(null, findClass(file, "Demo"), file));
+        assertTrue(holder.messages.isEmpty());
+    }
+
+    private void addBuildMyCommandApiStubs() {
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/CommandMiddleware.java", """
+            package dev.riege.buildmycommand.api;
+            public interface CommandMiddleware {
+                CommandResult execute(CommandContext context, CommandNode command, java.util.List<String> commandPath, Chain next);
+                interface Chain {
+                    CommandResult proceed(CommandContext context);
+                }
+            }
+            """);
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/CommandResult.java",
+            "package dev.riege.buildmycommand.api; public final class CommandResult {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/CommandContext.java",
+            "package dev.riege.buildmycommand.api; public final class CommandContext {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/CommandNode.java",
+            "package dev.riege.buildmycommand.api; public final class CommandNode {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/ArgumentParseContext.java",
+            "package dev.riege.buildmycommand.api; public final class ArgumentParseContext {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/SuggestionContext.java",
+            "package dev.riege.buildmycommand.api; public final class SuggestionContext {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/SuggestionSet.java",
+            "package dev.riege.buildmycommand.api; public final class SuggestionSet {}");
+        myFixture.addFileToProject("dev/riege/buildmycommand/api/Results.java", """
+            package dev.riege.buildmycommand.api;
+            public final class Results {
+                public static CommandResult silent() {
+                    return new CommandResult();
+                }
+            }
+            """);
+    }
+
     public void testSuggestInspectionIgnoresProviderMethodsWithoutContainingClass() throws Exception {
         PsiElement file = myFixture.configureByText("Demo.java", "final class Demo {}");
         RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());

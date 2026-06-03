@@ -9,7 +9,10 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.JavaElementVisitor;
 import com.intellij.psi.PsiAnnotation;
+import com.intellij.psi.PsiAnnotationMemberValue;
+import com.intellij.psi.PsiArrayInitializerMemberValue;
 import com.intellij.psi.PsiClass;
+import com.intellij.psi.PsiClassObjectAccessExpression;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiExpression;
@@ -17,12 +20,15 @@ import com.intellij.psi.PsiExpressionList;
 import com.intellij.psi.PsiLiteralExpression;
 import com.intellij.psi.PsiMethodCallExpression;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiNameValuePair;
 import com.intellij.psi.PsiParameter;
 import com.intellij.psi.PsiReferenceExpression;
+import com.intellij.psi.PsiType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalInspectionTool {
@@ -48,6 +54,24 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "Builder path() only accepts literal segments; use subRoute() for route DSL arguments, options, or aliases";
     static final String SUGGEST_TARGET_NOT_FOUND =
         "@Suggest name does not match any @Route/@SubRoute argument or option in this class";
+    static final String COMMAND_METHOD_VISIBILITY_REQUIRED =
+        "Annotated command methods must be public or package-private";
+    static final String COMMAND_METHOD_RETURN_REQUIRED =
+        "Annotated command methods must return dev.riege.buildmycommand.api.CommandResult";
+    static final String COMMAND_METHOD_PARAMETER_REQUIRED =
+        "Annotated command method parameters must be dev.riege.buildmycommand.api.CommandContext or @RouteCtx CommandContext";
+    static final String SUGGEST_PROVIDER_SIGNATURE_REQUIRED =
+        "@Suggest providers must return java.util.List or SuggestionSet and accept zero args, ArgumentParseContext, or SuggestionContext";
+    static final String SUGGEST_VALUE_REQUIRED =
+        "@Suggest value must not be blank";
+    static final String COOLDOWN_POSITIVE_REQUIRED =
+        "@Cooldown value must be positive";
+    static final String METADATA_NOT_BLANK =
+        "BuildMyCommand annotation metadata must not be blank";
+    static final String MIDDLEWARE_TYPE_REQUIRED =
+        "@Middleware classes must implement dev.riege.buildmycommand.api.CommandMiddleware";
+    static final String MIDDLEWARE_NO_ARG_CONSTRUCTOR_REQUIRED =
+        "@Middleware classes must declare a no-arg constructor";
     private static final String ROUTE = "dev.riege.buildmycommand.annotation.Route";
     private static final String SUB_ROUTE = "dev.riege.buildmycommand.annotation.SubRoute";
     private static final String ROUTE_CTX = "dev.riege.buildmycommand.annotation.RouteCtx";
@@ -57,12 +81,35 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     private static final String REQUIRE = "dev.riege.buildmycommand.annotation.Require";
     private static final String SUGGEST = "dev.riege.buildmycommand.annotation.Suggest";
     private static final String COMMAND_CONTEXT = "dev.riege.buildmycommand.api.CommandContext";
+    private static final String COMMAND_RESULT = "dev.riege.buildmycommand.api.CommandResult";
+    private static final String ARGUMENT_PARSE_CONTEXT = "dev.riege.buildmycommand.api.ArgumentParseContext";
+    private static final String SUGGESTION_CONTEXT = "dev.riege.buildmycommand.api.SuggestionContext";
+    private static final String SUGGESTION_SET = "dev.riege.buildmycommand.api.SuggestionSet";
+    private static final String COMMAND_MIDDLEWARE = "dev.riege.buildmycommand.api.CommandMiddleware";
+    private static final String COOLDOWN = "dev.riege.buildmycommand.annotation.Cooldown";
+    private static final String MIDDLEWARE = "dev.riege.buildmycommand.annotation.Middleware";
+    private static final Set<String> SINGLE_STRING_METADATA = Set.of(
+        "dev.riege.buildmycommand.annotation.Description",
+        "dev.riege.buildmycommand.annotation.Permission",
+        "dev.riege.buildmycommand.annotation.Require",
+        "dev.riege.buildmycommand.annotation.Usage",
+        "dev.riege.buildmycommand.annotation.CommandGroup",
+        "dev.riege.buildmycommand.annotation.Command",
+        "dev.riege.buildmycommand.annotation.Subcommand",
+        "dev.riege.buildmycommand.annotation.Route",
+        "dev.riege.buildmycommand.annotation.SubRoute"
+    );
+    private static final Set<String> ARRAY_STRING_METADATA = Set.of(
+        "dev.riege.buildmycommand.annotation.Alias",
+        "dev.riege.buildmycommand.annotation.Example"
+    );
 
     @Override
     public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly) {
         return new JavaElementVisitor() {
             @Override
             public void visitClass(@NotNull PsiClass psiClass) {
+                inspectClassAnnotationContracts(psiClass, holder);
                 PsiAnnotation subcommand = findAnnotation(psiClass.getModifierList().getAnnotations(), SUBCOMMAND);
                 if (subcommand == null) {
                     return;
@@ -82,6 +129,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 boolean subRoute = hasAnnotation(method, SUB_ROUTE);
                 PsiAnnotation command = findAnnotation(method.getModifierList().getAnnotations(), COMMAND);
                 PsiAnnotation subcommand = findAnnotation(method.getModifierList().getAnnotations(), SUBCOMMAND);
+                inspectMethodAnnotationContracts(method, holder);
                 if (command != null) {
                     inspectLiteralOnly(command, COMMAND_LITERAL_ONLY, holder);
                 }
@@ -170,6 +218,176 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 holder.registerProblem(parameter, ROUTE_CTX_FORBIDDEN_OUTSIDE_ROUTE_DSL);
             }
         }
+    }
+
+    private static void inspectClassAnnotationContracts(PsiClass psiClass, ProblemsHolder holder) {
+        inspectMetadataAnnotations(psiClass.getModifierList().getAnnotations(), holder);
+        inspectCooldown(psiClass.getModifierList().getAnnotations(), holder);
+        inspectMiddleware(psiClass.getModifierList().getAnnotations(), psiClass, holder);
+    }
+
+    private static void inspectMethodAnnotationContracts(PsiMethod method, ProblemsHolder holder) {
+        inspectMetadataAnnotations(method.getModifierList().getAnnotations(), holder);
+        inspectCooldown(method.getModifierList().getAnnotations(), holder);
+        inspectMiddleware(method.getModifierList().getAnnotations(), method, holder);
+        inspectSuggestProvider(method, holder);
+        if (isAnnotatedCommandMethod(method)) {
+            inspectCommandMethod(method, holder);
+        }
+    }
+
+    private static void inspectCommandMethod(PsiMethod method, ProblemsHolder holder) {
+        PsiElement methodElement = problemElement(method.getNameIdentifier(), method);
+        if (method.hasModifierProperty(PsiModifier.PRIVATE) || method.hasModifierProperty(PsiModifier.PROTECTED)) {
+            holder.registerProblem(methodElement, COMMAND_METHOD_VISIBILITY_REQUIRED);
+        }
+        PsiType returnType = method.getReturnType();
+        if (returnType == null || !COMMAND_RESULT.equals(returnType.getCanonicalText())) {
+            holder.registerProblem(methodElement, COMMAND_METHOD_RETURN_REQUIRED);
+        }
+        for (PsiParameter parameter : method.getParameterList().getParameters()) {
+            if (!COMMAND_CONTEXT.equals(parameter.getType().getCanonicalText())) {
+                holder.registerProblem(parameter, COMMAND_METHOD_PARAMETER_REQUIRED);
+            }
+        }
+    }
+
+    private static void inspectSuggestProvider(PsiMethod method, ProblemsHolder holder) {
+        PsiAnnotation suggest = findAnnotation(method.getModifierList().getAnnotations(), SUGGEST);
+        if (suggest == null) {
+            return;
+        }
+        String value = annotationValue(suggest);
+        if (value == null || value.isBlank()) {
+            holder.registerProblem(suggest, SUGGEST_VALUE_REQUIRED);
+        }
+        PsiType returnType = method.getReturnType();
+        boolean validReturn = returnType != null
+            && (SUGGESTION_SET.equals(returnType.getCanonicalText())
+            || returnType.getCanonicalText().startsWith("java.util.List"));
+        PsiParameter[] parameters = method.getParameterList().getParameters();
+        boolean validParameters = parameters.length == 0
+            || (parameters.length == 1 && isSuggestionParameter(parameters[0]));
+        if (!validReturn || !validParameters) {
+            holder.registerProblem(problemElement(method.getNameIdentifier(), method), SUGGEST_PROVIDER_SIGNATURE_REQUIRED);
+        }
+    }
+
+    private static boolean isSuggestionParameter(PsiParameter parameter) {
+        String canonicalText = parameter.getType().getCanonicalText();
+        return ARGUMENT_PARSE_CONTEXT.equals(canonicalText) || SUGGESTION_CONTEXT.equals(canonicalText);
+    }
+
+    private static boolean isAnnotatedCommandMethod(PsiMethod method) {
+        return hasAnnotation(method, ROUTE)
+            || hasAnnotation(method, SUB_ROUTE)
+            || hasAnnotation(method, COMMAND)
+            || hasAnnotation(method, SUBCOMMAND);
+    }
+
+    private static void inspectCooldown(PsiAnnotation[] annotations, ProblemsHolder holder) {
+        PsiAnnotation cooldown = findAnnotation(annotations, COOLDOWN);
+        if (cooldown == null) {
+            return;
+        }
+        PsiAnnotationMemberValue value = cooldown.findDeclaredAttributeValue("value");
+        if (value instanceof PsiLiteralExpression literal && literal.getValue() instanceof Number number
+            && number.longValue() <= 0) {
+            holder.registerProblem(literal, COOLDOWN_POSITIVE_REQUIRED);
+        }
+    }
+
+    private static void inspectMiddleware(PsiAnnotation[] annotations, PsiElement owner, ProblemsHolder holder) {
+        PsiAnnotation middleware = findAnnotation(annotations, MIDDLEWARE);
+        if (middleware == null) {
+            return;
+        }
+        for (PsiClass middlewareClass : middlewareClasses(middleware)) {
+            if (!isMiddlewareClass(middlewareClass, owner)) {
+                holder.registerProblem(middleware.getNameReferenceElement(), MIDDLEWARE_TYPE_REQUIRED);
+            }
+            if (!hasNoArgConstructor(middlewareClass)) {
+                holder.registerProblem(middleware.getNameReferenceElement(), MIDDLEWARE_NO_ARG_CONSTRUCTOR_REQUIRED);
+            }
+        }
+    }
+
+    private static List<PsiClass> middlewareClasses(PsiAnnotation annotation) {
+        PsiAnnotationMemberValue value = annotation.findDeclaredAttributeValue("value");
+        if (value instanceof PsiClassObjectAccessExpression classObject) {
+            return classFrom(classObject);
+        }
+        if (value instanceof PsiArrayInitializerMemberValue initializer) {
+            return java.util.Arrays.stream(initializer.getInitializers())
+                .filter(PsiClassObjectAccessExpression.class::isInstance)
+                .map(PsiClassObjectAccessExpression.class::cast)
+                .flatMap(classObject -> classFrom(classObject).stream())
+                .toList();
+        }
+        return List.of();
+    }
+
+    private static List<PsiClass> classFrom(PsiClassObjectAccessExpression classObject) {
+        PsiType type = classObject.getOperand().getType();
+        PsiClass psiClass = com.intellij.psi.util.PsiTypesUtil.getPsiClass(type);
+        return psiClass == null ? List.of() : List.of(psiClass);
+    }
+
+    private static boolean isMiddlewareClass(PsiClass psiClass, PsiElement context) {
+        PsiClass middleware = JavaPsiFacade.getInstance(context.getProject())
+            .findClass(COMMAND_MIDDLEWARE, context.getResolveScope());
+        return middleware == null || psiClass.isInheritor(middleware, true);
+    }
+
+    private static boolean hasNoArgConstructor(PsiClass psiClass) {
+        PsiMethod[] constructors = psiClass.getConstructors();
+        if (constructors.length == 0) {
+            return true;
+        }
+        for (PsiMethod constructor : constructors) {
+            if (constructor.getParameterList().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void inspectMetadataAnnotations(PsiAnnotation[] annotations, ProblemsHolder holder) {
+        for (PsiAnnotation annotation : annotations) {
+            if (matchesAny(annotation, SINGLE_STRING_METADATA)) {
+                inspectBlankStringValue(annotation.findDeclaredAttributeValue("value"), holder);
+            }
+            if (matchesAny(annotation, ARRAY_STRING_METADATA)) {
+                inspectBlankStringValues(annotation.findDeclaredAttributeValue("value"), holder);
+            }
+        }
+    }
+
+    private static void inspectBlankStringValues(PsiAnnotationMemberValue value, ProblemsHolder holder) {
+        if (value instanceof PsiArrayInitializerMemberValue initializer) {
+            for (PsiAnnotationMemberValue member : initializer.getInitializers()) {
+                inspectBlankStringValue(member, holder);
+            }
+            return;
+        }
+        inspectBlankStringValue(value, holder);
+    }
+
+    private static void inspectBlankStringValue(PsiAnnotationMemberValue value, ProblemsHolder holder) {
+        if (value instanceof PsiLiteralExpression literal
+            && literal.getValue() instanceof String string
+            && string.isBlank()) {
+            holder.registerProblem(literal, METADATA_NOT_BLANK);
+        }
+    }
+
+    private static boolean matchesAny(PsiAnnotation annotation, Set<String> qualifiedNames) {
+        for (String qualifiedName : qualifiedNames) {
+            if (hasAnnotationName(annotation, qualifiedName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void inspectSuggestBinding(PsiMethod method, ProblemsHolder holder) {
@@ -339,6 +557,10 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
             current = current.getParent();
         }
         return current instanceof PsiAnnotation annotation ? annotation : null;
+    }
+
+    private static PsiElement problemElement(PsiElement preferred, PsiElement fallback) {
+        return preferred == null ? fallback : preferred;
     }
 
     private static boolean hasAnnotationName(PsiAnnotation annotation, String qualifiedName) {
