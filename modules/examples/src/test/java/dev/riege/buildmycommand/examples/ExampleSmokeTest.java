@@ -23,6 +23,7 @@ import dev.riege.buildmycommand.examples.basics.DeepSubcommandNestingExample;
 import dev.riege.buildmycommand.examples.basics.ManualNodeExample;
 import dev.riege.buildmycommand.examples.basics.PlayerManagementBuilderExample;
 import dev.riege.buildmycommand.examples.dsl.NestedRouteExample;
+import dev.riege.buildmycommand.examples.dsl.RouteDslMiddlewareExample;
 import dev.riege.buildmycommand.examples.dsl.RouteDslExample;
 import dev.riege.buildmycommand.examples.lifecycle.CooldownExample;
 import dev.riege.buildmycommand.examples.lifecycle.MiddlewareAndErrorsExample;
@@ -106,6 +107,11 @@ class ExampleSmokeTest {
             "Banned Ada silent=true reason=repeated griefing");
         assertSuccess(RouteDslExample.create().dispatch(source("inventory.give"), "grant Ada diamond -a 2 -s"),
             "Ada gets 2 diamond silent=true");
+        assertSuccess(RouteDslMiddlewareExample.dispatch(source("mod.punish", "staff"), "mod punish Ada spam -d 30 -s"),
+            "Punished Ada for 30m silent=true: spam [moderation/punish]");
+        CommandResult middlewareDenied = RouteDslMiddlewareExample.dispatch(source("mod.punish"), "mod punish Ada spam");
+        assertEquals(CommandResult.Status.FAILURE, middlewareDenied.status());
+        assertEquals(Optional.of("Missing permission: staff [moderation/punish]"), middlewareDenied.reply());
         assertSuccess(NestedRouteExample.create().dispatch(source("user.rank.set"), "U Role PuT Ada Admin -T"),
             "Ada -> Admin temporary=true");
         assertSuccess(NestedRouteExample.create().dispatch(source("user.rank.clear"), "user rank clear Ada"),
