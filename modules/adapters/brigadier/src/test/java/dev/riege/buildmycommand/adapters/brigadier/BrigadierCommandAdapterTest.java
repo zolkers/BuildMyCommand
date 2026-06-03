@@ -130,6 +130,23 @@ class BrigadierCommandAdapterTest {
             .route("wecc bang|b <target:String>")
             .suggestAliases(false)
             .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        framework.registry()
+            .route("wecc quiet|q")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success("quiet"));
+        framework.registry()
+            .route("wecc say|s <message:String...>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("message", String.class)));
+        framework.registry()
+            .route("wecc maybe|m [target:String]")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.optionalArg("target", String.class).orElse("none")));
+        framework.registry().command("wecc", command -> command
+            .subcommand("group", group -> group
+                .alias("g")
+                .suggestAliases(false)
+                .subcommand("reload", reload -> reload.executes(ctx -> Results.success("reloaded")))));
         CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
 
         bridge.registration().register(dispatcher);
@@ -138,11 +155,22 @@ class BrigadierCommandAdapterTest {
         assertEquals(1, dispatcher.execute("wecc bang Ada", new NativeSource()));
         assertEquals(1, dispatcher.execute("wecc b Ada", new NativeSource()));
         assertEquals(1, dispatcher.execute("wecc B Ada", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc q", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc s hello", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc m", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc bang", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc b", new NativeSource()));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc s", new NativeSource()));
+        assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc g", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc nope", new NativeSource()));
         assertTrue(suggestions(dispatcher, "wecc ").contains("bang"));
         assertTrue(suggestions(dispatcher, "wecc ").contains("ping"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("b"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("q"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("s"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("m"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("g"));
+        assertEquals(List.of("bang"), suggestions(dispatcher, "wecc b"));
         assertFalse(suggestions(dispatcher, "wecc ").contains("_bmc_input"));
         assertFalse(suggestions(dispatcher, "wecc nope").contains("_bmc_input"));
     }

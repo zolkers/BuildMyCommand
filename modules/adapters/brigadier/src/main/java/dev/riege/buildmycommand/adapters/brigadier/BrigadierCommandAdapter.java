@@ -159,7 +159,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         for (CommandNode child : node.children()) {
             LiteralCommandNode<N> childNode = convertChild(child);
             builder.then(childNode);
-            for (String alias : child.aliases()) {
+            for (String alias : suggestedAliases(child)) {
                 builder.then(LiteralArgumentBuilder.<N>literal(alias)
                     .executes(childNode.getCommand())
                     .redirect(childNode)
@@ -176,7 +176,9 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
     }
 
     private boolean needsFrameworkTunnel(CommandNode node) {
-        return !node.flags().isEmpty() || (framework.caseInsensitiveLiterals() && !node.children().isEmpty());
+        return !node.flags().isEmpty()
+            || hasHiddenChildAliases(node)
+            || (framework.caseInsensitiveLiterals() && !node.children().isEmpty());
     }
 
     private int executeTunnel(CommandContext<N> context, CommandNode node) throws CommandSyntaxException {
@@ -194,25 +196,39 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         if (token == null || token.startsWith("-")) {
             return false;
         }
-        boolean exactKnownChild = false;
+        boolean exactPrimaryChild = false;
+        boolean exactAliasChild = false;
         boolean caseInsensitiveKnownChild = false;
+        boolean incompleteAliasChild = false;
         for (CommandNode child : node.children()) {
-            for (String label : childLabels(child)) {
-                exactKnownChild |= label.equals(token);
-                caseInsensitiveKnownChild |= framework.caseInsensitiveLiterals() && label.equalsIgnoreCase(token);
+            exactPrimaryChild |= child.literal().equals(token);
+            caseInsensitiveKnownChild |= framework.caseInsensitiveLiterals() && child.literal().equalsIgnoreCase(token);
+            for (String alias : child.aliases()) {
+                boolean exactAlias = alias.equals(token);
+                boolean caseInsensitiveAlias = framework.caseInsensitiveLiterals() && alias.equalsIgnoreCase(token);
+                exactAliasChild |= exactAlias;
+                caseInsensitiveKnownChild |= caseInsensitiveAlias;
+                incompleteAliasChild |= (exactAlias || caseInsensitiveAlias)
+                    && !hasRemainderAfterFirstToken(tunnelInput)
+                    && requiresMoreInput(child);
             }
         }
-        if (exactKnownChild) {
+        if (exactPrimaryChild) {
             return true;
         }
-        return !caseInsensitiveKnownChild;
+        if (incompleteAliasChild) {
+            return true;
+        }
+        return !exactAliasChild && !caseInsensitiveKnownChild;
     }
 
-    private static List<String> childLabels(CommandNode child) {
-        List<String> labels = new ArrayList<>();
-        labels.add(child.literal());
-        labels.addAll(child.aliases());
-        return labels;
+    private static boolean hasHiddenChildAliases(CommandNode node) {
+        return node.children().stream()
+            .anyMatch(child -> !child.aliases().isEmpty() && !child.metadata().suggestAliases());
+    }
+
+    private static List<String> suggestedAliases(CommandNode node) {
+        return node.metadata().suggestAliases() ? node.aliases() : List.of();
     }
 
     private static String firstToken(String input) {
@@ -225,6 +241,24 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             end++;
         }
         return trimmed.substring(0, end);
+    }
+
+    private static boolean hasRemainderAfterFirstToken(String input) {
+        String trimmed = input.trim();
+        int end = 0;
+        while (end < trimmed.length() && !Character.isWhitespace(trimmed.charAt(end))) {
+            end++;
+        }
+        return end < trimmed.length() && !trimmed.substring(end).trim().isEmpty();
+    }
+
+    private static boolean requiresMoreInput(CommandNode node) {
+        if (node.executor().isEmpty() || !node.children().isEmpty()) {
+            return true;
+        }
+        return node.arguments().stream()
+            .anyMatch(argument -> argument.kind() == ArgumentSpec.Kind.REQUIRED
+                || argument.kind() == ArgumentSpec.Kind.GREEDY);
     }
 
     private void attachFrameworkSuggestions(RequiredArgumentBuilder<N, String> builder) {
