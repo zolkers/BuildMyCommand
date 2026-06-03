@@ -16,7 +16,7 @@ public final class MinecraftCommandRegistrationPlans {
         Objects.requireNonNull(bridge, "bridge");
         return new MinecraftCommandRegistrationPlan(
             backend,
-            bridge.rootLiterals(),
+            bridge.registrationLabels().rootLabels(),
             1,
             backend.reloadSafe()
         );

@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.minestom;
 
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCapability;
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,17 @@ class MinestomMinecraftAdapterTest {
         assertEquals(java.util.List.of("minestom", "ms"), registration.labels());
         assertEquals(java.util.List.of("minestom", "ms"), registration.plan().rootLiterals());
         assertTrue(registration.exactLiteralMatching());
+    }
+
+    @Test
+    void exposesSharedBrigadierBridgeForCommandManagerIntegrations() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("minestom|ms reload").executes(ctx -> Results.silent());
+
+        BrigadierCommandAdapter<Object> bridge = MinestomMinecraftAdapter.brigadierBridge(framework);
+
+        assertEquals("minecraft-minestom-brigadier", bridge.config().adapterId());
+        assertEquals(java.util.List.of("minestom", "ms"), bridge.registrationLabels().rootLabels());
     }
 
     @Test

@@ -108,6 +108,7 @@ class BungeeMinecraftAdapterTest {
 
         assertSame(command, registration.command());
         assertEquals(List.of("server", "srv"), registration.labels());
+        assertEquals(List.of("server", "srv"), registration.plan().rootLabels());
         assertSame(plugin, registrar.plugin());
         assertSame(command, registrar.registered());
         registration.unregister(registrar);

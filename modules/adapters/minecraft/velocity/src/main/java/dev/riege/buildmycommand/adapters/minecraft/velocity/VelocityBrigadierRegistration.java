@@ -18,7 +18,7 @@ import java.util.Set;
 
 public final class VelocityBrigadierRegistration {
     private static final String MATCHING_NOTICE =
-        "Velocity command metadata treats aliases case-insensitively; Brigadier literal children remain exact.";
+        "Velocity Brigadier metadata exposes aliases while BuildMyCommand delegates framework matching through _bmc_input fallbacks.";
 
     private final MinecraftBackendProfile profile;
     private final BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> bridge;
@@ -44,7 +44,9 @@ public final class VelocityBrigadierRegistration {
     }
 
     public List<String> labels() {
-        return roots().stream().map(LiteralCommandNode::getLiteral).toList();
+        return bridge.projectedRoots().stream()
+            .flatMap(root -> root.registrationLabels().stream())
+            .toList();
     }
 
     public List<BrigadierCommand> commands() {
@@ -94,6 +96,10 @@ public final class VelocityBrigadierRegistration {
     }
 
     public boolean exactLiteralMatching() {
+        return true;
+    }
+
+    public boolean frameworkAuthoritativeMatching() {
         return true;
     }
 

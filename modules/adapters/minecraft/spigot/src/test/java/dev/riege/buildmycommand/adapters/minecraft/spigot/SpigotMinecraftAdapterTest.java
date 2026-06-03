@@ -174,6 +174,7 @@ class SpigotMinecraftAdapterTest {
         );
 
         assertEquals(List.of("ban", "block"), registration.labels());
+        assertEquals(List.of("ban", "block"), registration.plan().rootLabels());
         assertEquals(List.of("ban", "block"), registration.register(commandMap));
         assertEquals(List.of(
             "ban",

@@ -99,12 +99,15 @@ class PaperMinecraftAdapterTest {
 
         assertEquals(PaperCommandRegistrationMode.BRIGADIER_PROJECTION, registration.mode());
         assertEquals(List.of("warp", "w"), registration.labels());
-        assertEquals(List.of("warp"), registration.rootLiterals());
-        assertEquals(List.of("warp"), plan.rootLiterals());
+        assertEquals(List.of("warp", "w"), registration.rootLiterals());
+        assertEquals(List.of("warp", "w"), plan.rootLiterals());
+        assertEquals(List.of("warp", "w"), plan.rootLabels());
         assertTrue(plan.reloadSafe());
         assertTrue(registration.exactLiteralMatching());
+        assertTrue(registration.frameworkAuthoritativeMatching());
+        assertEquals("minecraft-paper-brigadier", registration.bridge().config().adapterId());
         assertEquals(
-            "Paper Brigadier projection registers exact literal nodes; it does not add case-insensitive aliases.",
+            "Paper Brigadier projection exposes exact native nodes and delegates framework matching through _bmc_input fallbacks.",
             registration.matchingNotice()
         );
     }

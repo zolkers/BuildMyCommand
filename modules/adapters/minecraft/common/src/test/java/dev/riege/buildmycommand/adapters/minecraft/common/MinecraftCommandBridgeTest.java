@@ -96,6 +96,7 @@ class MinecraftCommandBridgeTest {
         );
 
         assertEquals(List.of("kick", "boot"), plan.rootLiterals());
+        assertEquals(List.of("kick", "boot"), plan.rootLabels());
     }
 
     @Test
@@ -283,6 +284,7 @@ class MinecraftCommandBridgeTest {
 
         assertEquals(MinecraftBackendProfiles.paper(), plan.backend());
         assertEquals(List.of("warp"), plan.rootLiterals());
+        assertEquals(List.of("warp"), plan.rootLabels());
         assertTrue(plan.reloadSafe());
     }
 

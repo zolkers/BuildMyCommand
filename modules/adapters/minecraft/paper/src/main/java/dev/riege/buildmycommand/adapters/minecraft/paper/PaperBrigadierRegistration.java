@@ -21,7 +21,7 @@ import java.util.Set;
 
 public final class PaperBrigadierRegistration {
     private static final String MATCHING_NOTICE =
-        "Paper Brigadier projection registers exact literal nodes; it does not add case-insensitive aliases.";
+        "Paper Brigadier projection exposes exact native nodes and delegates framework matching through _bmc_input fallbacks.";
 
     private final MinecraftBackendProfile profile;
     private final BrigadierCommandAdapter<CommandSourceStack> bridge;
@@ -80,6 +80,10 @@ public final class PaperBrigadierRegistration {
     }
 
     public boolean exactLiteralMatching() {
+        return true;
+    }
+
+    public boolean frameworkAuthoritativeMatching() {
         return true;
     }
 

@@ -7,6 +7,7 @@ import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.core.CommandFramework;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 public final class MinecraftBrigadierAdapters {
@@ -19,11 +20,24 @@ public final class MinecraftBrigadierAdapters {
         CommandFramework framework,
         Function<N, CommandSource> sourceMapper
     ) {
+        return create(MinecraftBackendProfiles.fabric(), framework, sourceMapper);
+    }
+
+    public static <N> BrigadierCommandAdapter<N> create(
+        MinecraftBackendProfile backend,
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        Objects.requireNonNull(backend, "backend");
         return BrigadierCommandAdapter.create(
             framework,
             sourceMapper,
             PLATFORM,
-            new AdapterConfig("minecraft-brigadier", "Minecraft Brigadier", AdapterCapabilities.from(PLATFORM))
+            new AdapterConfig(
+                "minecraft-" + backend.id() + "-brigadier",
+                backend.displayName() + " Brigadier",
+                AdapterCapabilities.from(PLATFORM)
+            )
         );
     }
 }

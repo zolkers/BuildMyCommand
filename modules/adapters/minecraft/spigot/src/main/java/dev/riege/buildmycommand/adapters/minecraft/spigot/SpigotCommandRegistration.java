@@ -1,5 +1,6 @@
 package dev.riege.buildmycommand.adapters.minecraft.spigot;
 
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -35,6 +36,10 @@ public final class SpigotCommandRegistration {
 
     public List<String> labels() {
         return adapter.rootLabels();
+    }
+
+    public MinecraftCommandRegistrationPlan plan() {
+        return MinecraftCommandRegistrationPlan.fromNativeAdapter(SpigotMinecraftAdapter.profile(), adapter);
     }
 
     public List<SpigotNativeCommand> commands() {

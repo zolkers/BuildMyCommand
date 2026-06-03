@@ -45,4 +45,8 @@ public record MinecraftCommandRegistrationPlan(
             backend.reloadSafe()
         );
     }
+
+    public List<String> rootLabels() {
+        return rootLiterals;
+    }
 }

@@ -1,5 +1,6 @@
 package dev.riege.buildmycommand.adapters.minecraft.bungee;
 
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandRegistrationPlan;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftNativeCommandAdapter;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.plugin.Plugin;
@@ -28,6 +29,10 @@ public final class BungeeCommandRegistration {
 
     public List<String> labels() {
         return adapter.rootLabels();
+    }
+
+    public MinecraftCommandRegistrationPlan plan() {
+        return MinecraftCommandRegistrationPlan.fromNativeAdapter(BungeeMinecraftAdapter.profile(), adapter);
     }
 
     public BungeeNativeCommand command() {

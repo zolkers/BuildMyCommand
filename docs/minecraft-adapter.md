@@ -10,8 +10,10 @@ BuildMyCommand targets Minecraft through a family of adapter modules instead of 
 - `modules/adapters/minecraft/spigot`: Bukkit/Spigot `CommandExecutor` and `TabCompleter` profile.
 - `modules/adapters/minecraft/bungee`: BungeeCord proxy command and tab-complete profile.
 - `modules/adapters/minecraft/velocity`: Velocity command API profile.
+- `modules/adapters/minecraft/minestom`: Minestom command manager profile.
+- `modules/adapters/minecraft/sponge`: Sponge registration profile.
 
-The platform modules keep native Paper, Bukkit, BungeeCord, and Velocity jars at their boundaries when those APIs add lifecycle, ownership, or fallback behavior. Fabric, Forge, and NeoForge expose Mojang Brigadier dispatchers for command registration, so they use `modules/adapters/brigadier` directly instead of separate adapter artifacts. Shared command tree projection lives in `adapters/brigadier`, never in platform modules or `core`.
+The platform modules keep native Paper, Bukkit, BungeeCord, Velocity, and compatible command-manager APIs at their boundaries when those APIs add lifecycle, ownership, or fallback behavior. Fabric, Forge, and NeoForge expose Mojang Brigadier dispatchers for command registration, so they use the shared Brigadier adapter through `MinecraftBrigadierAdapters.create(...)` instead of separate loader artifacts. Shared command tree projection lives in `adapters/brigadier`, never in platform modules or `core`.
 
 ## Neutral Model
 
@@ -38,12 +40,14 @@ The Brigadier projection deliberately avoids making Brigadier the final parser. 
 
 Spigot, Paper, BungeeCord, and Velocity expose native command adapter factories. Paper, Velocity, Fabric, Forge, NeoForge, Sponge, and Minestom can consume the shared Brigadier adapter through their native registration hooks instead of duplicating parsing, permission checks, suggestions, or dispatch behavior.
 
+Registration plans expose every root label the platform should publish, including aliases from `ban|block` and `@Alias`. The older `rootLiterals()` accessor remains for compatibility; new integration code should prefer `rootLabels()`.
+
 `CommandFramework.builder().caseInsensitiveLiterals()` and `caseInsensitiveOptions()` make the core dispatcher tolerant once input reaches BuildMyCommand. Native Brigadier literal nodes compare the input with the literal exactly while parsing, so the adapter also registers framework fallback tunnels that forward unmatched input to BuildMyCommand. Use the native adapter path whenever the platform can route `label + args[]` to BuildMyCommand. Use Brigadier projection when the platform requires a native command tree for client-visible syntax, native completions, and loader registration.
 
 ## Adapter Selection
 
 - `MinecraftNativeCommandAdapter`: best for Spigot, Bukkit, Paper fallback command map, BungeeCord, and Velocity simple/raw commands. It preserves the framework as the real parser and is the path for case-insensitive command policies.
-- `BrigadierCommandAdapter`: best for any API that exposes a `CommandDispatcher<S>`, including Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom. It exports literals, argument positions, aliases, and suggestions while delegating framework semantics back to core through executors and `_bmc_input` fallback nodes.
+- `BrigadierCommandAdapter`: best for any API that exposes a `CommandDispatcher<S>`, including Paper Brigadier, Velocity Brigadier, Fabric, Forge, NeoForge, Sponge, and Minestom. Use the backend facade (`PaperMinecraftAdapter.brigadierBridge`, `VelocityMinecraftAdapter.brigadierBridge`, `MinestomMinecraftAdapter.brigadierBridge`, `SpongeMinecraftAdapter.brigadierBridge`, or `MinecraftBrigadierAdapters.create(profile, ...)`) so config IDs and registration plans stay platform-specific. It exports literals, argument positions, aliases, and suggestions while delegating framework semantics back to core through executors and `_bmc_input` fallback nodes.
 - Hybrid platform registration: reserve for hosts that need both Brigadier registration and a separate non-Brigadier command API. Keep that composition in the platform module or user integration code; do not duplicate parsing outside core.
 
 ## Backend Edge Cases

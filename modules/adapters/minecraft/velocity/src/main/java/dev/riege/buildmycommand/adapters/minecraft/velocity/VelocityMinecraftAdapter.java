@@ -73,7 +73,7 @@ public final class VelocityMinecraftAdapter {
     public static BrigadierCommandAdapter<com.velocitypowered.api.command.CommandSource> brigadierBridge(
         CommandFramework framework
     ) {
-        return MinecraftBrigadierAdapters.create(framework, VelocityMinecraftAdapter::commandSource);
+        return MinecraftBrigadierAdapters.create(profile(), framework, VelocityMinecraftAdapter::commandSource);
     }
 
     public static VelocityBrigadierRegistration brigadierRegistration(

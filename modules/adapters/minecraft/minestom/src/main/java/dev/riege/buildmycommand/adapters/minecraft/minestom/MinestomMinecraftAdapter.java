@@ -1,5 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.minestom;
 
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
+import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBrigadierAdapters;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfile;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftBackendProfiles;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftInvocation;
@@ -9,6 +11,7 @@ import dev.riege.buildmycommand.core.CommandFramework;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 public final class MinestomMinecraftAdapter {
     private MinestomMinecraftAdapter() {
@@ -41,6 +44,17 @@ public final class MinestomMinecraftAdapter {
         CommandFramework framework
     ) {
         return new MinecraftNativeCommandAdapter<>(framework, MinestomMinecraftAdapter::commandSource);
+    }
+
+    public static BrigadierCommandAdapter<Object> brigadierBridge(CommandFramework framework) {
+        return MinecraftBrigadierAdapters.create(profile(), framework, MinestomMinecraftAdapter::commandSource);
+    }
+
+    public static <N> BrigadierCommandAdapter<N> brigadierBridge(
+        CommandFramework framework,
+        Function<N, CommandSource> sourceMapper
+    ) {
+        return MinecraftBrigadierAdapters.create(profile(), framework, sourceMapper);
     }
 
     public static MinestomNativeCommand nativeCommand(

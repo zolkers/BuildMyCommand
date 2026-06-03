@@ -1,6 +1,10 @@
 package dev.riege.buildmycommand.adapters.minecraft.sponge;
 
+import dev.riege.buildmycommand.adapters.brigadier.BrigadierCommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftCommandEdgeCase;
+import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -36,6 +40,21 @@ class SpongeMinecraftAdapterTest {
         assertEquals(List.of("sp"), Arrays.asList(registrar.aliases()));
         assertEquals(List.of("sponge", "sp"), registration.labels());
         assertTrue(registration.exactLiteralMatching());
+    }
+
+    @Test
+    void exposesSharedBrigadierBridgeForSpongeCommandEvents() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("sponge|sp reload").executes(ctx -> Results.silent());
+
+        BrigadierCommandAdapter<Object> bridge = SpongeMinecraftAdapter.brigadierBridge(
+            framework,
+            source -> new CommandSource() {
+            }
+        );
+
+        assertEquals("minecraft-sponge-brigadier", bridge.config().adapterId());
+        assertEquals(List.of("sponge", "sp"), bridge.registrationLabels().rootLabels());
     }
 
     private static final class RecordingRegistrar<C> implements SpongeCommandRegistrar<C> {

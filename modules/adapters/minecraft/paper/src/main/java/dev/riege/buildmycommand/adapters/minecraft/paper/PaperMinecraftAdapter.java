@@ -49,7 +49,7 @@ public final class PaperMinecraftAdapter {
         CommandFramework framework,
         MinecraftSourceMapper<N> sourceMapper
     ) {
-        return MinecraftBrigadierAdapters.create(framework, sourceMapper::map);
+        return MinecraftBrigadierAdapters.create(profile(), framework, sourceMapper::map);
     }
 
     public static PaperBrigadierRegistration brigadierRegistration(

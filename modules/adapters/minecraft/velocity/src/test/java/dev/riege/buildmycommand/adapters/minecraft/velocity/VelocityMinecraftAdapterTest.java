@@ -124,10 +124,13 @@ class VelocityMinecraftAdapterTest {
         );
         MinecraftCommandRegistrationPlan plan = registration.plan();
 
-        assertEquals(List.of("proxy"), plan.rootLiterals());
+        assertEquals(List.of("proxy", "px"), plan.rootLiterals());
+        assertEquals(List.of("proxy", "px"), plan.rootLabels());
         assertEquals(List.of("proxy", "px"), registration.labels());
         assertEquals(List.of("proxy", "px"), new ArrayList<>(registration.register(commandManager.proxy())));
         assertTrue(registration.exactLiteralMatching());
+        assertTrue(registration.frameworkAuthoritativeMatching());
+        assertEquals("minecraft-velocity-brigadier", registration.bridge().config().adapterId());
         assertEquals(1, commandManager.registrations().size());
         assertEquals(List.of("proxy", "px"), commandManager.labels(commandManager.registrations().keySet().iterator().next()));
         registration.unregister(commandManager.proxy());
