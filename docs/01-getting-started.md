@@ -41,23 +41,24 @@ This style is preferred because the command shape stays in one route string. Dee
 
 ```kotlin
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
+val buildMyCommandVersion = "0.0.4"
+
 dependencies {
-    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
 }
 ```
 
 Add one adapter for your runtime:
 
 ```kotlin
-implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
-implementation("io.github.zolkers:adapters-brigadier:0.0.4-SNAPSHOT")
-implementation("io.github.zolkers:adapters-terminal:0.0.4-SNAPSHOT")
+implementation("io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion")
+implementation("io.github.zolkers:adapters-brigadier:$buildMyCommandVersion")
+implementation("io.github.zolkers:adapters-terminal:$buildMyCommandVersion")
 ```
 
 ## CommandSource

@@ -2,9 +2,11 @@
 
 Publishing is split into Maven artifacts and the IntelliJ plugin.
 
-## Maven Local
+This page is for maintainers and contributors. Application users should consume released artifacts from Maven Central as shown in [Getting Started](01-getting-started.md).
 
-Use Maven local while testing snapshots in another project:
+## Local Development
+
+Use Maven local only when you are developing BuildMyCommand itself and need to test unpublished changes in another project:
 
 ```powershell
 .\gradlew.bat publishToMavenLocal
@@ -14,7 +16,7 @@ In the consumer project:
 
 ```kotlin
 repositories {
-    mavenLocal() // remove once using a released version
+    mavenLocal() // contributor workflow only
     mavenCentral()
 }
 ```
@@ -50,13 +52,13 @@ The project uses group:
 io.github.zolkers
 ```
 
-Current development version:
+Current release line:
 
 ```text
-0.0.4-SNAPSHOT
+0.0.4
 ```
 
-Publish with the configured Gradle publishing tasks after setting credentials and signing.
+Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version, run the full checks, publish, then move development back to the next `-SNAPSHOT`.
 
 ## IntelliJ Plugin Local Release
 

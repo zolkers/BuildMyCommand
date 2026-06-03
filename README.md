@@ -4,19 +4,20 @@ BuildMyCommand is a modular Java command framework. It gives you one command run
 
 ## Getting Started
 
-Add the dependencies first. For local testing while the API is moving, use `mavenLocal()` before `mavenCentral()`:
+Add the dependencies first. Use the latest released version available on Maven Central.
 
 ```kotlin
 repositories {
-    mavenLocal() // temporary while testing unpublished snapshots
     mavenCentral()
 }
 
+val buildMyCommandVersion = "0.0.4"
+
 dependencies {
-    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
+    implementation("io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion")
 }
 ```
 

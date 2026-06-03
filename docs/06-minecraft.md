@@ -13,19 +13,18 @@ For Fabric client-side mods, the clean pattern is:
 
 ```kotlin
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
+val buildMyCommandVersion = "0.0.4"
+
 dependencies {
-    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
-    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
+    implementation("io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion")
 }
 ```
-
-Keep `mavenLocal()` while testing snapshots. Remove it once you depend on a released Maven Central version.
 
 ## Command Class
 
