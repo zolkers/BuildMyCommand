@@ -3,10 +3,6 @@ package dev.riege.buildmycommand.examples.minecraft;
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.minecraft.fabric.FabricBrigadierRegistration;
 import dev.riege.buildmycommand.adapters.minecraft.fabric.FabricMinecraftAdapter;
-import dev.riege.buildmycommand.adapters.minecraft.forge.ForgeBrigadierRegistration;
-import dev.riege.buildmycommand.adapters.minecraft.forge.ForgeMinecraftAdapter;
-import dev.riege.buildmycommand.adapters.minecraft.neoforge.NeoForgeBrigadierRegistration;
-import dev.riege.buildmycommand.adapters.minecraft.neoforge.NeoForgeMinecraftAdapter;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -34,36 +30,12 @@ public final class MinecraftLoaderAdaptersExample {
         return FabricMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
     }
 
-    public static ForgeBrigadierRegistration<NativeCommandSource> forgeLegacyRegistration() {
-        return ForgeMinecraftAdapter.legacyRegistration(framework(), MinecraftLoaderAdaptersExample::source);
-    }
-
-    public static ForgeBrigadierRegistration<NativeCommandSource> forgeModernRegistration() {
-        return ForgeMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
-    }
-
-    public static NeoForgeBrigadierRegistration<NativeCommandSource> neoForgeRegistration() {
-        return NeoForgeMinecraftAdapter.registration(framework(), MinecraftLoaderAdaptersExample::source);
-    }
-
     public static void registerFabric1165(CommandDispatcher<NativeCommandSource> dispatcher) {
         fabricLegacyRegistration().registerInto(dispatcher);
     }
 
     public static void registerFabricModern(CommandDispatcher<NativeCommandSource> dispatcher) {
         fabricModernRegistration().registerInto(dispatcher);
-    }
-
-    public static void registerForge1165(CommandDispatcher<NativeCommandSource> dispatcher) {
-        forgeLegacyRegistration().registerInto(dispatcher);
-    }
-
-    public static void registerForgeModern(CommandDispatcher<NativeCommandSource> dispatcher) {
-        forgeModernRegistration().registerInto(dispatcher);
-    }
-
-    public static void registerNeoForge(CommandDispatcher<NativeCommandSource> dispatcher) {
-        neoForgeRegistration().registerInto(dispatcher);
     }
 
     private static CommandSource source(NativeCommandSource nativeSource) {

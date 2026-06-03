@@ -13,7 +13,7 @@ public final class MinecraftBrigadierExample {
     private MinecraftBrigadierExample() {
     }
 
-    public static BrigadierCommandAdapter<FakeStack> createForFabricForgeNeoForgeStyleDispatchers() {
+    public static BrigadierCommandAdapter<FakeStack> createForMinecraftStyleDispatchers() {
         CommandFramework framework = CommandFramework.create();
         framework.registry()
             .route("worldborder|wb set <size:Integer>")

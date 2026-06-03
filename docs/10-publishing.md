@@ -28,19 +28,9 @@ Artifact ids are derived from Gradle paths by replacing `:` with `-`.
 | `:schema` | `io.github.zolkers:schema:0.0.1` |
 | `:testkit` | `io.github.zolkers:testkit:0.0.1` |
 | `:adapters:core` | `io.github.zolkers:adapters-core:0.0.1` |
-| `:adapters:terminal` | `io.github.zolkers:adapters-terminal:0.0.1` |
-| `:adapters:discord` | `io.github.zolkers:adapters-discord:0.0.1` |
 | `:adapters:brigadier` | `io.github.zolkers:adapters-brigadier:0.0.1` |
 | `:adapters:minecraft:common` | `io.github.zolkers:adapters-minecraft-common:0.0.1` |
 | `:adapters:minecraft:fabric` | `io.github.zolkers:adapters-minecraft-fabric:0.0.1` |
-| `:adapters:minecraft:forge` | `io.github.zolkers:adapters-minecraft-forge:0.0.1` |
-| `:adapters:minecraft:neoforge` | `io.github.zolkers:adapters-minecraft-neoforge:0.0.1` |
-| `:adapters:minecraft:spigot` | `io.github.zolkers:adapters-minecraft-spigot:0.0.1` |
-| `:adapters:minecraft:paper` | `io.github.zolkers:adapters-minecraft-paper:0.0.1` |
-| `:adapters:minecraft:bungee` | `io.github.zolkers:adapters-minecraft-bungee:0.0.1` |
-| `:adapters:minecraft:velocity` | `io.github.zolkers:adapters-minecraft-velocity:0.0.1` |
-| `:adapters:minecraft:minestom` | `io.github.zolkers:adapters-minecraft-minestom:0.0.1` |
-| `:adapters:minecraft:sponge` | `io.github.zolkers:adapters-minecraft-sponge:0.0.1` |
 
 ## User Install
 
@@ -53,7 +43,7 @@ dependencies {
     implementation("io.github.zolkers:api:0.0.1")
     implementation("io.github.zolkers:core:0.0.1")
     implementation("io.github.zolkers:annotations:0.0.1")
-    implementation("io.github.zolkers:adapters-terminal:0.0.1")
+    implementation("io.github.zolkers:adapters-brigadier:0.0.1")
 }
 ```
 
@@ -63,14 +53,6 @@ Minecraft users should import only the adapter matching their platform:
 | --- | --- |
 | Generic Brigadier runtime | `io.github.zolkers:adapters-brigadier:0.0.1` |
 | Fabric | `io.github.zolkers:adapters-minecraft-fabric:0.0.1` |
-| Forge | `io.github.zolkers:adapters-minecraft-forge:0.0.1` |
-| NeoForge | `io.github.zolkers:adapters-minecraft-neoforge:0.0.1` |
-| Paper | `io.github.zolkers:adapters-minecraft-paper:0.0.1` |
-| Spigot | `io.github.zolkers:adapters-minecraft-spigot:0.0.1` |
-| BungeeCord | `io.github.zolkers:adapters-minecraft-bungee:0.0.1` |
-| Velocity | `io.github.zolkers:adapters-minecraft-velocity:0.0.1` |
-| Minestom | `io.github.zolkers:adapters-minecraft-minestom:0.0.1` |
-| Sponge | `io.github.zolkers:adapters-minecraft-sponge:0.0.1` |
 
 ## Local Publish
 

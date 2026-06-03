@@ -3,12 +3,10 @@ package dev.riege.buildmycommand.examples;
 import com.mojang.brigadier.CommandDispatcher;
 import dev.riege.buildmycommand.adapters.CommandAdapter;
 import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResult;
-import dev.riege.buildmycommand.adapters.terminal.TerminalAdapter;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.examples.adapters.BrigadierAdapterExample;
 import dev.riege.buildmycommand.examples.adapters.SimpleAdapterExample;
-import dev.riege.buildmycommand.examples.adapters.TerminalAdapterExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationGroupExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationMiddlewareExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationParameterExample;
@@ -36,10 +34,6 @@ import dev.riege.buildmycommand.examples.suggestions.SuggestionExample;
 import dev.riege.buildmycommand.examples.testing.TestKitExample;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -234,14 +228,6 @@ class ExampleSmokeTest {
             new SimpleAdapterExample.ChatMessage("!missing")
         ));
 
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        TerminalAdapter terminal = TerminalAdapterExample.attach(
-            new ByteArrayInputStream("ping\n".getBytes(StandardCharsets.UTF_8)),
-            new PrintStream(output, true, StandardCharsets.UTF_8)
-        );
-        terminal.runOnce(source());
-        assertTrue(output.toString(StandardCharsets.UTF_8).contains("Pong"));
-
         CommandDispatcher<BrigadierAdapterExample.NativeSource> dispatcher = BrigadierAdapterExample.dispatcher();
         assertEquals(1, dispatcher.execute(
             "adm ban Ada --silent",
@@ -252,7 +238,7 @@ class ExampleSmokeTest {
         assertEquals(1, nativeResult.numericResult());
         assertEquals(Optional.of("Home set: base"), nativeResult.message());
 
-        assertEquals(1, MinecraftBrigadierExample.createForFabricForgeNeoForgeStyleDispatchers()
+        assertEquals(1, MinecraftBrigadierExample.createForMinecraftStyleDispatchers()
             .execute(
                 new MinecraftBrigadierExample.FakeStack(Set.of("minecraft.command.worldborder")),
                 "/wb set 10"
@@ -262,12 +248,6 @@ class ExampleSmokeTest {
             new CommandDispatcher<>();
         CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> fabricModern =
             new CommandDispatcher<>();
-        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> forgeLegacy =
-            new CommandDispatcher<>();
-        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> forgeModern =
-            new CommandDispatcher<>();
-        CommandDispatcher<MinecraftLoaderAdaptersExample.NativeCommandSource> neoForge =
-            new CommandDispatcher<>();
         MinecraftLoaderAdaptersExample.NativeCommandSource loaderSource =
             new MinecraftLoaderAdaptersExample.NativeCommandSource("Ada", true);
         MinecraftLoaderAdaptersExample.NativeCommandSource guestSource =
@@ -275,9 +255,6 @@ class ExampleSmokeTest {
 
         MinecraftLoaderAdaptersExample.registerFabric1165(fabricLegacy);
         MinecraftLoaderAdaptersExample.registerFabricModern(fabricModern);
-        MinecraftLoaderAdaptersExample.registerForge1165(forgeLegacy);
-        MinecraftLoaderAdaptersExample.registerForgeModern(forgeModern);
-        MinecraftLoaderAdaptersExample.registerNeoForge(neoForge);
 
         assertEquals("Ada", loaderSource.name());
         assertTrue(guestSource.hasPermission(""));
@@ -286,9 +263,6 @@ class ExampleSmokeTest {
             MinecraftLoaderAdaptersExample.fabricModernRegistration().bridge().mapSource(loaderSource).name());
         assertEquals(1, fabricLegacy.execute("mod reload config", loaderSource));
         assertEquals(1, fabricModern.execute("moderation reload cache", loaderSource));
-        assertEquals(1, forgeLegacy.execute("mod reload users", loaderSource));
-        assertEquals(1, forgeModern.execute("moderation reload permissions", loaderSource));
-        assertEquals(1, neoForge.execute("moderation reload permissions", loaderSource));
     }
 
     private static void assertSuccess(CommandResult result, String reply) {
