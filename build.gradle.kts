@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "io.github.zolkers"
-version = "0.0.1"
+version = "0.0.2"
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
     include("**/src/main/java/**/*.java")
