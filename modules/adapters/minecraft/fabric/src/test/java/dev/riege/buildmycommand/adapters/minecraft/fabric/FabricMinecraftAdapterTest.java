@@ -1,6 +1,7 @@
 package dev.riege.buildmycommand.adapters.minecraft.fabric;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FabricMinecraftAdapterTest {
@@ -48,6 +50,25 @@ class FabricMinecraftAdapterTest {
         assertEquals(2, modern.plan().rootLabels().size());
         assertEquals(1, dispatcher.execute("fb reload Ada", new FabricSource("Ada")));
         assertEquals("Ada", executed.get());
+    }
+
+    @Test
+    void registrationDoesNotExposeFallbackRootOrBreakExistingClientCommands() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry()
+            .route("wecc ping")
+            .executes(ctx -> Results.success("pong"));
+        FabricBrigadierRegistration<FabricSource> registration =
+            FabricMinecraftAdapter.registration(framework, FabricSource::commandSource);
+        CommandDispatcher<FabricSource> dispatcher = new CommandDispatcher<>();
+        dispatcher.register(LiteralArgumentBuilder.<FabricSource>literal("fabric-command-api-v2:client")
+            .executes(context -> 37));
+
+        registration.registerInto(dispatcher);
+
+        assertNull(dispatcher.getRoot().getChild("_bmc_input"));
+        assertEquals(37, dispatcher.execute("fabric-command-api-v2:client", new FabricSource("Ada")));
+        assertEquals(1, dispatcher.execute("wecc ping", new FabricSource("Ada")));
     }
 
     @Test

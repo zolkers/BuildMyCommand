@@ -36,6 +36,9 @@ public final class BrigadierRegistration<N> {
         Objects.requireNonNull(dispatcher, "dispatcher");
         Set<String> registered = new LinkedHashSet<>();
         for (LiteralCommandNode<N> root : roots()) {
+            if (dispatcher.getRoot().getChild(root.getLiteral()) != null) {
+                continue;
+            }
             dispatcher.getRoot().addChild(root);
             registered.add(root.getLiteral());
         }

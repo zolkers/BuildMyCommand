@@ -160,6 +160,20 @@ class BrigadierCommandAdapterTest {
     }
 
     @Test
+    void registrationDoesNotOverrideExistingDispatcherRoots() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry().command("ping", command -> command.executes(ctx -> Results.success("bmc")));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+        dispatcher.register(LiteralArgumentBuilder.<NativeSource>literal("ping")
+            .executes(context -> 42));
+
+        assertEquals(Set.of(), bridge.registration().register(dispatcher));
+
+        assertEquals(42, dispatcher.execute("ping", new NativeSource()));
+    }
+
+    @Test
     void dispatcherHonorsFrameworkCaseInsensitiveLiteralsUnderRegisteredRootsOnly() throws Exception {
         CommandFramework framework = CommandFramework.builder()
             .caseInsensitiveLiterals()
