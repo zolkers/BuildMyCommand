@@ -166,11 +166,17 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
                     .build());
             }
         }
-        RequiredArgumentBuilder<N, String> tunnel =
-            RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
-        attachFrameworkSuggestions(tunnel);
-        tunnel.executes(context -> executeTunnel(context, node));
-        builder.then(tunnel);
+        if (needsFrameworkTunnel(node)) {
+            RequiredArgumentBuilder<N, String> tunnel =
+                RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
+            attachFrameworkSuggestions(tunnel);
+            tunnel.executes(context -> executeTunnel(context, node));
+            builder.then(tunnel);
+        }
+    }
+
+    private boolean needsFrameworkTunnel(CommandNode node) {
+        return !node.flags().isEmpty() || (framework.caseInsensitiveLiterals() && !node.children().isEmpty());
     }
 
     private int executeTunnel(CommandContext<N> context, CommandNode node) throws CommandSyntaxException {

@@ -65,6 +65,25 @@ class BrigadierCommandAdapterTest {
     }
 
     @Test
+    void simpleArgumentLeavesDoNotExposeFrameworkTunnelAsNextSuggestion() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("wecc bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        LiteralCommandNode<NativeSource> root = literal(bridge.roots().get(0), "bang");
+        ArgumentCommandNode<NativeSource, ?> target =
+            assertInstanceOf(ArgumentCommandNode.class, root.getChild("target"));
+        assertNull(target.getChild("_bmc_input"));
+        assertFalse(suggestions(dispatcher, "wecc bang Ada ").contains("_bmc_input"));
+    }
+
+    @Test
     void registersRootAliasAsRedirectNode() {
         CommandFramework framework = CommandFramework.create();
         BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
@@ -109,6 +128,7 @@ class BrigadierCommandAdapterTest {
             .executes(ctx -> Results.success("pong"));
         framework.registry()
             .route("wecc bang|b <target:String>")
+            .suggestAliases(false)
             .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
         CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
 
@@ -121,6 +141,9 @@ class BrigadierCommandAdapterTest {
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc bang", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc b", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc nope", new NativeSource()));
+        assertTrue(suggestions(dispatcher, "wecc ").contains("bang"));
+        assertTrue(suggestions(dispatcher, "wecc ").contains("ping"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("_bmc_input"));
         assertFalse(suggestions(dispatcher, "wecc nope").contains("_bmc_input"));
     }
 
