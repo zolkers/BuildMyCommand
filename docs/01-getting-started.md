@@ -9,8 +9,8 @@ This page gets a command running quickly while explaining the minimum concepts y
 | Basic command framework | `api`, `core` |
 | Annotation commands | `annotations` |
 | IntelliJ DSL support | local IntelliJ plugin from `:intellij-plugin` |
-| Brigadier runtime | `adapters-brigadier` |
-| Fabric runtime | `adapters-minecraft-fabric` plus Fabric API |
+| Terminal runtime | `adapters-terminal` |
+| Minecraft/Paper runtime | `adapters-minecraft-paper` plus required platform API |
 | Custom runtime | `adapters-core` |
 
 ```kotlin

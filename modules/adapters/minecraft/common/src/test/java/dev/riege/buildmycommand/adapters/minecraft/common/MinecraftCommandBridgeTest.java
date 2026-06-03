@@ -100,7 +100,7 @@ class MinecraftCommandBridgeTest {
         );
 
         MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlan.fromNativeAdapter(
-            MinecraftBackendProfiles.fabric(),
+            MinecraftBackendProfiles.spigot(),
             adapter
         );
 
@@ -114,7 +114,7 @@ class MinecraftCommandBridgeTest {
             new ContractOnlyMinecraftAdapter(List.of("kick"), List.of("kick", "boot"));
 
         MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlan.fromNativeAdapter(
-            MinecraftBackendProfiles.fabric(),
+            MinecraftBackendProfiles.spigot(),
             adapter
         );
 
@@ -278,15 +278,20 @@ class MinecraftCommandBridgeTest {
     }
 
     @Test
-    void profileCoversFabricCommandBackendAndEdgeCases() {
+    void profilesCoverMajorMinecraftCommandBackendsAndTheirEdgeCases() {
         assertEquals(Set.of(
+                MinecraftCommandEdgeCase.SLASH_PREFIX,
                 MinecraftCommandEdgeCase.BRIGADIER_CURSOR,
-                MinecraftCommandEdgeCase.DEDICATED_ENVIRONMENT,
+                MinecraftCommandEdgeCase.LIFECYCLE_REREGISTRATION,
                 MinecraftCommandEdgeCase.PERMISSION_FILTERING
             ),
-            MinecraftBackendProfiles.fabric().edgeCases());
-        assertTrue(MinecraftBackendProfiles.fabric().capabilities().contains(MinecraftCapability.BRIGADIER));
-        assertTrue(MinecraftBackendProfiles.fabric().capabilities().contains(MinecraftCapability.EVENT_BUS));
+            MinecraftBackendProfiles.paper().edgeCases());
+        assertTrue(MinecraftBackendProfiles.spigot().edgeCases().contains(MinecraftCommandEdgeCase.ARGS_ARRAY));
+        assertTrue(MinecraftBackendProfiles.bungee().edgeCases().contains(MinecraftCommandEdgeCase.BUNGEE_TAB_COMPLETE));
+        assertTrue(MinecraftBackendProfiles.velocity().capabilities().contains(MinecraftCapability.BRIGADIER));
+        assertTrue(MinecraftBackendProfiles.fabric().edgeCases().contains(MinecraftCommandEdgeCase.DEDICATED_ENVIRONMENT));
+        assertTrue(MinecraftBackendProfiles.forge().edgeCases().contains(MinecraftCommandEdgeCase.EVENT_BUS_REGISTRATION));
+        assertTrue(MinecraftBackendProfiles.neoforge().edgeCases().contains(MinecraftCommandEdgeCase.EVENT_BUS_REGISTRATION));
     }
 
     @Test
@@ -299,14 +304,14 @@ class MinecraftCommandBridgeTest {
         });
 
         MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlan.fromBridge(
-            MinecraftBackendProfiles.fabric(),
+            MinecraftBackendProfiles.paper(),
             bridge
         );
 
-        assertEquals(MinecraftBackendProfiles.fabric(), plan.backend());
+        assertEquals(MinecraftBackendProfiles.paper(), plan.backend());
         assertEquals(List.of("warp"), plan.rootLiterals());
         assertEquals(List.of("warp"), plan.rootLabels());
-        assertEquals(false, plan.reloadSafe());
+        assertTrue(plan.reloadSafe());
     }
 
     @Test
@@ -376,8 +381,8 @@ class MinecraftCommandBridgeTest {
         assertTrue(new MinecraftSourceDescriptor(MinecraftSourceKind.CONSOLE, null, null).name().isEmpty());
         assertTrue(new MinecraftSourceDescriptor(MinecraftSourceKind.CONSOLE, null, null).nativeHandleOptional().isEmpty());
         assertThrows(NullPointerException.class, () -> new MinecraftCommandRegistrationPlan(null, List.of("ban"), 0, true));
-        assertThrows(NullPointerException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.fabric(), null, 0, true));
-        assertThrows(IllegalArgumentException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.fabric(),
+        assertThrows(NullPointerException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.paper(), null, 0, true));
+        assertThrows(IllegalArgumentException.class, () -> new MinecraftCommandRegistrationPlan(MinecraftBackendProfiles.paper(),
             List.of("ban"),
             -1,
             true));
@@ -433,32 +438,36 @@ class MinecraftCommandBridgeTest {
     }
 
     @Test
-    void sharedBrigadierFactoriesAndRegistrationHelpersCoverFabricBackend() {
+    void sharedBrigadierFactoriesAndRegistrationHelpersCoverAllCommonBackends() {
         CommandFramework framework = CommandFramework.create();
-        framework.registry().route("fabric|fb ping").executes(ctx -> Results.silent());
+        framework.registry().route("minestom|ms ping").executes(ctx -> Results.silent());
+
+        assertEquals("minestom", MinecraftBackendProfiles.minestom().id());
+        assertEquals("sponge", MinecraftBackendProfiles.sponge().id());
+        assertTrue(MinecraftBackendProfiles.sponge().capabilities().contains(MinecraftCapability.EVENT_BUS));
 
         var defaultBridge = MinecraftBrigadierAdapters.create(framework, sender -> new CommandSource() {
         });
-        var fabricBridge = MinecraftBrigadierAdapters.create(MinecraftBackendProfiles.fabric(), framework, sender -> new CommandSource() {
+        var spongeBridge = MinecraftBrigadierAdapters.create(MinecraftBackendProfiles.sponge(), framework, sender -> new CommandSource() {
         });
-        MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.fabric(), fabricBridge);
+        MinecraftCommandRegistrationPlan plan = MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.sponge(), spongeBridge);
 
         assertEquals("minecraft-fabric-brigadier", defaultBridge.config().adapterId());
-        assertEquals("minecraft-fabric-brigadier", fabricBridge.config().adapterId());
-        assertEquals(List.of("fabric", "fb"), plan.rootLabels());
-        assertEquals(false, plan.reloadSafe());
+        assertEquals("minecraft-sponge-brigadier", spongeBridge.config().adapterId());
+        assertEquals(List.of("minestom", "ms"), plan.rootLabels());
+        assertTrue(plan.reloadSafe());
         assertThrows(NullPointerException.class, () -> MinecraftBrigadierAdapters.create(null, framework, sender -> new CommandSource() {
         }));
         assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlan.fromBridge(
-            MinecraftBackendProfiles.fabric(),
+            MinecraftBackendProfiles.paper(),
             null
         ));
         assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlan.fromNativeAdapter(
-            MinecraftBackendProfiles.fabric(),
+            MinecraftBackendProfiles.paper(),
             null
         ));
-        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(null, fabricBridge));
-        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.fabric(), null));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(null, spongeBridge));
+        assertThrows(NullPointerException.class, () -> MinecraftCommandRegistrationPlans.from(MinecraftBackendProfiles.sponge(), null));
     }
 
     @Test

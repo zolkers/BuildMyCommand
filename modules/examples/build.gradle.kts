@@ -8,6 +8,9 @@ dependencies {
     implementation(project(":adapters:core"))
     implementation(project(":adapters:minecraft:common"))
     implementation(project(":adapters:minecraft:fabric"))
+    implementation(project(":adapters:minecraft:forge"))
+    implementation(project(":adapters:minecraft:neoforge"))
+    implementation(project(":adapters:terminal"))
     implementation(project(":core"))
     implementation(project(":testkit"))
 }

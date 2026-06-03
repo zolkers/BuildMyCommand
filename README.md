@@ -1,6 +1,6 @@
 # BuildMyCommand
 
-BuildMyCommand is a modular Java command framework for applications and Minecraft-like platforms. It gives you one command model, one parsing/runtime layer, one adapter contract, and multiple ways to declare commands.
+BuildMyCommand is a modular Java command framework for applications, terminals, bots, and Minecraft-like platforms. It gives you one command model, one parsing/runtime layer, one adapter contract, and multiple ways to declare commands.
 
 The recommended style is **annotation routes**:
 
@@ -35,9 +35,19 @@ Artifacts are prepared for Maven Central with group `io.github.zolkers` and vers
 | `schema` | `:schema` | Schema/export helpers for command metadata. |
 | `testkit` | `:testkit` | Test utilities for framework users. |
 | `adapters-core` | `:adapters:core` | `IAdapter`, source/input/rendering contracts, generic adapter runtime. |
+| `adapters-terminal` | `:adapters:terminal` | Terminal adapter. |
+| `adapters-discord` | `:adapters:discord` | Discord-style adapter foundation. |
 | `adapters-brigadier` | `:adapters:brigadier` | Generic Mojang Brigadier bridge. |
 | `adapters-minecraft-common` | `:adapters:minecraft:common` | Shared Minecraft adapter contracts and capability model. |
 | `adapters-minecraft-fabric` | `:adapters:minecraft:fabric` | Fabric command registration bridge for legacy v1 and modern v2 command callbacks. |
+| `adapters-minecraft-forge` | `:adapters:minecraft:forge` | Forge `RegisterCommandsEvent` bridge for 1.16.5+ style command registration. |
+| `adapters-minecraft-neoforge` | `:adapters:minecraft:neoforge` | NeoForge `RegisterCommandsEvent` bridge. |
+| `adapters-minecraft-spigot` | `:adapters:minecraft:spigot` | Spigot integration layer. |
+| `adapters-minecraft-paper` | `:adapters:minecraft:paper` | Paper integration layer. |
+| `adapters-minecraft-bungee` | `:adapters:minecraft:bungee` | BungeeCord integration layer. |
+| `adapters-minecraft-velocity` | `:adapters:minecraft:velocity` | Velocity integration layer. |
+| `adapters-minecraft-minestom` | `:adapters:minecraft:minestom` | Minestom integration layer. |
+| `adapters-minecraft-sponge` | `:adapters:minecraft:sponge` | Sponge integration layer. |
 
 ## Install
 
@@ -56,8 +66,10 @@ dependencies {
 Add only the adapter modules you need:
 
 ```kotlin
+implementation("io.github.zolkers:adapters-terminal:0.0.1")
 implementation("io.github.zolkers:adapters-brigadier:0.0.1")
 implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.1")
+implementation("io.github.zolkers:adapters-minecraft-paper:0.0.1")
 ```
 
 ## Documentation

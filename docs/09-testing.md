@@ -9,7 +9,7 @@ BuildMyCommand is designed to be tested without launching a full platform.
 | Unit | Parser, metadata, builders, middleware. | `CommandMetadata.Builder` validation. |
 | Runtime | `CommandFramework` dispatch. | Dispatch input and assert `CommandResult`. |
 | Annotation | Scanner/compiler behavior. | Register annotated class and inspect schema/results. |
-| Adapter | Native source/input/result mapping. | Brigadier/Fabric adapter tests. |
+| Adapter | Native source/input/result mapping. | Discord/terminal/Minecraft adapter tests. |
 | Smoke examples | Public examples compile and run. | `ExampleSmokeTest`. |
 
 ## Dispatch Test

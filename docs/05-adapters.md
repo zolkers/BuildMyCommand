@@ -7,12 +7,14 @@ Adapters connect BuildMyCommand to a host platform. They translate native users/
 | Module | Use case |
 | --- | --- |
 | `adapters-core` | Build your own runtime adapter. |
+| `adapters-terminal` | Execute commands from terminal input. |
+| `adapters-discord` | Discord-style message adapter base. |
 | `adapters-brigadier` | Register a BuildMyCommand graph into Brigadier. |
 | `adapters-minecraft-common` | Shared Minecraft adapter contracts and profiles. |
-| `adapters-minecraft-fabric` | Fabric Command API v1/v2 registration helper. |
 
-Only Fabric is kept as a maintained platform adapter right now. Other platforms should be added back one by one only
-after their adapter behavior is validated against the common `IAdapter`/`CommandAdapter` contract.
+Platform-specific Minecraft modules are thin factories/registration helpers over the common adapter contract. Paper,
+Spigot, Bungee, Velocity, Minestom, and Sponge integrations should still enter the framework through `IAdapter` or
+`CommandAdapter` so dispatch, suggestions, permissions, and case policy stay consistent.
 
 ## Core Contracts
 
@@ -77,6 +79,22 @@ CommandAdapter<User, Message, Reply> adapter = SimpleCommandAdapter.<User, Messa
 | Native registration | Host has a command tree API. | Export `framework.graph()` or use Brigadier adapter. |
 | Rich messages | Host supports styled messages. | Render `CommandMessage` metadata/level. |
 | Case policy | Host has case behavior constraints. | Respect framework matching policy or normalize input. |
+
+## Terminal Adapter
+
+Terminal adapter belongs in the adapter module family and is useful for demos, local tools, and testing:
+
+```java
+TerminalAdapter terminal = TerminalAdapter.attach(framework, System.in, System.out);
+terminal.run();
+```
+
+| Feature | Support |
+| --- | --- |
+| Dispatch | Yes |
+| Permissions | Depends on supplied source |
+| Suggestions | Framework side available |
+| Native registration | Not applicable |
 
 ## Adapter Quality Checklist
 
