@@ -172,6 +172,38 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void registersClassCommandWithNestedSubcommandGroups() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new TeamCommands());
+
+        CommandResult grant = framework.dispatch(source(), "t m perm g Ada build.fly");
+        CommandResult route = framework.dispatch(source(), "team member permission put Ada build.admin -t");
+
+        assertEquals(Optional.of("grant Ada build.fly"), grant.reply());
+        assertEquals(Optional.of("set Ada build.admin temporary=true"), route.reply());
+        assertEquals("Usage: team member permission grant <target:String> <permission:String>",
+            framework.help("team member permission grant"));
+    }
+
+    @Test
+    void registersNonStaticNestedSubcommandGroups() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new NonStaticNestedCommands());
+
+        assertEquals(Optional.of("inner"), framework.dispatch(source(), "outer inner leaf").reply());
+    }
+
+    @Test
+    void rejectsNestedSubcommandGroupWithoutUsableConstructor() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            () -> AnnotationCommandScanner.register(CommandFramework.create().registry(), new BrokenNestedCommands()));
+
+        assertEquals(true, exception.getMessage().startsWith("cannot instantiate nested @Subcommand group: "));
+    }
+
+    @Test
     void registersClassCommandWithMethodSubRoute() {
         CommandFramework framework = CommandFramework.create();
 
@@ -298,6 +330,7 @@ class AnnotationCommandScannerTest {
 
     @Test
     void metadataAnnotationsDeclareConsistentClassAndMethodTargets() {
+        assertTargets(Subcommand.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Description.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Permission.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Usage.class, ElementType.METHOD, ElementType.TYPE);
@@ -579,6 +612,62 @@ class AnnotationCommandScannerTest {
         @Subcommand("reload")
         CommandResult reload() {
             return Results.success("reloaded");
+        }
+    }
+
+    @Command("team")
+    @Alias("t")
+    static final class TeamCommands {
+        @Subcommand("member")
+        @Alias("m")
+        static final class MemberCommands {
+            @Subcommand("permission")
+            @Alias("perm")
+            static final class PermissionCommands {
+                @Subcommand("grant")
+                @Alias("g")
+                CommandResult grant(@Arg("target") String target, @Arg("permission") String permission) {
+                    return Results.success("grant " + target + " " + permission);
+                }
+
+                @SubRoute("set <target:String> <permission:String> [--temporary|-t]")
+                @Alias("put")
+                CommandResult set(@RouteCtx CommandContext route) {
+                    return Results.success(
+                        "set "
+                            + route.arg("target", String.class)
+                            + " "
+                            + route.arg("permission", String.class)
+                            + " temporary="
+                            + route.flag("temporary")
+                    );
+                }
+            }
+        }
+    }
+
+    @Command("outer")
+    static final class NonStaticNestedCommands {
+        @Subcommand("inner")
+        final class InnerCommands {
+            @Subcommand("leaf")
+            CommandResult leaf() {
+                return Results.success("inner");
+            }
+        }
+    }
+
+    @Command("broken")
+    static final class BrokenNestedCommands {
+        @Subcommand("inner")
+        static final class InnerCommands {
+            private InnerCommands(String ignored) {
+            }
+
+            @Subcommand("leaf")
+            CommandResult leaf() {
+                return Results.silent();
+            }
         }
     }
 

@@ -15,6 +15,7 @@ import dev.riege.buildmycommand.examples.annotations.AnnotationRouteExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteSubcommandExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationSubcommandExample;
 import dev.riege.buildmycommand.examples.annotations.DeepAnnotationNestingExample;
+import dev.riege.buildmycommand.examples.annotations.NestedSubcommandExample;
 import dev.riege.buildmycommand.examples.basics.BuilderCommandsExample;
 import dev.riege.buildmycommand.examples.basics.BuilderPathExample;
 import dev.riege.buildmycommand.examples.basics.DeepSubcommandNestingExample;
@@ -134,6 +135,14 @@ class ExampleSmokeTest {
         assertSuccess(AnnotationSubcommandExample.dispatch("server status"), "Server online");
         assertSuccess(AnnotationSubcommandExample.dispatch("server reload"), "Server reloaded");
         assertSuccess(AnnotationSubcommandExample.dispatch("srv maint"), "Maintenance status");
+        assertSuccess(NestedSubcommandExample.dispatch("t m perm g Ada build.fly"),
+            "Granted build.fly to Ada");
+        assertSuccess(NestedSubcommandExample.dispatch("team member permission revoke Ada build.fly"),
+            "Revoked build.fly from Ada");
+        assertSuccess(NestedSubcommandExample.dispatch("team member role set Ada admin --priority 10 --temporary"),
+            "Set Ada role=admin priority=10 temporary=true");
+        assertSuccess(NestedSubcommandExample.dispatch("team member role set Ada helper"),
+            "Set Ada role=helper priority=0 temporary=false");
         assertSuccess(DeepAnnotationNestingExample.dispatch("a mod appeal accept Ada"), "Appeal approved for Ada");
         assertSuccess(DeepAnnotationNestingExample.dispatch("a mod punish temp add Ada spam -d 10 -s"),
             "Temporary punishment added for Ada: spam duration=10 silent=true");

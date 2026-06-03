@@ -22,7 +22,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     static final String SUB_ROUTE_OWNER_REQUIRED =
         "@SubRoute methods must be declared inside a @Command class";
     static final String SUBCOMMAND_OWNER_REQUIRED =
-        "@Subcommand methods must be declared inside a @Command class";
+        "@Subcommand must be declared inside a @Command class or nested @Subcommand group";
     static final String COMMAND_LITERAL_ONLY =
         "@Command only accepts one literal; use @Route for route DSL";
     static final String SUBCOMMAND_LITERAL_ONLY =
@@ -43,6 +43,18 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     public @NotNull PsiElementVisitor buildVisitor(@NotNull ProblemsHolder holder, boolean isOnTheFly) {
         return new JavaElementVisitor() {
             @Override
+            public void visitClass(@NotNull PsiClass psiClass) {
+                PsiAnnotation subcommand = findAnnotation(psiClass.getModifierList().getAnnotations(), SUBCOMMAND);
+                if (subcommand == null) {
+                    return;
+                }
+                inspectLiteralOnly(subcommand, SUBCOMMAND_LITERAL_ONLY, holder);
+                if (!hasCommandTreeOwner(psiClass)) {
+                    holder.registerProblem(psiClass.getNameIdentifier(), SUBCOMMAND_OWNER_REQUIRED);
+                }
+            }
+
+            @Override
             public void visitMethod(@NotNull PsiMethod method) {
                 boolean route = hasAnnotation(method, ROUTE);
                 boolean subRoute = hasAnnotation(method, SUB_ROUTE);
@@ -53,11 +65,11 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                 }
                 if (subcommand != null) {
                     inspectLiteralOnly(subcommand, SUBCOMMAND_LITERAL_ONLY, holder);
-                    if (!hasOwnerCommand(method)) {
+                    if (!hasCommandTreeOwner(method)) {
                         holder.registerProblem(method.getNameIdentifier(), SUBCOMMAND_OWNER_REQUIRED);
                     }
                 }
-                if (subRoute && !hasOwnerCommand(method)) {
+                if (subRoute && !hasCommandTreeOwner(method)) {
                     holder.registerProblem(method.getNameIdentifier(), SUB_ROUTE_OWNER_REQUIRED);
                 }
                 if (!route && !subRoute) {
@@ -115,9 +127,25 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         }
     }
 
-    private static boolean hasOwnerCommand(PsiMethod method) {
+    private static boolean hasCommandTreeOwner(PsiMethod method) {
         PsiClass owner = method.getContainingClass();
-        return owner != null && hasAnnotation(owner.getModifierList().getAnnotations(), COMMAND);
+        return owner != null && hasCommandTreeOwner(owner);
+    }
+
+    private static boolean hasCommandTreeOwner(PsiClass owner) {
+        PsiClass current = owner;
+        boolean sawSubcommandGroup = false;
+        while (current != null) {
+            if (hasAnnotation(current.getModifierList().getAnnotations(), COMMAND)) {
+                return true;
+            }
+            if (current != owner && !hasAnnotation(current.getModifierList().getAnnotations(), SUBCOMMAND)) {
+                return false;
+            }
+            sawSubcommandGroup = sawSubcommandGroup || hasAnnotation(current.getModifierList().getAnnotations(), SUBCOMMAND);
+            current = current.getContainingClass();
+        }
+        return sawSubcommandGroup && false;
     }
 
     private static boolean hasAnnotation(PsiMethod method, String qualifiedName) {

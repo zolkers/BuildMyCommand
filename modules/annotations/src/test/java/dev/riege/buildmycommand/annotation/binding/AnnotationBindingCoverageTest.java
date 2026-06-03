@@ -407,7 +407,7 @@ class AnnotationBindingCoverageTest {
         assertIterableEquals(List.of("toolkit|kit [--amount:Integer]", "tools|t|tool admin", "tools", "z"),
             compiled.commands().stream().map(AnnotationCommandCompiler.CompiledCommand::route).toList());
         assertEquals(new AnnotationCommandCompiler.CasePolicy(false, true), compiled.commands().get(0).casePolicy());
-        assertIterableEquals(List.of("c"), compiled.commands().get(2).subcommandAliases());
+        assertIterableEquals(List.of("c"), compiled.commands().get(2).subcommands().get(0).aliases());
 
         assertIterableEquals(List.of("same", "same"), AnnotationCommandCompiler.compile(new OverloadedCommands())
             .commands().stream().map(AnnotationCommandCompiler.CompiledCommand::route).toList());
@@ -461,11 +461,11 @@ class AnnotationBindingCoverageTest {
             "command:tools",
             "aliases:t,tool",
             "subcommand:config",
+            "aliases:c",
             "description:Config command",
             "hidden",
             "require:tools.use",
             "group:tools",
-            "aliases:c",
             "arg:name:String",
             "argSuggest:name:players",
             "option:amount:Integer:a",
@@ -480,6 +480,38 @@ class AnnotationBindingCoverageTest {
             "arg:name:String",
             "executes"
         ), registry.events);
+    }
+
+    @Test
+    void subcommandSegmentAppliesOptionalNodeMetadata() {
+        RecordingBuilder builder = new RecordingBuilder();
+        AnnotationCommandCompiler.SubcommandSegment segment = new AnnotationCommandCompiler.SubcommandSegment(
+            "node",
+            List.of(),
+            Optional.of("Node description"),
+            Optional.of("node.use"),
+            new MethodCommandBinder.CommandMetadata(
+                true,
+                Optional.of("root node"),
+                List.of("root node"),
+                Optional.of(Duration.ofSeconds(1)),
+                Optional.of("node.use")
+            )
+        );
+
+        assertEquals("node", segment.routeToken());
+
+        segment.apply(builder);
+
+        assertIterableEquals(List.of(
+            "description:Node description",
+            "permission:node.use",
+            "hidden",
+            "usage:root node",
+            "example:root node",
+            "cooldown:PT1S",
+            "require:node.use"
+        ), builder.events);
     }
 
     @Test

@@ -13,6 +13,7 @@ import com.intellij.lexer.Lexer;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.JavaElementVisitor;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiLanguageInjectionHost;
@@ -191,8 +192,19 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void orphanSubcommand() {
                 }
 
+                @Subcommand("orphan-class")
+                static final class OrphanClass {
+                }
+
                 @dev.riege.buildmycommand.annotation.Command("owner")
                 static final class Owner {
+                    @Subcommand("nested")
+                    static final class Nested {
+                        @Subcommand("leaf")
+                        void nestedLeaf() {
+                        }
+                    }
+
                     @Subcommand("bad child <target:String>")
                     void subcommandDsl() {
                     }
@@ -217,6 +229,9 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
         RecordingProblemsHolder holder = new RecordingProblemsHolder(file.getContainingFile());
         JavaElementVisitor visitor = (JavaElementVisitor) new BuildMyCommandRouteInspection().buildVisitor(holder, true);
+        for (PsiClass psiClass : PsiTreeUtil.findChildrenOfType(file, PsiClass.class)) {
+            visitor.visitClass(psiClass);
+        }
         for (PsiMethod method : PsiTreeUtil.findChildrenOfType(file, PsiMethod.class)) {
             visitor.visitMethod(method);
         }

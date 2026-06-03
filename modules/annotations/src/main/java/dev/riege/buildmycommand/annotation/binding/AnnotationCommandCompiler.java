@@ -16,7 +16,9 @@ import dev.riege.buildmycommand.annotation.Subcommand;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandRegistry;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -36,27 +38,55 @@ public final class AnnotationCommandCompiler {
         Optional<String> group = commandGroup(owner);
         Optional<RootCommand> rootCommand = rootCommand(owner, group, classCasePolicy);
 
-        List<CompiledCommand> compiled = Arrays.stream(owner.getDeclaredMethods())
-            .filter(method -> isAnnotatedCommandMethod(owner, method))
-            .sorted(Comparator
-                .comparing((Method method) -> routeKey(owner, method))
-                .thenComparing(AnnotationCommandCompiler::signature))
-            .map(method -> compileMethod(commands, method, group))
-            .toList();
+        Alias rootAlias = owner.getAnnotation(Alias.class);
+        List<String> rootAliases = rootAlias == null ? List.of() : List.of(rootAlias.value());
+        List<CompiledCommand> compiled = new ArrayList<>();
+        collectCommands(commands, owner, owner.getAnnotation(Command.class), rootAliases, group, List.of(), compiled);
 
         return new CompiledCommands(classCasePolicy, rootCommand, compiled);
+    }
+
+    private static void collectCommands(
+        Object target,
+        Class<?> owner,
+        Command rootCommand,
+        List<String> rootAliases,
+        Optional<String> group,
+        List<SubcommandSegment> prefix,
+        List<CompiledCommand> compiled
+    ) {
+        Arrays.stream(owner.getDeclaredMethods())
+            .filter(method -> isAnnotatedCommandMethod(rootCommand, prefix, method))
+            .sorted(Comparator
+                .comparing((Method method) -> routeKey(rootCommand, prefix, method))
+                .thenComparing(AnnotationCommandCompiler::signature))
+            .map(method -> compileMethod(target, method, rootCommand, rootAliases, prefix, group))
+            .forEach(compiled::add);
+
+        Arrays.stream(owner.getDeclaredClasses())
+            .filter(nested -> nested.isAnnotationPresent(Subcommand.class))
+            .sorted(Comparator.comparing(Class::getName))
+            .forEach(nested -> {
+                SubcommandSegment segment = subcommandSegment(nested);
+                Object nestedTarget = instantiateNestedCommandGroup(target, nested);
+                List<SubcommandSegment> nestedPrefix = new ArrayList<>(prefix);
+                nestedPrefix.add(segment);
+                collectCommands(nestedTarget, nested, rootCommand, rootAliases, group, nestedPrefix, compiled);
+            });
     }
 
     private static CompiledCommand compileMethod(
         Object target,
         Method method,
+        Command ownerCommand,
+        List<String> rootAliases,
+        List<SubcommandSegment> prefix,
         Optional<String> group
     ) {
         Command command = method.getAnnotation(Command.class);
         Route route = method.getAnnotation(Route.class);
         Subcommand subcommand = method.getAnnotation(Subcommand.class);
         SubRoute subRoute = method.getAnnotation(SubRoute.class);
-        Command ownerCommand = target.getClass().getAnnotation(Command.class);
         if (annotationCount(command, route, subcommand, subRoute) > 1) {
             throw new IllegalArgumentException("annotated command method cannot mix command route annotations: "
                 + method.getName());
@@ -73,9 +103,10 @@ public final class AnnotationCommandCompiler {
 
         if (subRoute != null) {
             String commandRoute = aliasedSubcommandRoute(
-                ownerCommand.value() + " " + subRoute.value(),
-                target.getClass().getAnnotation(Alias.class),
-                method.getAnnotation(Alias.class)
+                ownerCommand.value() + prefixedRoute(prefix, subRoute.value()),
+                rootAliases,
+                method.getAnnotation(Alias.class),
+                prefix.size() + 1
             );
             AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
             return new CompiledCommand(
@@ -83,7 +114,7 @@ public final class AnnotationCommandCompiler {
                 commandRoute,
                 group,
                 List.of(),
-                Optional.empty(),
+                List.of(),
                 List.of(),
                 description,
                 permission,
@@ -93,15 +124,14 @@ public final class AnnotationCommandCompiler {
         }
         if (subcommand != null) {
             validateSingleLiteral(subcommand.value(), "@Subcommand", "@SubRoute");
-            Alias ownerAlias = target.getClass().getAnnotation(Alias.class);
             Alias methodAlias = method.getAnnotation(Alias.class);
             return new CompiledCommand(
                 RegistrationKind.SUBCOMMAND,
                 ownerCommand.value(),
                 group,
-                ownerAlias == null ? List.of() : List.of(ownerAlias.value()),
-                Optional.of(subcommand.value()),
-                methodAlias == null ? List.of() : List.of(methodAlias.value()),
+                rootAliases,
+                withLeaf(prefix, subcommand.value(), methodAlias),
+                List.of(),
                 description,
                 permission,
                 methodCasePolicy,
@@ -116,7 +146,7 @@ public final class AnnotationCommandCompiler {
                 commandRoute,
                 group,
                 List.of(),
-                Optional.empty(),
+                List.of(),
                 List.of(),
                 description,
                 permission,
@@ -132,7 +162,7 @@ public final class AnnotationCommandCompiler {
             command.value(),
             group,
             alias == null ? List.of() : List.of(alias.value()),
-            Optional.empty(),
+            List.of(),
             List.of(),
             description,
             permission,
@@ -141,27 +171,100 @@ public final class AnnotationCommandCompiler {
         );
     }
 
-    private static boolean isAnnotatedCommandMethod(Class<?> owner, Method method) {
-        return method.isAnnotationPresent(Command.class)
-            || method.isAnnotationPresent(Route.class)
-            || (owner.isAnnotationPresent(Command.class)
-                && (method.isAnnotationPresent(Subcommand.class) || method.isAnnotationPresent(SubRoute.class)));
+    private static boolean isAnnotatedCommandMethod(Command rootCommand, List<SubcommandSegment> prefix, Method method) {
+        boolean hasRoot = rootCommand != null;
+        boolean nested = !prefix.isEmpty();
+        return (!nested && (method.isAnnotationPresent(Command.class) || method.isAnnotationPresent(Route.class)))
+            || (hasRoot && (method.isAnnotationPresent(Subcommand.class) || method.isAnnotationPresent(SubRoute.class)));
     }
 
-    private static String routeKey(Class<?> owner, Method method) {
+    private static String routeKey(Command rootCommand, List<SubcommandSegment> prefix, Method method) {
         Command command = method.getAnnotation(Command.class);
         if (command != null) {
             return command.value();
         }
         Subcommand subcommand = method.getAnnotation(Subcommand.class);
         if (subcommand != null) {
-            return owner.getAnnotation(Command.class).value() + " " + subcommand.value();
+            return rootCommand.value() + prefixedRoute(prefix, subcommand.value());
         }
         SubRoute subRoute = method.getAnnotation(SubRoute.class);
         if (subRoute != null) {
-            return owner.getAnnotation(Command.class).value() + " " + subRoute.value();
+            return rootCommand.value() + prefixedRoute(prefix, subRoute.value());
         }
         return method.getAnnotation(Route.class).value();
+    }
+
+    private static List<SubcommandSegment> withLeaf(
+        List<SubcommandSegment> prefix,
+        String literal,
+        Alias alias
+    ) {
+        validateSingleLiteral(literal, "@Subcommand", "@SubRoute");
+        List<SubcommandSegment> path = new ArrayList<>(prefix);
+        path.add(new SubcommandSegment(
+            literal,
+            alias == null ? List.of() : List.of(alias.value()),
+            Optional.empty(),
+            Optional.empty(),
+            emptyMetadata()
+        ));
+        return path;
+    }
+
+    private static String prefixedRoute(List<SubcommandSegment> prefix, String route) {
+        if (prefix.isEmpty()) {
+            return " " + route;
+        }
+        List<String> tokens = new ArrayList<>();
+        for (SubcommandSegment segment : prefix) {
+            tokens.add(segment.routeToken());
+        }
+        tokens.add(route);
+        return " " + String.join(" ", tokens);
+    }
+
+    private static SubcommandSegment subcommandSegment(Class<?> owner) {
+        Subcommand subcommand = owner.getAnnotation(Subcommand.class);
+        validateSingleLiteral(subcommand.value(), "@Subcommand", "@SubRoute");
+        Alias alias = owner.getAnnotation(Alias.class);
+        return new SubcommandSegment(
+            subcommand.value(),
+            alias == null ? List.of() : List.of(alias.value()),
+            metadata(owner.getAnnotation(Description.class), "description"),
+            metadata(owner.getAnnotation(Permission.class), "permission"),
+            classMetadata(owner)
+        );
+    }
+
+    private static Object instantiateNestedCommandGroup(Object parent, Class<?> nested) {
+        try {
+            Constructor<?> constructor;
+            Object[] arguments;
+            if (nested.isMemberClass() && !Modifier.isStatic(nested.getModifiers())) {
+                constructor = nested.getDeclaredConstructor(parent.getClass());
+                arguments = new Object[] {parent};
+            } else {
+                constructor = nested.getDeclaredConstructor();
+                arguments = new Object[0];
+            }
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+            return constructor.newInstance(arguments);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalArgumentException("cannot instantiate nested @Subcommand group: "
+                + nested.getName(), exception);
+        }
+    }
+
+    private static MethodCommandBinder.CommandMetadata emptyMetadata() {
+        return new MethodCommandBinder.CommandMetadata(
+            false,
+            Optional.empty(),
+            List.of(),
+            Optional.empty(),
+            Optional.empty()
+        );
     }
 
     private static Optional<String> commandGroup(Class<?> owner) {
@@ -304,16 +407,19 @@ public final class AnnotationCommandCompiler {
         return aliased;
     }
 
-    private static String aliasedSubcommandRoute(String route, Alias ownerAlias, Alias methodAlias) {
+    private static String aliasedSubcommandRoute(
+        String route,
+        List<String> ownerAliases,
+        Alias methodAlias,
+        int methodAliasOffset
+    ) {
         String aliased = route;
-        if (ownerAlias != null) {
-            for (String value : ownerAlias.value()) {
-                aliased = applyRouteAlias(aliased, value, 0);
-            }
+        for (String value : ownerAliases) {
+            aliased = applyRouteAlias(aliased, value, 0);
         }
         if (methodAlias != null) {
             for (String value : methodAlias.value()) {
-                aliased = applyRouteAlias(aliased, value, 1);
+                aliased = applyRouteAlias(aliased, value, methodAliasOffset);
             }
         }
         return aliased;
@@ -405,7 +511,7 @@ public final class AnnotationCommandCompiler {
         String route,
         Optional<String> group,
         List<String> aliases,
-        Optional<String> subcommand,
+        List<SubcommandSegment> subcommands,
         List<String> subcommandAliases,
         Optional<String> description,
         Optional<String> permission,
@@ -417,7 +523,7 @@ public final class AnnotationCommandCompiler {
             Objects.requireNonNull(route, "route");
             group = Objects.requireNonNull(group, "group");
             aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
-            subcommand = Objects.requireNonNull(subcommand, "subcommand");
+            subcommands = List.copyOf(Objects.requireNonNull(subcommands, "subcommands"));
             subcommandAliases = List.copyOf(Objects.requireNonNull(subcommandAliases, "subcommandAliases"));
             description = Objects.requireNonNull(description, "description");
             permission = Objects.requireNonNull(permission, "permission");
@@ -449,16 +555,7 @@ public final class AnnotationCommandCompiler {
                     if (!aliases.isEmpty()) {
                         builder.aliases(aliases.toArray(String[]::new));
                     }
-                    builder.subcommand(subcommand.orElseThrow(), child -> {
-                        description.ifPresent(child::description);
-                        permission.ifPresent(child::permission);
-                        applyMetadata(child);
-                        if (!subcommandAliases.isEmpty()) {
-                            child.aliases(subcommandAliases.toArray(String[]::new));
-                        }
-                        applyBindings(child);
-                        child.executes(boundMethod::invoke);
-                    });
+                    registerSubcommandPath(builder, 0);
                 });
                 return;
             }
@@ -472,6 +569,22 @@ public final class AnnotationCommandCompiler {
                 }
                 applyBindings(builder);
                 builder.executes(boundMethod::invoke);
+            });
+        }
+
+        private void registerSubcommandPath(CommandRegistry.CommandBuilder builder, int index) {
+            SubcommandSegment segment = subcommands.get(index);
+            builder.subcommand(segment.literal(), child -> {
+                segment.apply(child);
+                if (index == subcommands.size() - 1) {
+                    description.ifPresent(child::description);
+                    permission.ifPresent(child::permission);
+                    applyMetadata(child);
+                    applyBindings(child);
+                    child.executes(boundMethod::invoke);
+                } else {
+                    registerSubcommandPath(child, index + 1);
+                }
             });
         }
 
@@ -525,6 +638,47 @@ public final class AnnotationCommandCompiler {
             if (options) {
                 registry.caseInsensitiveOptions();
             }
+        }
+    }
+
+    public record SubcommandSegment(
+        String literal,
+        List<String> aliases,
+        Optional<String> description,
+        Optional<String> permission,
+        MethodCommandBinder.CommandMetadata metadata
+    ) {
+        public SubcommandSegment {
+            Objects.requireNonNull(literal, "literal");
+            aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
+            description = Objects.requireNonNull(description, "description");
+            permission = Objects.requireNonNull(permission, "permission");
+            Objects.requireNonNull(metadata, "metadata");
+        }
+
+        String routeToken() {
+            if (aliases.isEmpty()) {
+                return literal;
+            }
+            List<String> tokens = new ArrayList<>();
+            tokens.add(literal);
+            tokens.addAll(aliases);
+            return String.join("|", tokens);
+        }
+
+        void apply(CommandRegistry.CommandBuilder builder) {
+            if (!aliases.isEmpty()) {
+                builder.aliases(aliases.toArray(String[]::new));
+            }
+            description.ifPresent(builder::description);
+            permission.ifPresent(builder::permission);
+            if (metadata.hidden()) {
+                builder.hidden();
+            }
+            metadata.usage().ifPresent(builder::usage);
+            metadata.examples().forEach(builder::example);
+            metadata.cooldown().ifPresent(builder::cooldown);
+            metadata.requirement().ifPresent(builder::requirement);
         }
     }
 
