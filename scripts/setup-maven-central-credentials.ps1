@@ -22,7 +22,14 @@ function Resolve-GradleUserHome {
 
 function Decode-CentralToken {
     param([string] $Encoded)
-    $decoded = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Encoded))
+    if ($Encoded.Contains(":")) {
+        throw "TokenBase64 must be the base64-encoded value of 'username:password', not the raw 'username:password' text. Either encode it first or use -Username and -Password."
+    }
+    try {
+        $decoded = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Encoded))
+    } catch {
+        throw "TokenBase64 is not valid base64. Pass the encoded value, or use -Username and -Password."
+    }
     $separator = $decoded.IndexOf(":")
     if ($separator -lt 1 -or $separator -eq ($decoded.Length - 1)) {
         throw "TokenBase64 must decode to 'username:password'."

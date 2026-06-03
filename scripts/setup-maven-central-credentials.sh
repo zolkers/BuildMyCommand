@@ -50,6 +50,13 @@ decode_base64() {
 }
 
 if [ -n "$token_base64" ]; then
+  case "$token_base64" in
+    *:*)
+      echo "token-base64 must be the base64-encoded value of username:password, not the raw username:password text." >&2
+      echo "Either encode it first or use --username and --password." >&2
+      exit 2
+      ;;
+  esac
   decoded="$(decode_base64 "$token_base64")"
   case "$decoded" in
     *:*)
