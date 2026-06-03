@@ -1,119 +1,88 @@
-# 01 - Getting Started
+# Getting Started
 
-This page gets a command running quickly while explaining the minimum concepts you need to avoid fighting the framework.
+The shortest path is:
 
-## Recommended Dependency Set
-
-| Need | Modules |
-| --- | --- |
-| Basic command framework | `api`, `core` |
-| Annotation commands | `annotations` |
-| IntelliJ DSL support | local IntelliJ plugin from `:intellij-plugin` |
-| Terminal runtime | `adapters-terminal` |
-| Minecraft/Paper runtime | `adapters-minecraft-paper` plus required platform API |
-| Custom runtime | `adapters-core` |
-
-```kotlin
-dependencies {
-    implementation("io.github.zolkers:api:0.0.1")
-    implementation("io.github.zolkers:core:0.0.1")
-    implementation("io.github.zolkers:annotations:0.0.1")
-}
-```
-
-## Minimal Route Command
-
-Use `@Route` for standalone commands:
-
-```java
-final class KitCommands {
-    @Route("kit <target:String> <name:String> [--amount:Integer|-a] [--silent|-s]")
-    @Description("Give a kit")
-    @Permission("kit.give")
-    CommandResult kit(@RouteCtx CommandContext ctx) {
-        String target = ctx.arg("target", String.class);
-        String name = ctx.arg("name", String.class);
-        int amount = ctx.option("amount", Integer.class).orElse(1);
-        boolean silent = ctx.flag("silent");
-        return Results.success("Giving " + amount + "x " + name + " to " + target + " silent=" + silent);
-    }
-}
-```
-
-Register and dispatch:
+1. Create a `CommandFramework`.
+2. Register an annotated command object.
+3. Dispatch input from your platform adapter.
 
 ```java
 CommandFramework framework = CommandFramework.create();
-AnnotationCommandScanner.register(framework.registry(), new KitCommands());
+AnnotationCommandScanner.register(framework.registry(), new PingCommand());
 
-CommandResult result = framework.dispatch(source, "kit Ada starter -a 3 -s");
+CommandResult result = framework.dispatch(source, "wecc ping");
 ```
 
-## Minimal Group With SubRoute
+## Canonical Command Style
 
-Use `@Command` on the class and `@SubRoute` on methods when several commands share a root:
+Use `@Command` for the root and `@SubRoute` for executable leaves.
 
 ```java
-@Command("user")
-@Alias("u")
-static final class UserCommands {
-    @SubRoute("rank set <target:String> <rank:String> [--temporary|-t]")
-    @Permission("user.rank.set")
-    CommandResult setRank(@RouteCtx CommandContext ctx) {
-        return Results.success(ctx.arg("target", String.class) + " -> " + ctx.arg("rank", String.class));
+@Command("wecc")
+@CaseInsensitive
+public final class PingCommand {
+    @SubRoute("ping")
+    @Description("Client command smoke test")
+    CommandResult ping(@RouteCtx CommandContext ctx) {
+        return Results.success("pong from client");
+    }
+
+    @SubRoute("bang|b <target:String>")
+    @SuggestAliases(false)
+    CommandResult bang(@RouteCtx CommandContext ctx) {
+        return Results.success("bang to " + ctx.arg("target", String.class));
     }
 }
 ```
 
-This registers both `user rank set ...` and `u rank set ...`.
+This style is preferred because the command shape stays in one route string. Deep nesting remains readable, aliases stay next to the literal they alias, and IntelliJ can inspect the DSL.
 
-## Core Runtime Objects
+## Required Dependencies
 
-| Type | Role |
-| --- | --- |
-| `CommandFramework` | Main facade. Owns registry, dispatcher, suggestions, help, lifecycle. |
-| `CommandRegistry` | Registration surface used by annotations, builders, routes, adapters. |
-| `CommandSource` | Caller abstraction. Holds permissions, name/id, locale, metadata, reply hooks. |
-| `CommandInput` | Raw/normalized input, cursor, prefix, platform metadata. |
-| `CommandContext` | Runtime values for args/options/flags plus source/input. |
-| `CommandResult` | `SUCCESS`, `FAILURE`, or `SILENT`, optionally with a `CommandMessage`. |
+```kotlin
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
 
-## Result Helpers
-
-| Helper | Result |
-| --- | --- |
-| `Results.success("ok")` | Successful reply. |
-| `Results.failure("no")` | Failed reply. |
-| `Results.silent()` | No reply, no visible failure. |
-
-## CommandSource Permissions
-
-`CommandSource.hasPermission(String)` defaults to `true`. Production adapters should override it:
-
-```java
-CommandSource source = new CommandSource() {
-    @Override
-    public boolean hasPermission(String permission) {
-        return player.hasPermission(permission);
-    }
-};
+dependencies {
+    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
+}
 ```
 
-## First Checks When Something Does Not Work
+Add one adapter for your runtime:
 
-| Symptom | Check |
+```kotlin
+implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
+implementation("io.github.zolkers:adapters-brigadier:0.0.4-SNAPSHOT")
+implementation("io.github.zolkers:adapters-terminal:0.0.4-SNAPSHOT")
+```
+
+## CommandSource
+
+`CommandSource` is your bridge from the native runtime to BuildMyCommand.
+
+It answers:
+
+| Method | Purpose |
 | --- | --- |
-| Annotation command is not found | Did you call `AnnotationCommandScanner.register(...)`? |
-| Parameters are not bound | Prefer `@RouteCtx CommandContext` for route methods, or compile with `-parameters` for name inference. |
-| Permission denied unexpectedly | Check source `hasPermission`, then `@Permission` and `@Require`. |
-| DSL not colored in IntelliJ | Install/reinstall the local plugin and restart IntelliJ. |
-| Optional argument parse issue | In route DSL, required args must not follow optional args. |
+| `name()` | Optional display name for help, logging, middleware, replies. |
+| `hasPermission(String)` | Permission check used by `@Permission` and `@Require`. |
+| `reply(CommandMessage)` | Platform-specific reply rendering. |
+| `unwrap(Class<T>)` | Access to the native source for suggestions or platform logic. |
 
-## Recommended Learning Order
+For Fabric client commands, wrap `FabricClientCommandSource` once and keep command classes clean. See [Minecraft/Fabric](06-minecraft.md).
 
-| Step | Doc |
-| --- | --- |
-| 1 | [Route and SubRoute](02-route-and-subroute.md) |
-| 2 | [Annotations](03-annotations.md) |
-| 3 | [Errors, Middleware, Permissions](08-errors-middleware-permissions.md) |
-| 4 | [Adapters](05-adapters.md) |
+## Dispatch Results
+
+Use `Results.success(...)`, `Results.failure(...)`, or `Results.silent()`.
+
+```java
+CommandResult result = framework.dispatch(source, "wecc ping");
+
+result.reply().ifPresent(System.out::println);
+```
+
+Most adapters should send replies through `CommandSource.reply(CommandMessage)` so commands do not know about Minecraft chat, terminals, or bot messages.

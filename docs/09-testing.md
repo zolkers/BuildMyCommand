@@ -1,95 +1,70 @@
-# 09 - Testing
+# Testing
 
-BuildMyCommand is designed to be tested without launching a full platform.
+Command tests should exercise real parsing, suggestions, permissions, and middleware.
 
-## Test Levels
-
-| Level | Test target | Example |
-| --- | --- | --- |
-| Unit | Parser, metadata, builders, middleware. | `CommandMetadata.Builder` validation. |
-| Runtime | `CommandFramework` dispatch. | Dispatch input and assert `CommandResult`. |
-| Annotation | Scanner/compiler behavior. | Register annotated class and inspect schema/results. |
-| Adapter | Native source/input/result mapping. | Discord/terminal/Minecraft adapter tests. |
-| Smoke examples | Public examples compile and run. | `ExampleSmokeTest`. |
-
-## Dispatch Test
+## Command Dispatch
 
 ```java
 @Test
-void givesKit() {
+void pingWorks() {
     CommandFramework framework = CommandFramework.create();
-    AnnotationCommandScanner.register(framework.registry(), new KitCommands());
+    AnnotationCommandScanner.register(framework.registry(), new PingCommand());
 
-    CommandResult result = framework.dispatch(source("kit.give"), "kit Ada starter -a 3");
+    CommandResult result = framework.dispatch(source(), "wecc ping");
 
     assertEquals(CommandResult.Status.SUCCESS, result.status());
-    assertEquals(Optional.of("Giving 3x starter to Ada"), result.reply());
+    assertEquals(Optional.of("pong from client"), result.reply());
 }
 ```
 
-## Test Source
+## Suggestions
 
 ```java
-private static CommandSource source(String... permissions) {
-    return new CommandSource() {
+@Test
+void targetSuggestionsUseSourceMetadata() {
+    CommandFramework framework = CommandFramework.create();
+    AnnotationCommandScanner.register(framework.registry(), new PingCommand());
+
+    CommandSource source = new CommandSource() {
         @Override
-        public boolean hasPermission(String permission) {
-            return List.of(permissions).contains(permission);
+        public Optional<Object> metadata(String key) {
+            return "players".equals(key) ? Optional.of(List.of("Ada", "Alex", "Bob")) : Optional.empty();
         }
     };
+
+    assertEquals(List.of("Ada", "Alex"), framework.suggest(source, "wecc bang A", 11));
 }
 ```
 
-## What Every Command Feature Should Test
+## Source Wrapper Tests
 
-| Feature | Required tests |
+Test your `CommandSource` wrapper separately:
+
+| Case | Assert |
 | --- | --- |
-| Root alias | Canonical root and alias dispatch. |
-| Deep path | Full path dispatch and unknown child failure. |
-| Required arg | Success and missing arg failure. |
-| Greedy arg | Spaces are preserved. |
-| Option | Long and short alias parse. |
-| Flag | Long and short alias parse. |
-| Permission | Allowed and denied source. |
-| Middleware | Runs in order and can block. |
-| Suggestions | Cursor-specific suggestions. |
-| Case-insensitive policy | Mixed-case input succeeds only when configured. |
+| `name()` | Returns player/client name. |
+| `unwrap(FabricClientCommandSource.class)` | Returns native source. |
+| `reply(ERROR)` | Calls platform error channel. |
+| `reply(SUCCESS)` | Calls platform feedback channel. |
+| `hasPermission(...)` | Matches your policy. |
 
-## Coverage Policy
+## Adapter Smoke Tests
 
-The repository currently enforces 100% JaCoCo coverage per publishable module:
+Every adapter should cover:
+
+| Scenario | Expected |
+| --- | --- |
+| Known command | Executes once. |
+| Unknown command | Does not swallow other platform commands. |
+| Incomplete command | Returns a useful parse error. |
+| Suggestions | Cursor-aware suggestions are preserved. |
+| Permissions | Denied commands return failure. |
+| Case policy | Case-sensitive/insensitive behavior is explicit. |
+
+## Repository Checks
 
 ```powershell
-.\gradlew.bat check
+.\gradlew.bat clean check
 ```
 
-| Check | Purpose |
-| --- | --- |
-| `test` | Runs JUnit tests. |
-| `jacocoTestCoverageVerification` | Enforces full module coverage. |
-| `qualityStyle` | Rejects trailing whitespace and tabs. |
-| `qualityStaticAnalysis` | Rejects TODO/FIXME and oversized Java files. |
-
-## Adapter Test Checklist
-
-| Case | Why |
-| --- | --- |
-| Native input with prefix | Prefix handling differs by platform. |
-| Native input without prefix | Some runtimes already isolate command text. |
-| Permission denied | Source mapper must be correct. |
-| Unknown command | Renderer must preserve failures. |
-| Successful command | End-to-end baseline. |
-| Suggestions | Cursor/range bugs are common. |
-| Native registration | Platform command managers often treat aliases specially. |
-
-## IntelliJ Plugin Tests
-
-Plugin tests should cover:
-
-| Area | Example |
-| --- | --- |
-| Injection | `@Route`/`@SubRoute` strings are recognized. |
-| Lexer/highlighter | Tokens receive expected categories. |
-| Inspections | Invalid routes report issues. |
-| Resources | Theme, TextMate grammar, plugin xml exist. |
-| External dependency setup | `.idea/externalDependencies.xml` declares required plugin. |
+The repository currently enforces full coverage for publishable modules, so new behavior should come with tests.

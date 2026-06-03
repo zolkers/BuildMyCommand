@@ -1,107 +1,68 @@
-# 05 - Adapters
+# Adapters
 
-Adapters connect BuildMyCommand to a host platform. They translate native users/messages/dispatch systems into `CommandSource`, `CommandInput`, and rendered replies.
+Adapters connect BuildMyCommand to a host runtime. The core framework does not know about Minecraft, terminals, Discord, or IDEs.
 
-## Adapter Modules
+## Adapter Responsibilities
 
-| Module | Use case |
+| Responsibility | Meaning |
 | --- | --- |
-| `adapters-core` | Build your own runtime adapter. |
-| `adapters-terminal` | Execute commands from terminal input. |
-| `adapters-discord` | Discord-style message adapter base. |
-| `adapters-brigadier` | Register a BuildMyCommand graph into Brigadier. |
-| `adapters-minecraft-common` | Shared Minecraft adapter contracts and profiles. |
+| Input | Convert native command input into framework input. |
+| Source | Wrap the native sender/player/client as `CommandSource`. |
+| Dispatch | Call `CommandFramework.dispatch(...)` or suggestion APIs. |
+| Render | Convert `CommandResult`/`CommandMessage` back to the native platform. |
+| Registration | Expose commands to the native command system if needed. |
 
-Platform-specific Minecraft modules are thin factories/registration helpers over the common adapter contract. Paper,
-Spigot, Bungee, Velocity, Minestom, and Sponge integrations should still enter the framework through `IAdapter` or
-`CommandAdapter` so dispatch, suggestions, permissions, and case policy stay consistent.
+## CommandSource
 
-## Core Contracts
-
-| Type | Responsibility |
-| --- | --- |
-| `IAdapter` | Full adapter contract. Defines capabilities, mapping, dispatch, suggestions, rendering. |
-| `CommandAdapter` | High-level adapter API for native source/input/result types. |
-| `SimpleCommandAdapter` | Default implementation for many runtimes. |
-| `AdapterSourceMapper` | Native source -> `CommandSource`. |
-| `AdapterInputMapper` | Native input -> command text/prefix/platform metadata. |
-| `AdapterRenderer` | `CommandResult` -> native reply/result. |
-| `AdapterConfig` | Adapter behavior settings. |
-| `AdapterCapabilities` | What the host supports: permissions, rich suggestions, native registration, etc. |
-
-Every production adapter should expose the same contract surface:
-
-| Contract method | Required behavior |
-| --- | --- |
-| `mapSource(...)` | Map identity, locale, permissions, reply behavior, and native unwrap data. |
-| `mapInput(...)` | Preserve raw input, normalized command text, cursor, prefix, and platform metadata. |
-| `dispatch(...)` | Call the framework with mapped input. |
-| `suggestRich(...)` / `suggest(...)` | Delegate to the framework suggestion engine with the correct cursor. |
-| `render(...)` | Convert success, failure, and silent results without changing status semantics. |
-| `execute(...)` | Dispatch then render. |
-
-## Adapter Flow
-
-| Step | Native side | Framework side |
-| --- | --- | --- |
-| 1 | Receive native event/input. | Adapter extracts command text. |
-| 2 | Map source. | Adapter creates `CommandSource`. |
-| 3 | Dispatch. | `CommandFramework.dispatch(...)`. |
-| 4 | Render. | Adapter turns `CommandResult` into native response. |
-| 5 | Suggest/register. | Adapter maps framework graph to host completion/registration if supported. |
-
-## Minimal Custom Adapter
+Most integration quality comes from a good `CommandSource` implementation.
 
 ```java
-CommandAdapter<User, Message, Reply> adapter = SimpleCommandAdapter.<User, Message, Reply>builder(framework)
-    .sourceMapper(user -> new CommandSource() {
-        @Override
-        public Optional<String> name() {
-            return Optional.of(user.name());
-        }
+public final class AppSource implements CommandSource {
+    private final Object nativeSource;
 
-        @Override
-        public boolean hasPermission(String permission) {
-            return user.permissions().contains(permission);
-        }
-    })
-    .inputMapper(message -> message.content())
-    .renderer(result -> new Reply(result.status() == CommandResult.Status.SUCCESS, result.reply().orElse("")))
-    .build();
+    @Override
+    public <T> Optional<T> unwrap(Class<T> type) {
+        return type.isInstance(nativeSource) ? Optional.of(type.cast(nativeSource)) : Optional.empty();
+    }
+
+    @Override
+    public boolean hasPermission(String permission) {
+        return permission == null || permission.isBlank();
+    }
+}
 ```
 
-## Capability Table
-
-| Capability | Meaning | Adapter impact |
-| --- | --- | --- |
-| Permissions | Host can check permissions. | Implement `CommandSource.hasPermission`. |
-| Suggestions | Host asks for completions. | Map `framework.suggestRich(...)`. |
-| Native registration | Host has a command tree API. | Export `framework.graph()` or use Brigadier adapter. |
-| Rich messages | Host supports styled messages. | Render `CommandMessage` metadata/level. |
-| Case policy | Host has case behavior constraints. | Respect framework matching policy or normalize input. |
-
-## Terminal Adapter
-
-Terminal adapter belongs in the adapter module family and is useful for demos, local tools, and testing:
+Use `unwrap(...)` for platform-specific suggestion logic:
 
 ```java
-TerminalAdapter terminal = TerminalAdapter.attach(framework, System.in, System.out);
-terminal.run();
+@Suggest("target")
+SuggestionSet targets(SuggestionContext ctx) {
+    return ctx.unwrapSource(MyNativeSource.class)
+        .map(nativeSource -> SuggestionSet.of(nativeSource.players()).filteringCurrentToken())
+        .orElseGet(SuggestionSet::empty);
+}
 ```
 
-| Feature | Support |
-| --- | --- |
-| Dispatch | Yes |
-| Permissions | Depends on supplied source |
-| Suggestions | Framework side available |
-| Native registration | Not applicable |
+## IAdapter
 
-## Adapter Quality Checklist
+The adapter module exposes a generic `IAdapter` contract so adapters follow the same shape. A good adapter should make these behaviors explicit:
 
-| Requirement | Why |
+| Contract | Should answer |
 | --- | --- |
-| Preserve raw input and cursor | Suggestions and diagnostics need exact input. |
-| Map permissions explicitly | Default source permits everything. |
-| Do not swallow framework failures | Render `FAILURE` distinctly. |
-| Expose platform capabilities | Users need predictable behavior. |
-| Test unknown command, permission denied, parse error, success | Covers the most common integration bugs. |
+| Source conversion | What native source becomes `CommandSource`? |
+| Input conversion | How is input text/cursor captured? |
+| Result rendering | How are success/failure/info messages displayed? |
+| Suggestions | Does the platform support cursor-aware suggestions? |
+| Permissions | Native permission API, custom policy, or source wrapper? |
+| Case policy | Does the platform force lowercase/literal rules? |
+
+## Custom Adapter Checklist
+
+1. Keep native APIs at the edge.
+2. Wrap native users/senders in `CommandSource`.
+3. Route all replies through `CommandMessage`.
+4. Preserve cursor offsets for suggestions.
+5. Do not swallow unknown native commands.
+6. Add smoke tests for unknown command, incomplete command, success, failure, and suggestions.
+
+For Minecraft/Fabric, see [Minecraft/Fabric](06-minecraft.md).

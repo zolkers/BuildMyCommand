@@ -1,96 +1,90 @@
 # BuildMyCommand
 
-BuildMyCommand is a modular Java command framework for applications, terminals, bots, and Minecraft-like platforms. It gives you one command model, one parsing/runtime layer, one adapter contract, and multiple ways to declare commands.
+BuildMyCommand is a modular Java command framework. It gives you one command runtime, a readable route DSL, annotation scanning, dynamic suggestions, middleware, permissions, and adapters for runtimes such as Fabric/Brigadier.
 
-The recommended style is **annotation routes**:
+The recommended API is:
 
 ```java
-@Command("moderation")
-static final class ModerationCommands {
-    @SubRoute("punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
-    @Description("Punish a player")
-    @Permission("mod.punish")
-    CommandResult punish(@RouteCtx CommandContext ctx) {
-        String target = ctx.arg("target", String.class);
-        String reason = ctx.arg("reason", String.class);
-        int duration = ctx.option("duration", Integer.class).orElse(60);
-        boolean silent = ctx.flag("silent");
-        return Results.success("Punished " + target + " for " + duration + "m silent=" + silent + ": " + reason);
+@Command("wecc")
+@CaseInsensitive
+public final class PingCommand {
+    @SubRoute("ping")
+    CommandResult ping(@RouteCtx CommandContext ctx) {
+        return Results.success("pong from client");
+    }
+
+    @SuggestAliases(false)
+    @SubRoute("bang|b <target:String>")
+    CommandResult bang(@RouteCtx CommandContext ctx) {
+        return Results.success("bang to " + ctx.arg("target", String.class));
+    }
+
+    @Suggest("target")
+    SuggestionSet onlinePlayers(SuggestionContext ctx) {
+        return ctx.sourceMetadata("players")
+            .filter(List.class::isInstance)
+            .map(List.class::cast)
+            .map(players -> SuggestionSet.of(players.stream().map(String::valueOf).toList()).filteringCurrentToken())
+            .orElseGet(SuggestionSet::empty);
     }
 }
 ```
 
-`@Route` and `@SubRoute` are preferred because the command shape is visible in one place, deeply nested commands stay readable, aliases and options stay close to the path, and the IntelliJ plugin can highlight/inspect the DSL.
-
-## Modules
-
-Artifacts are prepared for Maven Central with group `io.github.zolkers` and version `0.0.1`.
-
-| Artifact | Gradle project | Purpose |
-| --- | --- | --- |
-| `api` | `:api` | Public contracts: command graph, context, results, metadata, middleware, exceptions. |
-| `core` | `:core` | Runtime registry, parser, dispatcher, help, suggestions, permissions, lifecycle. |
-| `annotations` | `:annotations` | `@Route`, `@SubRoute`, `@Command`, `@Permission`, `@Require`, scanners and binders. |
-| `dsl` | `:dsl` | Route DSL parser model used by core and tooling. |
-| `schema` | `:schema` | Schema/export helpers for command metadata. |
-| `testkit` | `:testkit` | Test utilities for framework users. |
-| `adapters-core` | `:adapters:core` | `IAdapter`, source/input/rendering contracts, generic adapter runtime. |
-| `adapters-terminal` | `:adapters:terminal` | Terminal adapter. |
-| `adapters-discord` | `:adapters:discord` | Discord-style adapter foundation. |
-| `adapters-brigadier` | `:adapters:brigadier` | Generic Mojang Brigadier bridge. |
-| `adapters-minecraft-common` | `:adapters:minecraft:common` | Shared Minecraft adapter contracts and capability model. |
-| `adapters-minecraft-fabric` | `:adapters:minecraft:fabric` | Fabric command registration bridge for legacy v1 and modern v2 command callbacks. |
-| `adapters-minecraft-forge` | `:adapters:minecraft:forge` | Forge `RegisterCommandsEvent` bridge for 1.16.5+ style command registration. |
-| `adapters-minecraft-neoforge` | `:adapters:minecraft:neoforge` | NeoForge `RegisterCommandsEvent` bridge. |
-| `adapters-minecraft-spigot` | `:adapters:minecraft:spigot` | Spigot integration layer. |
-| `adapters-minecraft-paper` | `:adapters:minecraft:paper` | Paper integration layer. |
-| `adapters-minecraft-bungee` | `:adapters:minecraft:bungee` | BungeeCord integration layer. |
-| `adapters-minecraft-velocity` | `:adapters:minecraft:velocity` | Velocity integration layer. |
-| `adapters-minecraft-minestom` | `:adapters:minecraft:minestom` | Minestom integration layer. |
-| `adapters-minecraft-sponge` | `:adapters:minecraft:sponge` | Sponge integration layer. |
+`@Command` declares the root. `@SubRoute` declares executable leaves. The route string is the source of truth for arguments, options, aliases, and optional segments. Parameter annotations such as `@Arg`/`@Option` are intentionally not the canonical style anymore.
 
 ## Install
 
+For local testing while the API is moving:
+
 ```kotlin
 repositories {
+    mavenLocal() // temporary while testing unpublished snapshots
     mavenCentral()
 }
 
 dependencies {
-    implementation("io.github.zolkers:api:0.0.1")
-    implementation("io.github.zolkers:core:0.0.1")
-    implementation("io.github.zolkers:annotations:0.0.1")
+    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
 }
 ```
 
-Add only the adapter modules you need:
+For a plain Java app, replace the Fabric adapter with `adapters-terminal` or `adapters-brigadier`.
 
-```kotlin
-implementation("io.github.zolkers:adapters-terminal:0.0.1")
-implementation("io.github.zolkers:adapters-brigadier:0.0.1")
-implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.1")
-implementation("io.github.zolkers:adapters-minecraft-paper:0.0.1")
-```
+## Modules
+
+| Artifact | Purpose |
+| --- | --- |
+| `api` | Public contracts: context, source, result, messages, suggestions, middleware. |
+| `core` | Registry, parser, dispatcher, help, schema, permissions, middleware chain. |
+| `annotations` | `@Command`, `@Route`, `@SubRoute`, `@Suggest`, scanner/compiler. |
+| `dsl` | Route parser model shared by runtime and tooling. |
+| `adapters-core` | Generic `IAdapter` contract and shared adapter concepts. |
+| `adapters-brigadier` | Brigadier bridge used by Minecraft-style platforms. |
+| `adapters-minecraft-fabric` | Fabric registration helpers. |
+| `adapters-terminal` | Terminal integration. |
+| `intellij-plugin` | Route/requirement highlighting, inspections, and local IDE setup. |
 
 ## Documentation
 
-| File | Read when |
+| File | Content |
 | --- | --- |
-| [01 Getting Started](docs/01-getting-started.md) | You want the shortest path to a working command. |
-| [02 Route And SubRoute](docs/02-route-and-subroute.md) | You want the recommended command declaration style. |
-| [03 Annotations](docs/03-annotations.md) | You need every annotation, target, and interaction explained. |
-| [04 Builder API](docs/04-builder-api.md) | You need dynamic/programmatic command trees. |
-| [05 Adapters](docs/05-adapters.md) | You want to plug the framework into another runtime. |
-| [06 Minecraft](docs/06-minecraft.md) | You target Brigadier or Minecraft server/proxy platforms. |
-| [07 IntelliJ Plugin](docs/07-intellij-plugin.md) | You want DSL highlighting, inspections, and setup scripts. |
-| [08 Errors, Middleware, Permissions](docs/08-errors-middleware-permissions.md) | You need execution policies, guards, and failure handling. |
-| [09 Testing](docs/09-testing.md) | You want to test commands/adapters safely. |
-| [10 Publishing](docs/10-publishing.md) | You want Maven Central or IntelliJ Marketplace release notes. |
+| [Getting Started](docs/01-getting-started.md) | Minimal framework setup and command registration. |
+| [Route And SubRoute](docs/02-route-and-subroute.md) | The recommended DSL style. |
+| [Annotations](docs/03-annotations.md) | Annotation contracts and IntelliJ rules. |
+| [Builder API](docs/04-builder-api.md) | Programmatic command trees when annotations are not enough. |
+| [Adapters](docs/05-adapters.md) | `IAdapter` concepts and custom adapter shape. |
+| [Minecraft/Fabric](docs/06-minecraft.md) | Fabric client setup, `ModCommandSource`, and suggestions. |
+| [IntelliJ Plugin](docs/07-intellij-plugin.md) | Local plugin install, highlighting, inspections. |
+| [Middleware And Permissions](docs/08-errors-middleware-permissions.md) | `@Middleware`, `@Require`, `@Permission`, errors. |
+| [Testing](docs/09-testing.md) | Command tests and adapter smoke tests. |
+| [Publishing](docs/10-publishing.md) | Maven Central and local publishing notes. |
 
 ## Build
 
 ```powershell
-.\gradlew.bat check
+.\gradlew.bat clean check
 ```
 
-The repository enforces 100% JaCoCo coverage per publishable module, plus lightweight style/static checks.
+The repo currently enforces full test coverage for publishable modules.

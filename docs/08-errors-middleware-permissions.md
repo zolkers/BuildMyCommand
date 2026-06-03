@@ -1,70 +1,47 @@
-# 08 - Errors, Middleware, Permissions
+# Middleware, Permissions, And Errors
 
-This page explains execution policy: permissions, requirements, middleware, cooldowns, and exception handling.
-
-## Execution Order
-
-| Order | Step |
-| --- | --- |
-| 1 | Tokenize input. |
-| 2 | Match command path. |
-| 3 | Check permissions on matched nodes. |
-| 4 | Parse options and flags. |
-| 5 | Parse arguments. |
-| 6 | Build `CommandContext`. |
-| 7 | Execute global middleware. |
-| 8 | Execute metadata/path middleware in matched path order. |
-| 9 | Execute command handler. |
-| 10 | Map exceptions through the configured error handler. |
+BuildMyCommand keeps command logic small by pushing cross-cutting behavior into middleware and source policies.
 
 ## Permissions
 
-`@Permission` is for simple platform permission nodes:
+`@Permission` is a single permission node:
 
 ```java
-@Permission("admin.reload")
+@Permission("wecc.ping")
+@SubRoute("ping")
+CommandResult ping(@RouteCtx CommandContext ctx) {
+    return Results.success("pong");
+}
 ```
 
-It maps to `CommandSource.hasPermission("admin.reload")`.
-
-| Permission location | Applies to |
-| --- | --- |
-| Class `@Command` | Root and all matching children. |
-| Class `@Subcommand` | That subtree. |
-| Method command/route | Executable leaf. |
-| Builder `.permission(...)` | That node/route. |
-
-## Requirements
-
-`@Require` stores requirement expression metadata:
+`@Require` is a boolean expression:
 
 ```java
 @Require("staff || owner")
+@SubRoute("admin reload")
+CommandResult reload(@RouteCtx CommandContext ctx) {
+    return Results.success("reloaded");
+}
 ```
 
-Use it when access logic is more expressive than one permission node.
+Expressions support `&&`, `||`, `!`, and parentheses.
 
-Requirement expressions are evaluated by the runtime before parsing command arguments.
+## CommandSource Permission Policy
 
-| Syntax | Meaning |
-| --- | --- |
-| `staff` | Source must have `staff`. |
-| `staff && mod.punish` | Source must have both permissions. |
-| `staff || owner` | Source needs either permission. |
-| `!banned` | Source must not have `banned`. |
-| `staff && (!banned || owner)` | Parentheses control grouping. |
+Permissions call `CommandSource.hasPermission(String)`.
 
-Malformed requirement expressions fail closed: the command is treated as denied rather than allowed.
+```java
+@Override
+public boolean hasPermission(String permission) {
+    return permission == null || permission.isBlank() || elevated;
+}
+```
 
-| Use | Annotation |
-| --- | --- |
-| One permission | `@Permission("mod.punish")` |
-| Boolean expression | `@Require("staff || owner")` |
-| Runtime custom guard | `@Middleware(MyGuard.class)` |
+For client-only Fabric mods, a simple elevated source is often enough. For server/proxy plugins, forward to the platform permission API.
 
 ## Middleware
 
-Middleware can wrap execution, block commands, add auditing, perform cooldowns, or map contextual behavior.
+Middleware can wrap execution:
 
 ```java
 public final class StaffOnlyMiddleware implements CommandMiddleware {
@@ -78,75 +55,30 @@ public final class StaffOnlyMiddleware implements CommandMiddleware {
 }
 ```
 
-Attach globally:
-
-```java
-CommandFramework framework = CommandFramework.builder()
-    .middleware(new StaffOnlyMiddleware())
-    .build();
-```
-
-Attach by annotation:
+Attach it:
 
 ```java
 @Middleware(StaffOnlyMiddleware.class)
-@SubRoute("warn <target:String> <reason:String...>")
-CommandResult warn(@RouteCtx CommandContext ctx) { ... }
+@SubRoute("punish <target:String>")
+CommandResult punish(@RouteCtx CommandContext ctx) {
+    return Results.success("punished " + ctx.arg("target", String.class));
+}
 ```
 
-Attach by builder:
+Middleware classes used by `@Middleware` must have a no-arg constructor.
+
+## Replies
+
+Commands should return framework results:
 
 ```java
-framework.registry()
-    .route("admin reload")
-    .middleware(new AuditMiddleware())
-    .executes(ctx -> Results.success("Reloaded"));
+return Results.success("done");
+return Results.failure("nope");
+return Results.silent();
 ```
 
-## Middleware Rules
+Adapters or source wrappers render `CommandMessage` to native output. In Fabric, a source wrapper can send errors through `sendError` and success/info through `sendFeedback`.
 
-| Rule | Reason |
-| --- | --- |
-| Return a non-null `CommandResult` | Dispatcher requires explicit outcome. |
-| Call `next.proceed(...)` at most once | Prevents duplicate command execution. |
-| Preserve failure status when decorating replies | Audit/logging should not turn failures into success. |
-| Prefer annotation middleware for command-local policy | Keeps policy near the command. |
-| Prefer global middleware for cross-cutting policy | Metrics/logging/correlation ids belong globally. |
+## Exceptions
 
-## Exception Handling
-
-| API | Use |
-| --- | --- |
-| `CommandExceptionHandler` | Full exception context handler. |
-| `CommandErrorHandler` | Legacy/simple execution error mapper. |
-| `CommandExceptionHandlers.failureMessage()` | Default failure message behavior. |
-
-Example:
-
-```java
-CommandFramework framework = CommandFramework.builder()
-    .exceptionHandler((context, error) -> Results.failure("Command failed: " + error.getMessage()))
-    .build();
-```
-
-## Built-in Exception Types
-
-| Exception | Meaning |
-| --- | --- |
-| `UnknownCommandException` | Root command was not found. |
-| `CommandSyntaxException` | Command shape or tokenization failed. |
-| `ArgumentParseException` | Positional argument parse failed. |
-| `OptionParseException` | Option/flag parse failed. |
-| `PermissionDeniedException` | Permission check failed. |
-
-## Cooldowns
-
-Cooldown metadata can be attached through annotations or builders.
-
-| Declaration | Use |
-| --- | --- |
-| `@Cooldown(...)` | Annotation commands. |
-| `.cooldown(Duration)` | Builder/route commands. |
-| `CooldownMiddleware` | Runtime implementation. |
-
-Cooldown failures should be treated as command failures, not parser errors.
+Runtime errors should be converted at the adapter boundary into user-friendly failures. Do not let platform-specific stack traces leak to players/users. Keep command methods focused on domain checks and return `Results.failure(...)` for expected user errors.

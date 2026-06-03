@@ -1,112 +1,58 @@
-# 04 - Builder API
+# Builder API
 
-The builder API is the programmatic command declaration style. It is powerful and type-friendly, but for hand-written application commands the route annotations are usually clearer.
+The builder API exists for dynamic or generated command trees. For ordinary command classes, prefer annotations with `@Command` and `@SubRoute`.
 
-## When To Use Builders
+## When To Use It
 
-| Use builders when | Prefer routes when |
+| Use builder when | Prefer annotations when |
 | --- | --- |
-| Commands are generated from config/data. | Commands are written by humans. |
-| You need dynamic child creation. | You want the shortest readable declaration. |
-| Adapter internals must build/merge nodes. | You want IntelliJ DSL highlighting. |
-| Tests need synthetic command graphs. | You want metadata next to a method. |
-
-## Simple Command
-
-```java
-framework.registry().command("ping", command -> command
-    .description("Health check")
-    .executes(ctx -> Results.success("Pong")));
-```
-
-## Arguments, Options, Flags
-
-```java
-framework.registry().command("give", command -> command
-    .argument("target", String.class)
-    .argument("item", String.class)
-    .option("amount", Integer.class)
-    .flag("silent", "s")
-    .executes(ctx -> Results.success("ok")));
-```
-
-| Builder call | DSL equivalent |
-| --- | --- |
-| `.argument("target", String.class)` | `<target:String>` |
-| `.greedyArgument("reason", String.class)` | `<reason:String...>` |
-| `.option("amount", Integer.class)` | `[--amount:Integer]` |
-| `.flag("silent", "s")` | `[--silent|-s]` |
-| `.alias("p")` / `.aliases(...)` | `root|p` |
-
-## Deep Nesting
-
-Builders support arbitrary depth:
-
-```java
-framework.registry().command("player", player -> player
-    .subcommand("moderation", moderation -> moderation
-        .subcommand("punish", punish -> punish
-            .subcommand("temporary", temporary -> temporary
-                .subcommand("add", add -> add
-                    .argument("target", String.class)
-                    .greedyArgument("reason", String.class)
-                    .option("duration", Integer.class)
-                    .flag("silent", "s")
-                    .executes(ctx -> Results.success("ok")))))));
-```
-
-This works, but `@SubRoute("moderation punish temporary add ...")` is easier to read for static command trees.
+| Commands are generated from config. | Commands are static Java methods. |
+| A plugin/module contributes routes at runtime. | You want IntelliJ route highlighting on annotations. |
+| You need loops/conditionals during registration. | You want compact command classes. |
 
 ## Route Builder
 
-The registry also exposes the route DSL without annotations:
+The route builder accepts the same DSL:
+
+```java
+CommandFramework framework = CommandFramework.create();
+
+framework.registry()
+    .route("wecc bang|b <target:String>")
+    .description("Bang a player")
+    .suggestAliases(false)
+    .argumentSuggestions("target", "target", ctx -> List.of("Ada", "Alex"))
+    .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+```
+
+## Command Tree Builder
+
+Use `.path(...)` for literal-only paths and `.subRoute(...)` for DSL routes.
+
+```java
+framework.registry().command("admin", admin -> admin
+    .path("rank set promote", promote -> promote.executes(ctx -> Results.success("promoted")))
+    .subRoute("player give <target:String> <item:String>", give -> give.executes(ctx ->
+        Results.success("gave " + ctx.arg("item", String.class))
+    )));
+```
+
+`path("rank set promote")` is literal-only. It should not contain aliases, arguments, options, or optional syntax. Use `subRoute(...)` for that.
+
+## Middleware
 
 ```java
 framework.registry()
-    .route("give <target:String> <item:String> [--amount:Integer|-a] [--silent|-s]")
-    .description("Give an item")
-    .permission("inventory.give")
-    .executes(ctx -> Results.success("ok"));
+    .route("moderation punish <target:String>")
+    .middleware((context, command, path, next) -> {
+        if (!context.source().hasPermission("staff")) {
+            return Results.failure("Missing permission: staff");
+        }
+        return next.proceed(context);
+    })
+    .executes(ctx -> Results.success("punished " + ctx.arg("target", String.class)));
 ```
 
-| API | Purpose |
-| --- | --- |
-| `.route(String)` | Parse and register a DSL route. |
-| `.description(String)` | Help/schema description. |
-| `.permission(String)` | Simple permission node. |
-| `.requirement(String)` | Requirement expression metadata. |
-| `.usage(String)` | Explicit usage. |
-| `.example(String)` | Example line. |
-| `.cooldown(Duration)` | Cooldown metadata. |
-| `.middleware(CommandMiddleware)` | Leaf middleware. |
+## Recommendation
 
-## Manual Command Nodes
-
-`Commands.literal(...)` builds detached `CommandNode` graphs. This is useful for tests and external registries:
-
-```java
-CommandNode node = Commands.literal("manual")
-    .metadata(new CommandMetadata.Builder()
-        .middleware(new AuditMiddleware())
-        .build())
-    .handler(ctx -> Results.success("ok"))
-    .build();
-
-framework.registry().register(node);
-```
-
-Manual nodes preserve metadata, aliases, arguments, options, children, and middleware through registry import/export.
-
-## Metadata Merge Behavior
-
-| Merge case | Result |
-| --- | --- |
-| Existing root + incoming child | Child is merged into existing root. |
-| Existing empty metadata + incoming metadata | Incoming metadata wins. |
-| Same metadata on both sides | Accepted. |
-| Conflicting metadata | Registration fails. |
-| Both existing and incoming executable at same path | Registration fails. |
-
-## Lifecycle Hooks
-
-`CommandLifecycleListener` can observe command registration, update, unregistration, and registry rebuild snapshots. Adapters can use this to keep platform registrations synchronized.
+Do not duplicate every annotation example in builder style. Keep the builder for dynamic cases. For a normal mod or app command registry, annotation route classes are easier to read, easier to inspect, and easier to test.

@@ -1,156 +1,101 @@
-# 03 - Annotations
+# Annotations
 
-The annotations module turns Java classes into command registrations. The recommended declaration style is `@Command` on a class plus `@SubRoute` on methods, or plain `@Route` on standalone methods.
+Annotations are intentionally split into command shape, metadata, execution policy, and tooling hints.
 
-## Style Recommendation
+## Shape
 
-| Rank | Style | Use it for |
+| Annotation | Target | Rule |
 | --- | --- | --- |
-| 1 | `@Command` + `@SubRoute` + `@RouteCtx` | Most production commands, especially nested commands. |
-| 2 | `@Route` + `@RouteCtx` | Standalone commands or examples. |
-| 3 | `@Command` / nested `@Subcommand` + `@SubRoute` leaves | Java-shaped grouping when you want nested classes. |
-| 4 | Builder API | Dynamic/generated commands or adapter internals. |
+| `@Command("root")` | type, method | One literal only. On a class, owns a root for `@SubRoute`. |
+| `@Route("root leaf <arg:String>")` | method | Full route DSL. |
+| `@SubRoute("leaf <arg:String>")` | method | Route DSL under a class `@Command`. |
+| `@Subcommand("literal")` | type, method | Legacy/nested literal node. Supported but less recommended than `@SubRoute`. |
+| `@RouteCtx` | parameter | Must annotate a `CommandContext` parameter on `@Route`/`@SubRoute` methods. |
 
-## Registration
+Command methods must return `CommandResult` and must be public or package-private. Private/protected command methods are rejected by runtime and flagged by the IntelliJ plugin.
+
+## Metadata
+
+| Annotation | Target | Meaning |
+| --- | --- | --- |
+| `@Description("...")` | type, method | Help/schema description. |
+| `@Usage("...")` | type, method | Custom usage line. |
+| `@Example("...")` | type, method | Help examples. |
+| `@Hidden` | type, method | Hide from public help/suggestions where supported. |
+| `@CommandGroup("...")` | type | Logical grouping metadata. |
+
+Blank metadata is invalid.
+
+## Permissions And Requirements
+
+| Annotation | Use |
+| --- | --- |
+| `@Permission("mod.punish")` | One simple permission node. |
+| `@Require("staff || owner")` | Boolean permission expression. |
+
+Do not put boolean expressions in `@Permission`; use `@Require`.
 
 ```java
-CommandFramework framework = CommandFramework.create();
-AnnotationCommandScanner.register(framework.registry(), new ModerationCommands());
+@SubRoute("reload")
+@Permission("admin.reload")
+CommandResult reload(@RouteCtx CommandContext ctx) {
+    return Results.success("reloaded");
+}
+
+@SubRoute("debug")
+@Require("staff && !banned")
+CommandResult debug(@RouteCtx CommandContext ctx) {
+    return Results.success("debug");
+}
 ```
-
-## Command Shape Annotations
-
-| Annotation | Target | Description | Recommended |
-| --- | --- | --- | --- |
-| `@Command("root")` | Class, method | Root command literal. On class, groups subcommands. | Yes for class roots. |
-| `@Route("full path")` | Method | Full route DSL from root. | Yes for standalone commands. |
-| `@SubRoute("path")` | Method | Route DSL relative to class `@Command`. | Yes, most common. |
-| `@Subcommand("literal")` | Class, method | Single literal segment. Can nest through classes. | Supported, but less ergonomic. |
-| `@Alias("x")` | Class, method | Alias for command/subcommand literal. | Useful for public command aliases. |
-
-## Route Context Binding
-
-| Annotation | Target | Meaning | Notes |
-| --- | --- | --- | --- |
-| `@RouteCtx` | Parameter | Injects `CommandContext`. | Preferred. |
-
-`@Route` and `@SubRoute` methods must declare exactly one `@RouteCtx CommandContext` parameter. Read args, options, and flags from that context:
-
-| Route DSL | Runtime read |
-| --- | --- |
-| `<target:String>` | `ctx.arg("target", String.class)` |
-| `[<target:String>]` | `ctx.optionalArg("target", String.class)` |
-| `[--amount:Integer|-a]` | `ctx.option("amount", Integer.class)` |
-| `[--silent|-s]` | `ctx.flag("silent")` |
-| `<reason:String...>` | `ctx.arg("reason", String.class)` |
-
-This keeps the schema in one place: the route string.
 
 ## Suggestions
 
-Use `@Suggest("name")` on provider methods. The provider name matches a route argument or option name.
-
-```java
-@Route("kit <target:String> [kit:String]")
-CommandResult kit(@RouteCtx CommandContext ctx) {
-    return Results.success("Kit " + ctx.optionalArg("kit", String.class).orElse("starter"));
-}
-
-@Suggest("kit")
-List<String> kits() {
-    return List.of("starter", "builder", "pvp");
-}
-```
-
-Providers may return `List<String>` or `List<Suggestion>`, and may accept no parameter or one `ArgumentParseContext`.
-
-## Metadata Annotations
-
-| Annotation | Target | Runtime effect |
-| --- | --- | --- |
-| `@Description` | Class, method | Help/schema description. |
-| `@Permission` | Class, method | Simple platform permission node. |
-| `@Require` | Class, method | Requirement expression string. |
-| `@Usage` | Class, method | Explicit usage string. |
-| `@Example` | Class, method | One or more examples. |
-| `@Hidden` | Class, method | Hide from help/schema. |
-| `@Cooldown` | Class, method | Cooldown metadata/runtime middleware. |
-| `@CommandGroup` | Class, method | Logical help/schema group. |
-| `@CaseInsensitive` | Class, method | Literal/option matching policy. |
-| `@Middleware` | Class, method | Adds command middleware to the matched path. |
-
-## Permission vs Require
-
-| Annotation | Intended use | Example |
-| --- | --- | --- |
-| `@Permission` | One simple permission node. | `@Permission("admin.reload")` |
-| `@Require` | Boolean/logical requirement expression. | `@Require("staff || owner")` |
-
-The IntelliJ plugin warns when `@Permission` contains boolean operators and suggests moving complex access logic to
-`@Require`.
-
-## Middleware Annotation
-
-```java
-@Command("moderation")
-@Middleware(AuditMiddleware.class)
-static final class ModerationCommands {
-    @SubRoute("warn <target:String> <reason:String...>")
-    @Middleware(StaffOnlyMiddleware.class)
-    CommandResult warn(@RouteCtx CommandContext ctx) {
-        return Results.success("Warned " + ctx.arg("target", String.class));
-    }
-}
-```
-
-| Placement | Applies to |
+| Annotation | Rule |
 | --- | --- |
-| Class `@Command` | Root command path and all matching subcommands. |
-| Nested class `@Subcommand` | That subtree. |
-| Method `@Route` | The executable route. |
-| Method `@SubRoute` / `@Subcommand` | The executable leaf. |
+| `@Suggest("target")` | Method provides suggestions for a route argument/option named `target`. |
+| `@SuggestAliases(false)` | Do not suggest aliases for this route/class, while still accepting them. |
 
-Middleware classes must implement `CommandMiddleware` and expose a no-arg constructor.
-
-## Case Sensitivity
+Valid provider signatures:
 
 ```java
-@CaseInsensitive(literals = true, options = true)
-@Command("moderation")
-static final class ModerationCommands { ... }
+@Suggest("target")
+List<String> targets()
+
+@Suggest("target")
+List<Suggestion> targets(ArgumentParseContext ctx)
+
+@Suggest("target")
+SuggestionSet targets(SuggestionContext ctx)
 ```
 
-| Property | Effect |
+The provider name must match at least one `@Route` or `@SubRoute` argument/option in the same command class. It is applied only to matching leaves.
+
+## Middleware And Cooldown
+
+| Annotation | Rule |
 | --- | --- |
-| `literals = true` | Command and subcommand literals match case-insensitively. |
-| `options = true` | Option and flag labels match case-insensitively. |
-
-Arguments remain parser-specific. This is intentional: player names, item ids, and custom parsers may be case-sensitive.
-
-## Annotation Interaction Rules
-
-| Situation | Rule |
-| --- | --- |
-| `@Route` method | Do not also use `@Command`, `@Subcommand`, or `@SubRoute` on the same method. |
-| `@SubRoute` method | Must live under a class root command. |
-| Class metadata and method metadata | Root/class metadata applies to subtree; method metadata applies to leaf. |
-| Duplicate command shape | Registration fails with conflict. |
-| Blank metadata | Registration fails early. |
-
-## Recommended Template
+| `@Middleware(MyMiddleware.class)` | Class must implement `CommandMiddleware` and have a no-arg constructor. |
+| `@Cooldown(5)` | Cooldown must be positive. |
 
 ```java
-@Command("admin")
-@Alias("a")
-@CaseInsensitive(literals = true, options = true)
-static final class AdminCommands {
-    @SubRoute("moderation punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
-    @Description("Punish a user")
-    @Permission("mod.punish")
-    @Usage("/admin moderation punish <target> <reason> [--duration <minutes>] [--silent]")
-    @Example("/a moderation punish Ada spam -d 30 -s")
-    CommandResult punish(@RouteCtx CommandContext ctx) {
-        ...
-    }
+@Middleware(ReplyResultMiddleware.class)
+@SubRoute("ping")
+CommandResult ping(@RouteCtx CommandContext ctx) {
+    return Results.success("pong");
 }
 ```
+
+## IntelliJ Rules
+
+The plugin highlights route/requirement strings and reports concrete mistakes:
+
+| Mistake | Reported |
+| --- | --- |
+| `@Route` method without `@RouteCtx CommandContext` | Yes |
+| `@RouteCtx String ctx` | Yes |
+| `@Command("root <arg:String>")` | Yes, use `@Route`. |
+| `@Subcommand("leaf <arg:String>")` | Yes, use `@SubRoute`. |
+| `@Permission("staff || owner")` | Yes, use `@Require`. |
+| `@Suggest("missing")` with no route binding | Yes |
+| `@Middleware(Bad.class)` with no no-arg constructor | Yes |

@@ -1,118 +1,101 @@
-# 02 - Route And SubRoute
+# Route And SubRoute
 
-`@Route` and `@SubRoute` are the primary style for BuildMyCommand. They are strongly recommended for application code because they keep command shape, aliases, arguments, options, and flags in one inspectable DSL string.
+`@Route` and `@SubRoute` are the recommended declaration API.
 
-## Why This Style Is Preferred
+Use:
 
-| Criterion | `@Route` / `@SubRoute` | Parameter annotations | Builder API |
-| --- | --- | --- | --- |
-| Readability | Entire command shape in one line | Shape spread across method and params | Shape spread across chained calls |
-| Deep nesting | Excellent | Verbose with nested classes | Good but longer |
-| IntelliJ support | Best: injection, color, inspections | Limited to Java annotations | Java completion only |
-| Refactor safety | Route string still needs tests | Param names/annotations are explicit | Strong programmatic control |
-| Best use | Most user-facing commands | Very simple commands | Dynamic/generated commands |
-
-## Route vs SubRoute
-
-| Annotation | Target | Meaning | Example |
-| --- | --- | --- | --- |
-| `@Route` | Method | Full command path from root. | `@Route("ban <target:String>")` |
-| `@SubRoute` | Method inside `@Command` class | Path after the class root. | `@Command("admin")` + `@SubRoute("reload")` |
-
-## Grammar Overview
-
-| DSL part | Meaning | Example |
-| --- | --- | --- |
-| `literal` | Required command word. | `moderation` |
-| `a|b|c` | Literal aliases at the same position. | `moderation|mod` |
-| `<name:Type>` | Required argument. | `<target:String>` |
-| `<name:Type...>` | Greedy argument consuming remaining input. | `<reason:String...>` |
-| `[<name:Type>]` | Optional argument. | `[<world:String>]` |
-| `[--name:Type]` | Named option with value. | `[--duration:Integer]` |
-| `[--name:Type|-x]` | Named option with short alias. | `[--amount:Integer|-a]` |
-| `[--flag]` | Boolean flag. | `[--silent]` |
-| `[--flag|-s]` | Boolean flag with short alias. | `[--silent|-s]` |
-
-## Argument Types
-
-Built-in parsers are provided by core. Custom parsers can be registered through the framework parser registry.
-
-| Type token | Java type | Notes |
-| --- | --- | --- |
-| `String` | `String` | Single token unless greedy. |
-| `String...` | `String` | Greedy tail string. |
-| `Integer` | `Integer` | Integer parser. |
-| `Long` | `Long` | Long parser. |
-| `Double` | `Double` | Double parser. |
-| `Boolean` | `Boolean` | Boolean parser. |
-| `UUID` | `UUID` | UUID parser. |
-| `URL` | `URL` | URL parser. |
-| `URI` | `URI` | URI parser. |
-| `Path` | `Path` | Path-like token parser. |
-| `LocalDate` | `LocalDate` | ISO date. |
-| `LocalDateTime` | `LocalDateTime` | ISO date-time. |
-
-## Good Route Design
-
-Prefer nouns and stable subtrees:
-
-```java
-@Command("player")
-static final class PlayerCommands {
-    @SubRoute("profile view <target:String>")
-    CommandResult view(@RouteCtx CommandContext ctx) { ... }
-
-    @SubRoute("moderation punish temp add <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
-    CommandResult tempPunish(@RouteCtx CommandContext ctx) { ... }
-}
-```
-
-Avoid encoding too much behavior into flags when a literal is clearer:
-
-| Prefer | Avoid |
+| Annotation | When |
 | --- | --- |
-| `punish temp add <target> ...` | `punish <target> --temp --add ...` |
-| `rank set <target> <rank>` | `rank <target> <rank> --set` |
-| `profile view <target>` | `profile <target> --view` |
+| `@Route("root leaf <arg:String>")` | The method declares the full root path itself. |
+| `@Command("root")` + `@SubRoute("leaf <arg:String>")` | The class owns one root and methods declare leaves. Recommended for real projects. |
 
-## RouteCtx Pattern
+## Route Syntax
 
-For route methods, prefer a single `@RouteCtx CommandContext` parameter:
+| Syntax | Meaning |
+| --- | --- |
+| `literal` | Required literal token. |
+| `literal|alias` | Literal with alias. |
+| `<name:String>` | Required argument. |
+| `<name:String...>` | Required greedy string argument. |
+| `[name:String]` | Optional positional argument. |
+| `[--flag]` | Boolean flag. |
+| `[--option:Integer]` | Optional named value. |
+| `[--silent|-s]` | Long option/flag with short alias. |
+
+Example:
 
 ```java
-@SubRoute("give <target:String> <item:String> [--amount:Integer|-a]")
-CommandResult give(@RouteCtx CommandContext ctx) {
+@SubRoute("moderation|mod punish <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
+CommandResult punish(@RouteCtx CommandContext ctx) {
     String target = ctx.arg("target", String.class);
-    String item = ctx.arg("item", String.class);
-    int amount = ctx.option("amount", Integer.class).orElse(1);
-    return Results.success("Gave " + amount + " " + item + " to " + target);
+    String reason = ctx.arg("reason", String.class);
+    int duration = ctx.option("duration", Integer.class).orElse(60);
+    boolean silent = ctx.flag("silent");
+    return Results.success("Punished " + target + " for " + duration + "m: " + reason);
 }
 ```
 
-This avoids duplicated schema: the route string declares the command shape, and `@RouteCtx` is the single bridge into runtime values.
+## Route Context
 
-## Validation Rules
+Route DSL methods should receive exactly one route context:
 
-| Rule | Reason |
+```java
+CommandResult run(@RouteCtx CommandContext ctx)
+```
+
+Read values from the context:
+
+| Call | Reads |
 | --- | --- |
-| Required arguments cannot follow optional arguments | Avoid ambiguous parse order. |
-| Greedy arguments must be last among positionals | Greedy consumes the remaining input. |
-| Option and flag names must not be blank | Runtime metadata must be stable. |
-| Short aliases are declared with `|-x` | Keeps aliases local to the option/flag. |
-| Use `@SubRoute`, not deeply nested classes, for deep command paths | Reduces boilerplate and improves IDE assistance. |
+| `ctx.arg("target", String.class)` | Required argument. |
+| `ctx.optionalArg("target", String.class)` | Optional positional argument. |
+| `ctx.option("duration", Integer.class)` | Named option value. |
+| `ctx.flag("silent")` | Boolean flag. |
+| `ctx.source()` | Current `CommandSource`. |
+| `ctx.unwrapSource(FabricClientCommandSource.class)` | Native source if available. |
 
-## Examples
+## Alias Suggestions
 
-| Use case | Route |
-| --- | --- |
-| Simple command | `ping` |
-| Alias root | `moderation|mod status` |
-| Required args | `ban <target:String> <reason:String...>` |
-| Optional arg | `teleport <target:String> [<world:String>]` |
-| Option | `mute <target:String> [--minutes:Integer|-m] <reason:String...>` |
-| Flag | `give <target:String> <item:String> [--silent|-s]` |
-| Deep tree | `admin moderation punish temporary add <target:String> <reason:String...>` |
+Aliases execute by default. Suggestions can be controlled:
 
-## IntelliJ Support
+```java
+@SuggestAliases(false)
+@SubRoute("bang|b <target:String>")
+CommandResult bang(@RouteCtx CommandContext ctx) {
+    return Results.success("bang " + ctx.arg("target", String.class));
+}
+```
 
-The IntelliJ plugin injects the route DSL into Java strings used by `@Route`, `@SubRoute`, and builder `.route(...)` calls. It provides syntax coloring, route inspections, and a dedicated TextMate grammar/theme.
+With `@SuggestAliases(false)`, `bang` can still be typed as `b`, but the alias does not have to appear in completion lists.
+
+## What Not To Do
+
+This works, but it is not the preferred style for large trees:
+
+```java
+@Command("team")
+static final class TeamCommands {
+    @Subcommand("member")
+    static final class MemberCommands {
+        @Subcommand("permission")
+        static final class PermissionCommands {
+            @Subcommand("grant")
+            CommandResult grant(CommandContext ctx) {
+                return Results.success("ok");
+            }
+        }
+    }
+}
+```
+
+Prefer:
+
+```java
+@Command("team")
+static final class TeamCommands {
+    @SubRoute("member permission grant <target:String> <permission:String>")
+    CommandResult grant(@RouteCtx CommandContext ctx) {
+        return Results.success("ok");
+    }
+}
+```

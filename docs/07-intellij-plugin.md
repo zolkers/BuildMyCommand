@@ -1,85 +1,67 @@
-# 07 - IntelliJ Plugin
+# IntelliJ Plugin
 
-The IntelliJ plugin exists to make route DSL strings feel like real code instead of invisible Java string literals.
+The IntelliJ plugin is optional but strongly recommended while authoring route DSL commands.
 
-## Features
+It provides:
 
-| Feature | Status |
+| Feature | Covers |
 | --- | --- |
-| Route DSL injection in `@Route` | Supported |
-| Route DSL injection in `@SubRoute` | Supported |
-| Route DSL injection in builder `.route(...)` | Supported |
-| Syntax highlighting/theme | Supported |
-| Route inspections | Supported |
-| Required plugin declaration | Supported through setup task/script |
-| Implicit usage for command annotations | Supported |
-| Requirement/permission DSL validation | Supported |
+| Route highlighting | `@Route`, `@SubRoute`, `registry.route(...)`, `subRoute(...)`. |
+| Requirement highlighting | `@Require("staff || owner")`, builder `.requirement(...)`. |
+| Inspections | Wrong annotation targets, bad method signatures, missing route context, bad suggestions. |
+| Local setup scripts | Declare/install the plugin for this project. |
 
-## Install Locally
+## Local Install
+
+PowerShell:
 
 ```powershell
 .\gradlew.bat installIntellijPluginLocal
 ```
 
-This builds the plugin ZIP and installs it into the latest local IntelliJ IDEA config directory. Restart IntelliJ after installation.
+Shell:
 
-## Project Setup
-
-```powershell
-.\gradlew.bat setupIntellijPlugin
+```sh
+./gradlew installIntellijPluginLocal
 ```
 
-This declares the plugin as required in `.idea/externalDependencies.xml` and builds the plugin ZIP.
+Restart IntelliJ after installation.
 
-Shell alternatives:
+## Project Requirement
 
-```bash
-./scripts/setup-intellij-plugin.sh
-./scripts/setup-intellij-plugin.sh --install
+The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this project expects the BuildMyCommand plugin:
+
+```xml
+<plugin id="dev.riege.buildmycommand.intellij" min-version="0.0.4-SNAPSHOT" />
 ```
 
-## Files
+If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.
 
-| File | Purpose |
+## Inspections
+
+| Example | Diagnostic |
 | --- | --- |
-| `modules/intellij-plugin/src/main/resources/buildmycommandInjections.xml` | IntelliLang injection declarations. |
-| `modules/intellij-plugin/src/main/resources/textmate/...` | TextMate grammar for route DSL. |
-| `modules/intellij-plugin/src/main/resources/colorSchemes/...` | Light/Darcula route color schemes. |
-| `BuildMyCommandRouteDsl` | Parser/validator model used by inspections/tests. |
-| `BuildMyCommandRequirementDsl` | Validator for `@Require` and builder `.requirement(...)` expressions. |
-| `BuildMyCommandRouteInspection` | Reports route DSL issues. |
-| `BuildMyCommandRouteAnnotator` | Adds editor annotations/highlighting. |
-| `BuildMyCommandImplicitUsageProvider` | Prevents annotated command classes/methods from being marked unused. |
+| `@Route("x") String run(...)` | Command method must return `CommandResult`. |
+| `private CommandResult run(...)` | Command method must be public or package-private. |
+| `@Route("x") CommandResult run()` | Route DSL method needs one `@RouteCtx CommandContext`. |
+| `@RouteCtx String ctx` | `@RouteCtx` must annotate `CommandContext`. |
+| `@Command("root <target:String>")` | Use `@Route` for route DSL. |
+| `@Subcommand("leaf <target:String>")` | Use `@SubRoute` for route DSL. |
+| `@Permission("staff || owner")` | Use `@Require` for boolean expressions. |
+| `@Suggest("missing")` | Suggestion name must match a route arg/option in the class. |
+| `@Middleware(Bad.class)` | Middleware must implement `CommandMiddleware` and have no-arg constructor. |
 
-## Route Highlighting
+## TextMate Theme
 
-| Token | Expected visual treatment |
+The plugin bundles a TextMate grammar and color scheme for route DSL tokens:
+
+| Token | Example |
 | --- | --- |
-| Literals | Command path words. |
-| Aliases | Same literal segment, separated by `|`. |
-| Argument brackets | `<`, `>`, `[` and `]`. |
-| Argument names | `target`, `reason`, etc. |
-| Type names | `String`, `Integer`, custom parser names. |
-| Options | `--duration`, `--silent`. |
-| Short aliases | `-d`, `-s`. |
-| Greedy marker | `...`. |
+| Literal | `moderation`, `punish` |
+| Alias | `moderation|mod` |
+| Argument | `<target:String>` |
+| Greedy | `<reason:String...>` |
+| Option | `[--duration:Integer|-d]` |
+| Requirement operator | `staff || owner` |
 
-## Inspection Examples
-
-| Input | Issue |
-| --- | --- |
-| `cmd [<a:String>] <b:String>` | Required argument cannot follow optional argument. |
-| `cmd <reason:String...> <x:String>` | Greedy argument must be last. |
-| `cmd [--silent|-]` | Invalid short flag alias. |
-| `cmd <>` | Invalid argument declaration. |
-
-## Requirement And Permission Rules
-
-| Annotation | Plugin behavior |
-| --- | --- |
-| `@Require` | Validates boolean requirement DSL: identifiers, `&&`, `||`, `!`, parentheses. |
-| `@Permission` | Treats the value as one permission node. Warns on boolean operators and offers `@Require`. |
-| Builder `.requirement(...)` | Same as `@Require`. |
-| Builder `.permission(...)` | Same as `@Permission`. |
-
-This distinction keeps `@Permission` simple and makes `@Require` the explicit place for complex access logic.
+If highlighting does not appear after installing, restart IntelliJ and check that the plugin is enabled.

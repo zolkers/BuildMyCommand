@@ -1,153 +1,180 @@
-# 06 - Minecraft
+# Minecraft And Fabric
 
-Minecraft integration is split into a generic Brigadier bridge and platform-specific adapters. Brigadier comes from Mojang and is strongly associated with Minecraft, but it is still useful as a generic command-tree protocol because multiple Minecraft platforms expose or emulate it differently.
+Minecraft integrations are built around Brigadier-style command trees, but your command code should stay framework-first.
 
-## Module Map
+For Fabric client-side mods, the clean pattern is:
 
-| Platform | Module | Notes |
-| --- | --- | --- |
-| Generic Brigadier | `adapters-brigadier` | Converts BuildMyCommand graph to Brigadier nodes. |
-| Shared Minecraft model | `adapters-minecraft-common` | Capabilities, runtime profiles, result rendering, edge cases. |
-| Fabric | `adapters-minecraft-fabric` | Fabric Command API v1/v2 bridge for 1.16.5+ style registration. |
-| Forge | `adapters-minecraft-forge` | Forge `RegisterCommandsEvent` bridge for 1.16.5+ style registration. |
-| NeoForge | `adapters-minecraft-neoforge` | NeoForge `RegisterCommandsEvent` bridge. |
-| Spigot | `adapters-minecraft-spigot` | Bukkit/Spigot command integration. |
-| Paper | `adapters-minecraft-paper` | Paper-specific layer plus Spigot base. |
-| BungeeCord | `adapters-minecraft-bungee` | Proxy command integration. |
-| Velocity | `adapters-minecraft-velocity` | Proxy command integration. |
-| Minestom | `adapters-minecraft-minestom` | Native server framework integration. |
-| Sponge | `adapters-minecraft-sponge` | Sponge integration. |
+1. Build one `CommandFramework`.
+2. Register annotated command classes.
+3. Register the framework through the Fabric adapter.
+4. Wrap `FabricClientCommandSource` in your own `CommandSource`.
 
-## Compatibility Mindset
+## Dependencies
 
-The framework core is platform-independent. Minecraft adapters are responsible for bridging:
+```kotlin
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
 
-| Concern | Framework | Minecraft adapter |
-| --- | --- | --- |
-| Parsing route DSL | Core | Reused |
-| Permissions | `CommandSource.hasPermission` | Map to sender/player/proxy permissions |
-| Suggestions | `SuggestionProvider` / rich suggestions | Map to Brigadier/platform suggestion APIs |
-| Case sensitivity | Matching policy | Respect or emulate where platform allows |
-| Native command tree | `CommandGraph` | Register literals/arguments/options |
-| Output | `CommandResult` / `CommandMessage` | Send chat/component/platform result |
+dependencies {
+    implementation("io.github.zolkers:api:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:core:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:annotations:0.0.4-SNAPSHOT")
+    implementation("io.github.zolkers:adapters-minecraft-fabric:0.0.4-SNAPSHOT")
+}
+```
 
-## Brigadier Notes
+Keep `mavenLocal()` while testing snapshots. Remove it once you depend on a released Maven Central version.
 
-Brigadier is powerful for command trees but limited for some framework-level behavior:
-
-| Topic | Adapter responsibility |
-| --- | --- |
-| Case-insensitive literals | Brigadier literals are exact; adapter may normalize or register aliases where possible. |
-| Options/flags | Framework models them; Brigadier bridge must expose parse-compatible nodes. |
-| Greedy strings | Map to Brigadier greedy string argument where possible. |
-| Permissions | Brigadier `requires` should delegate to framework/platform permission checks. |
-| Suggestions | Use framework suggestions and translate to Brigadier suggestions. |
-
-## Platform Profiles
-
-Minecraft common exposes descriptors/profiles so adapters can describe what a runtime supports.
-
-| Concept | Purpose |
-| --- | --- |
-| `MinecraftRuntimeDescriptor` | Identifies platform/runtime. |
-| `MinecraftBackendProfile` | Captures backend capabilities and constraints. |
-| `MinecraftCapability` | Fine-grained support flags. |
-| `MinecraftCommandEdgeCase` | Documents adapter/platform edge cases. |
-| `MinecraftCommandRegistrationPlan` | Registration output plan. |
-
-## Recommended Command Style For Minecraft
-
-Use route annotations. Minecraft commands become deeply nested quickly, and `@SubRoute` keeps the tree readable:
+## Command Class
 
 ```java
-@Command("admin")
-@Alias("a")
-@CaseInsensitive(literals = true, options = true)
-static final class AdminCommands {
-    @SubRoute("moderation punish temporary add <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
-    @Permission("admin.moderation.punish")
-    CommandResult tempPunish(@RouteCtx CommandContext ctx) {
-        ...
+@Command("wecc")
+@CaseInsensitive
+public final class PingCommand {
+    @SubRoute("ping")
+    @Description("Client command smoke test")
+    @Middleware(ReplyResultMiddleware.class)
+    CommandResult ping(@RouteCtx CommandContext ctx) {
+        return Results.success("pong from client");
+    }
+
+    @SuggestAliases(false)
+    @SubRoute("bang|b <target:String>")
+    @Description("Client command smoke test")
+    @Middleware(ReplyResultMiddleware.class)
+    CommandResult bang(@RouteCtx CommandContext ctx) {
+        return Results.success("bang to this noob " + ctx.arg("target", String.class));
+    }
+
+    @Suggest("target")
+    SuggestionSet onlinePlayers(SuggestionContext ctx) {
+        return ctx.unwrapSource(FabricClientCommandSource.class)
+            .map(FabricClientCommandSource::getClient)
+            .filter(client -> client.getConnection() != null)
+            .map(client -> SuggestionSet.of(client.getConnection().getOnlinePlayers()
+                .stream()
+                .map(player -> player.getProfile().name())
+                .toList()).filteringCurrentToken())
+            .orElseGet(SuggestionSet::empty);
     }
 }
 ```
 
-## Version Guidance
+The important part: `@Suggest("target")` links to `<target:String>` in `bang|b <target:String>`. It does not need to match `ping`; the provider is applied only to routes that actually contain `target`.
 
-| Area | Guidance |
-| --- | --- |
-| Minecraft 1.16.5+ | Prefer the dedicated loader adapter when it exists; it wraps Brigadier registration while preserving loader-specific lifecycle details. |
-| Fabric 1.16.5 | Use `FabricMinecraftIntegration.legacyRegistration(...)` for Command API v1 callbacks. |
-| Fabric modern | Use `FabricMinecraftIntegration.registration(...)` for Command API v2 callbacks. |
-| Forge 1.16.5 | Use `ForgeMinecraftIntegration.legacyRegistration(...)` in `RegisterCommandsEvent`. |
-| Forge modern | Use `ForgeMinecraftIntegration.registration(...)` in `RegisterCommandsEvent`. |
-| NeoForge | Use `NeoForgeMinecraftIntegration.registration(...)` in NeoForge's `RegisterCommandsEvent`. |
-| Spigot/Paper | Paper can expose richer command behavior; Spigot compatibility remains important. |
-| Proxies | Bungee and Velocity need source/result mapping that fits proxy sender models. |
-| Mod loaders without a dedicated module | Use `adapters-brigadier` plus `adapters-minecraft-common` directly. |
+## Source Wrapper For QoL
 
-Always test on the target platform/version because command registration APIs differ across server/proxy implementations.
-
-## Fabric Registration Shape
-
-Fabric 1.16.5 uses `net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback`; modern Fabric uses command API v2. The adapter keeps both paths explicit:
+Do not put Fabric reply/permission/native unwrap code in every command. Put it in one source wrapper.
 
 ```java
-CommandFramework framework = CommandFramework.create();
-FabricBrigadierRegistration<ServerCommandSource> registration =
-    FabricMinecraftIntegration.legacyRegistration(framework, FabricCommandSources::map);
+package fr.edgn.wec.commands;
 
-CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
-    registration.registerInto(dispatcher);
-});
-```
+import dev.riege.buildmycommand.api.CommandMessage;
+import dev.riege.buildmycommand.api.CommandSource;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.network.chat.Component;
 
-For modern Fabric:
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
 
-```java
-FabricBrigadierRegistration<CommandSourceStack> registration =
-    FabricMinecraftIntegration.registration(framework, FabricCommandSources::map);
+public final class ModCommandSource implements CommandSource {
+    private final String name;
+    private final boolean elevated;
+    private final Consumer<CommandMessage> reply;
+    private final Object nativeSource;
 
-CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
-    registration.registerInto(dispatcher);
-});
-```
+    private ModCommandSource(String name, boolean elevated, Consumer<CommandMessage> reply, Object nativeSource) {
+        this.name = Objects.requireNonNull(name, "name");
+        this.elevated = elevated;
+        this.reply = Objects.requireNonNull(reply, "reply");
+        this.nativeSource = Objects.requireNonNull(nativeSource, "nativeSource");
+    }
 
-## Forge And NeoForge Registration Shape
+    public static ModCommandSource client(FabricClientCommandSource source) {
+        String playerName = source.getPlayer() == null
+            ? "client"
+            : source.getPlayer().getName().getString();
+        return new ModCommandSource(
+            playerName,
+            true,
+            message -> {
+                Component component = Component.literal(message.text());
+                switch (message.level()) {
+                    case ERROR -> source.sendError(component);
+                    case SUCCESS, INFO -> source.sendFeedback(component);
+                }
+            },
+            source
+        );
+    }
 
-Forge 1.16.5 and modern Forge both register during `RegisterCommandsEvent`; the source type name differs by mapping/version, so the adapter is generic over the native source:
+    @Override
+    public Optional<String> name() {
+        return Optional.of(name);
+    }
 
-```java
-ForgeBrigadierRegistration<CommandSource> registration =
-    ForgeMinecraftIntegration.legacyRegistration(framework, ForgeCommandSources::map);
+    @Override
+    public <T> Optional<T> unwrap(Class<T> type) {
+        Objects.requireNonNull(type, "type");
+        if (type.isInstance(nativeSource)) {
+            return Optional.of(type.cast(nativeSource));
+        }
+        return Optional.empty();
+    }
 
-@SubscribeEvent
-public void registerCommands(RegisterCommandsEvent event) {
-    registration.registerInto(event.getDispatcher());
+    @Override
+    public void reply(CommandMessage message) {
+        reply.accept(message);
+    }
+
+    @Override
+    public boolean hasPermission(String permission) {
+        return permission == null || permission.isBlank() || elevated;
+    }
 }
 ```
 
-NeoForge follows the same shape with its own event package:
+Why this is worth documenting:
+
+| Feature | Benefit |
+| --- | --- |
+| `reply(CommandMessage)` | Commands return framework results; Fabric rendering stays in one place. |
+| `unwrap(FabricClientCommandSource.class)` | Suggestions can reach client state safely. |
+| `name()` | Logs/help/middleware can identify the source. |
+| `hasPermission(...)` | `@Permission` and `@Require` work even in client-only mods. |
+
+For client-only mods, `elevated = true` is often fine. For multiplayer/server-sensitive features, replace it with your own policy.
+
+## Registration Shape
+
+Keep a small registry class in your mod:
 
 ```java
-NeoForgeBrigadierRegistration<CommandSourceStack> registration =
-    NeoForgeMinecraftIntegration.registration(framework, NeoForgeCommandSources::map);
+public final class ModCommands {
+    private final CommandFramework framework = CommandFramework.create();
 
-@SubscribeEvent
-public void registerCommands(RegisterCommandsEvent event) {
-    registration.registerInto(event.getDispatcher());
+    public ModCommands() {
+        AnnotationCommandScanner.register(framework.registry(), new PingCommand());
+    }
+
+    public CommandFramework framework() {
+        return framework;
+    }
 }
 ```
 
-The mapper is where platform permissions, sender identity, locale, metadata, and replies become a BuildMyCommand `CommandSource`.
+Then connect it through the Fabric adapter and convert Fabric sources with `ModCommandSource.client(source)`.
 
-## Testing Matrix
+## Compatibility Notes
 
-| Test | Why |
+| Platform | Notes |
 | --- | --- |
-| Register root + alias | Platform command managers often treat aliases differently. |
-| Permission denied | Sender permission APIs differ. |
-| Greedy reason | Chat command parsing commonly breaks greedy args. |
-| Short flags | Minecraft users expect compact admin commands. |
-| Suggestions at root, literal, argument, option | Brigadier/platform completions have different cursor semantics. |
-| Case-insensitive literal path | Brigadier exact literals need adapter strategy. |
+| Fabric 1.16.5 style | Uses Fabric command API v1 compatibility path. |
+| Modern Fabric | Uses Fabric command API v2 registration. |
+| Brigadier-based runtimes | Use the Brigadier adapter underneath. |
+| Client-only mods | Prefer a client source wrapper and client command registration. |
+
+The command framework should not own your mod state. Use `CommandSource.unwrap(...)`, `SuggestionContext`, and middleware to reach platform state when needed.
