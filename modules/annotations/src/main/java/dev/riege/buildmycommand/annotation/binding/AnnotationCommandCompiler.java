@@ -2,17 +2,24 @@ package dev.riege.buildmycommand.annotation.binding;
 
 import dev.riege.buildmycommand.annotation.Alias;
 import dev.riege.buildmycommand.annotation.CaseInsensitive;
+import dev.riege.buildmycommand.annotation.Cooldown;
 import dev.riege.buildmycommand.annotation.Command;
 import dev.riege.buildmycommand.annotation.CommandGroup;
 import dev.riege.buildmycommand.annotation.Description;
+import dev.riege.buildmycommand.annotation.Example;
+import dev.riege.buildmycommand.annotation.Hidden;
 import dev.riege.buildmycommand.annotation.Permission;
+import dev.riege.buildmycommand.annotation.Require;
 import dev.riege.buildmycommand.annotation.Route;
 import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.annotation.Subcommand;
+import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandRegistry;
 
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +34,7 @@ public final class AnnotationCommandCompiler {
         Class<?> owner = commands.getClass();
         CasePolicy classCasePolicy = casePolicy(owner.getAnnotation(CaseInsensitive.class));
         Optional<String> group = commandGroup(owner);
+        Optional<RootCommand> rootCommand = rootCommand(owner, group, classCasePolicy);
 
         List<CompiledCommand> compiled = Arrays.stream(owner.getDeclaredMethods())
             .filter(method -> isAnnotatedCommandMethod(owner, method))
@@ -36,7 +44,7 @@ public final class AnnotationCommandCompiler {
             .map(method -> compileMethod(commands, method, group))
             .toList();
 
-        return new CompiledCommands(classCasePolicy, compiled);
+        return new CompiledCommands(classCasePolicy, rootCommand, compiled);
     }
 
     private static CompiledCommand compileMethod(
@@ -159,6 +167,65 @@ public final class AnnotationCommandCompiler {
     private static Optional<String> commandGroup(Class<?> owner) {
         CommandGroup group = owner.getAnnotation(CommandGroup.class);
         return group == null ? Optional.empty() : Optional.of(validateMetadata(group.value(), "command group"));
+    }
+
+    private static Optional<RootCommand> rootCommand(Class<?> owner, Optional<String> group, CasePolicy casePolicy) {
+        Command command = owner.getAnnotation(Command.class);
+        if (command == null || !hasRootMetadata(owner)) {
+            return Optional.empty();
+        }
+        validateSingleLiteral(command.value(), "@Command", "@Route");
+        Alias alias = owner.getAnnotation(Alias.class);
+        return Optional.of(new RootCommand(
+            command.value(),
+            alias == null ? List.of() : List.of(alias.value()),
+            group,
+            metadata(owner.getAnnotation(Description.class), "description"),
+            metadata(owner.getAnnotation(Permission.class), "permission"),
+            classMetadata(owner),
+            casePolicy
+        ));
+    }
+
+    private static boolean hasRootMetadata(Class<?> owner) {
+        return owner.isAnnotationPresent(Description.class)
+            || owner.isAnnotationPresent(Permission.class)
+            || owner.isAnnotationPresent(Hidden.class)
+            || owner.isAnnotationPresent(Usage.class)
+            || owner.isAnnotationPresent(Example.class)
+            || owner.isAnnotationPresent(Cooldown.class)
+            || owner.isAnnotationPresent(Require.class)
+            || owner.isAnnotationPresent(CommandGroup.class);
+    }
+
+    private static MethodCommandBinder.CommandMetadata classMetadata(Class<?> owner) {
+        Usage usage = owner.getAnnotation(Usage.class);
+        Example example = owner.getAnnotation(Example.class);
+        Cooldown cooldown = owner.getAnnotation(Cooldown.class);
+        Require requirement = owner.getAnnotation(Require.class);
+
+        List<String> examples = new ArrayList<>();
+        if (example != null) {
+            for (String value : example.value()) {
+                examples.add(validateMetadata(value, "example"));
+            }
+        }
+
+        Optional<Duration> cooldownDuration = Optional.empty();
+        if (cooldown != null) {
+            if (cooldown.value() <= 0) {
+                throw new IllegalArgumentException("cooldown must be positive");
+            }
+            cooldownDuration = Optional.of(Duration.ofMillis(cooldown.unit().toMillis(cooldown.value())));
+        }
+
+        return new MethodCommandBinder.CommandMetadata(
+            owner.isAnnotationPresent(Hidden.class),
+            usage == null ? Optional.empty() : Optional.of(validateMetadata(usage.value(), "usage")),
+            examples,
+            cooldownDuration,
+            requirement == null ? Optional.empty() : Optional.of(validateMetadata(requirement.value(), "requirement"))
+        );
     }
 
     private static Optional<String> metadata(Description description, String label) {
@@ -310,18 +377,63 @@ public final class AnnotationCommandCompiler {
         return String.join(" ", tokens);
     }
 
-    public record CompiledCommands(CasePolicy classCasePolicy, List<CompiledCommand> commands) {
+    public record CompiledCommands(
+        CasePolicy classCasePolicy,
+        Optional<RootCommand> rootCommand,
+        List<CompiledCommand> commands
+    ) {
         public CompiledCommands {
             Objects.requireNonNull(classCasePolicy, "classCasePolicy");
+            rootCommand = Objects.requireNonNull(rootCommand, "rootCommand");
             commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
         }
 
         public void register(CommandRegistry registry) {
             Objects.requireNonNull(registry, "registry");
             classCasePolicy.apply(registry);
+            rootCommand.ifPresent(root -> root.register(registry));
             for (CompiledCommand command : commands) {
                 command.register(registry);
             }
+        }
+    }
+
+    public record RootCommand(
+        String literal,
+        List<String> aliases,
+        Optional<String> group,
+        Optional<String> description,
+        Optional<String> permission,
+        MethodCommandBinder.CommandMetadata metadata,
+        CasePolicy casePolicy
+    ) {
+        public RootCommand {
+            Objects.requireNonNull(literal, "literal");
+            aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
+            group = Objects.requireNonNull(group, "group");
+            description = Objects.requireNonNull(description, "description");
+            permission = Objects.requireNonNull(permission, "permission");
+            Objects.requireNonNull(metadata, "metadata");
+            Objects.requireNonNull(casePolicy, "casePolicy");
+        }
+
+        void register(CommandRegistry registry) {
+            casePolicy.apply(registry);
+            registry.command(literal, builder -> {
+                if (!aliases.isEmpty()) {
+                    builder.aliases(aliases.toArray(String[]::new));
+                }
+                description.ifPresent(builder::description);
+                permission.ifPresent(builder::permission);
+                if (metadata.hidden()) {
+                    builder.hidden();
+                }
+                metadata.usage().ifPresent(builder::usage);
+                metadata.examples().forEach(builder::example);
+                metadata.cooldown().ifPresent(builder::cooldown);
+                metadata.requirement().ifPresent(builder::requirement);
+                group.ifPresent(builder::group);
+            });
         }
     }
 

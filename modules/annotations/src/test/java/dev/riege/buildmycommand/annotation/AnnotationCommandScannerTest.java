@@ -15,14 +15,18 @@ import dev.riege.buildmycommand.annotation.binding.MethodCommandBinder;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AnnotationCommandScannerTest {
@@ -293,6 +297,49 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void metadataAnnotationsDeclareConsistentClassAndMethodTargets() {
+        assertTargets(Description.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Permission.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Usage.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Example.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Cooldown.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Hidden.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(Require.class, ElementType.METHOD, ElementType.TYPE);
+    }
+
+    @Test
+    void classLevelMetadataAppliesToCommandRootWithoutOverwritingLeaves() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new ClassMetadataCommands());
+
+        assertEquals("""
+            Usage: admin
+            Description: Admin root
+            Example: admin help""", framework.help(permittedSource("admin.root"), "admin"));
+        assertEquals("Missing permission: admin.root",
+            framework.dispatch(permittedSource("admin.reload"), "admin reload").reply().orElseThrow());
+
+        CommandResult result = framework.dispatch(permittedSource("admin.root", "admin.reload"), "admin reload");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("reloaded"), result.reply());
+        assertEquals("""
+            command admin
+              description Admin root
+              permission admin.root
+              usage admin
+              example admin help
+              cooldown PT5S
+              require admin.root
+              child reload
+            command admin reload
+              description Reload leaf
+              permission admin.reload
+              require admin.root""", framework.schema());
+    }
+
+    @Test
     void registryDefaultsRejectApplicativeMetadataInsteadOfIgnoringSecurity() {
         UnsupportedOperationException exception = assertThrows(UnsupportedOperationException.class,
             () -> AnnotationCommandScanner.register(new UnsupportedMetadataRegistry(), new RequireOnlyCommands()));
@@ -412,6 +459,12 @@ class AnnotationCommandScannerTest {
                 return List.of(permissions).contains(permission);
             }
         };
+    }
+
+    private static void assertTargets(Class<?> annotation, ElementType... expectedTargets) {
+        Target target = annotation.getAnnotation(Target.class);
+        assertNotNull(target, annotation.getName());
+        assertEquals(Set.of(expectedTargets), Set.of(target.value()));
     }
 
     static final class ModerationCommands {
@@ -611,6 +664,22 @@ class AnnotationCommandScannerTest {
                 new Suggestion("Bob", Optional.empty(), context.replacementStart(), context.replacementEnd(),
                     context.suggestionType(), 0)
             );
+        }
+    }
+
+    @Command("admin")
+    @Description("Admin root")
+    @Permission("admin.root")
+    @Usage("admin")
+    @Example("admin help")
+    @Cooldown(5)
+    @Require("admin.root")
+    static final class ClassMetadataCommands {
+        @Subcommand("reload")
+        @Description("Reload leaf")
+        @Permission("admin.reload")
+        CommandResult reload() {
+            return Results.success("reloaded");
         }
     }
 

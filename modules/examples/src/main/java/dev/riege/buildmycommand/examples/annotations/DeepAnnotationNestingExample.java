@@ -4,6 +4,7 @@ import dev.riege.buildmycommand.annotation.Alias;
 import dev.riege.buildmycommand.annotation.AnnotationCommandScanner;
 import dev.riege.buildmycommand.annotation.CaseInsensitive;
 import dev.riege.buildmycommand.annotation.Command;
+import dev.riege.buildmycommand.annotation.Description;
 import dev.riege.buildmycommand.annotation.Permission;
 import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.SubRoute;
@@ -30,6 +31,7 @@ public final class DeepAnnotationNestingExample {
     @Command("admin")
     @Alias("a")
     @CaseInsensitive(literals = true, options = true)
+    @Description("Administrative command tree")
     static final class AdminCommands {
         @SubRoute("moderation|mod punish temporary|temp add <target:String> <reason:String...> [--duration:Integer|-d] [--silent|-s]")
         @Permission("admin.moderation.punish.temp.add")

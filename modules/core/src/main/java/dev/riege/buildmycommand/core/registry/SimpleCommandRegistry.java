@@ -60,8 +60,14 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         SimpleCommandBuilder builder = new SimpleCommandBuilder(literal, matchingPolicy);
         configure.accept(builder);
         RegistryCommandNode node = builder.node();
-        RegistryNodeMerger.registerAll(commands, node.literals(), node, "command already registered: ", matchingPolicy);
-        notifyRegistered(node, List.of(node.literal()));
+        boolean updatesExistingRoot = find(node.literal()) != null;
+        RegistryNodeMerger.mergeRoot(commands, node, matchingPolicy);
+        RegistryCommandNode eventNode = find(node.literal());
+        if (updatesExistingRoot) {
+            notifyUpdated(eventNode, List.of(eventNode.literal()));
+        } else {
+            notifyRegistered(eventNode, List.of(eventNode.literal()));
+        }
         notifyRegistryRebuilt();
     }
 

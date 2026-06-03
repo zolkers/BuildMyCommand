@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 import java.util.concurrent.TimeUnit;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 public @interface Cooldown {
     long value();
 
