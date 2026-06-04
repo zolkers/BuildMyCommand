@@ -14,9 +14,16 @@ import dev.riege.buildmycommand.api.CommandInput;
 import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.ArgumentParseResult;
+import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionType;
+import dev.riege.buildmycommand.annotation.AnnotationCommandScanner;
+import dev.riege.buildmycommand.annotation.CaseInsensitive;
+import dev.riege.buildmycommand.annotation.Command;
+import dev.riege.buildmycommand.annotation.RouteCtx;
+import dev.riege.buildmycommand.annotation.SubRoute;
+import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.core.CommandFramework;
 import org.junit.jupiter.api.Test;
 
@@ -173,6 +180,23 @@ class BrigadierCommandAdapterTest {
         assertEquals(List.of("bang"), suggestions(dispatcher, "wecc b"));
         assertFalse(suggestions(dispatcher, "wecc ").contains("_bmc_input"));
         assertFalse(suggestions(dispatcher, "wecc nope").contains("_bmc_input"));
+    }
+
+    @Test
+    void dispatcherHidesSuppressedSubRouteAliasesFromAnnotatedCommands() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        AnnotationCommandScanner.register(framework.registry(), new AnnotatedWeccCommands());
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        assertEquals(1, dispatcher.execute("wecc bang Ada", new NativeSource()));
+        assertEquals(1, dispatcher.execute("wecc b Ada", new NativeSource()));
+        assertEquals(List.of("bang"), suggestions(dispatcher, "wecc "));
+        assertEquals(List.of("bang"), suggestions(dispatcher, "wecc b"));
+        assertFalse(suggestions(dispatcher, "wecc ").contains("b"));
+        assertFalse(suggestions(dispatcher, "wecc b").contains("b"));
     }
 
     @Test
@@ -544,6 +568,16 @@ class BrigadierCommandAdapterTest {
                     return allowed;
                 }
             };
+        }
+    }
+
+    @Command("wecc")
+    @CaseInsensitive
+    static final class AnnotatedWeccCommands {
+        @SuggestAliases(false)
+        @SubRoute("bang|b <target:String>")
+        CommandResult bang(@RouteCtx dev.riege.buildmycommand.api.CommandContext context) {
+            return Results.success("bang " + context.arg("target", String.class));
         }
     }
 
