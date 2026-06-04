@@ -262,6 +262,41 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 && record.message.startsWith("Unknown")));
     }
 
+    public void testAnnotatorAcceptsRouteTypesRegisteredInAnotherProjectFile() {
+        myFixture.addFileToProject("MyCommandTypes.java", """
+            final class MyCommandTypes {
+                static final class Material {
+                }
+
+                static void register(
+                    dev.riege.buildmycommand.core.CommandFramework.Builder builder,
+                    dev.riege.buildmycommand.api.ArgumentParser<Material> parser
+                ) {
+                    builder.type("Material", Material.class, parser);
+                }
+            }
+            """);
+        PsiElement file = myFixture.configureByText("ShopCommands.java", """
+            @dev.riege.buildmycommand.annotation.Command("shop")
+            final class ShopCommands {
+                @dev.riege.buildmycommand.annotation.SubRoute("give <item:Material>")
+                void give() {
+                }
+            }
+            """);
+        PsiLiteralExpression route = literal(file, "give <item:Material>");
+        RecordingAnnotationHolder holder = new RecordingAnnotationHolder();
+
+        assertTrue(BuildMyCommandRouteTypeResolver.declaredCommandTypes((PsiFile) file).contains("Material"));
+
+        new BuildMyCommandRouteAnnotator().annotate(route, holder.proxy());
+
+        assertFalse(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.WARNING
+                && record.message != null
+                && record.message.startsWith("Unknown")));
+    }
+
     public void testRouteTypeResolverIgnoresMalformedBuilderRegistrations() {
         PsiFile file = (PsiFile) myFixture.configureByText("Demo.java", """
             final class Demo {

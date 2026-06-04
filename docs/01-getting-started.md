@@ -156,6 +156,8 @@ final class MaterialParser implements ArgumentParser<Material> {
 
 Use `.types(types -> types.register(...))` when registering several aliases in one place.
 
+The IntelliJ plugin understands the same Java setup. If a project contains `.type("Material", Material.class, parser)` or `.types(types -> types.register("Material", Material.class, parser))`, routes such as `<item:Material>` are accepted by the DSL annotator without extra IDE configuration. Keep type registrations in a small setup class when possible; it is easier for humans to find and for the IDE to index.
+
 ## CommandSource
 
 `CommandSource` is your bridge from the native runtime to BuildMyCommand.
