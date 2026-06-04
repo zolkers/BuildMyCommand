@@ -16,6 +16,7 @@ It provides:
 | Route highlighting | `@Route`, `@SubRoute`, `registry.route(...)`, `subRoute(...)`. |
 | Requirement highlighting | `@Require("staff || owner")`, builder `.requirement(...)`. |
 | Inspections | Wrong annotation targets, bad method signatures, missing route context, bad suggestions. |
+| Custom route types | Project-level `.type(...)` and `.types(...register...)` registrations. |
 | Local setup scripts | Declare/install the plugin for this project. |
 
 ## Local Install
@@ -39,10 +40,42 @@ Restart IntelliJ after installation.
 The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this project expects the BuildMyCommand plugin:
 
 ```xml
-<plugin id="dev.riege.buildmycommand.dsl" min-version="0.1.1" />
+<plugin id="dev.riege.buildmycommand.dsl" min-version="0.2.0" />
 ```
 
 If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.
+
+## Custom DSL Types
+
+The plugin indexes Java files in the current project and accepts custom route types registered through the public framework API:
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .type("Material", Material.class, new MaterialParser())
+    .types(types -> types.register("ItemStack", ItemStack.class, new ItemStackParser()))
+    .build();
+```
+
+After that, the route DSL is understood without additional IDE setup:
+
+```java
+@SubRoute("give <item:Material> [--stack:ItemStack|-s]")
+CommandResult give(@RouteCtx CommandContext ctx) {
+    Material item = ctx.arg("item", Material.class);
+    return Results.success("giving " + item);
+}
+```
+
+Recommended project shape:
+
+| Pattern | Why |
+| --- | --- |
+| Keep type registrations in one setup class. | Easier to review, easier for the IDE to index. |
+| Use stable aliases such as `Material`, `World`, `Profile`. | The alias is part of your public command DSL. |
+| Register before scanning annotations. | Runtime route parsing needs the alias before commands are imported. |
+| Put suggestions in the parser. | The same parser powers runtime parsing and platform suggestions. |
+
+The plugin intentionally understands direct calls to `.type("Alias", SomeClass.class, parser)` and `.register("Alias", SomeClass.class, parser)`. It does not execute Java code, follow arbitrary reflection, or read runtime-only configuration.
 
 ## Marketplace Publish
 

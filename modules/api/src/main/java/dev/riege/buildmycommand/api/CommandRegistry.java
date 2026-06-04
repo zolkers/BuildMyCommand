@@ -8,6 +8,7 @@
 package dev.riege.buildmycommand.api;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -26,6 +27,10 @@ public interface CommandRegistry {
 
     default boolean unregister(String path) {
         throw new UnsupportedOperationException("command unregister is not supported by this registry");
+    }
+
+    default Map<String, Class<?>> routeTypes() {
+        return Map.of();
     }
 
     RouteBuilder route(String pattern);

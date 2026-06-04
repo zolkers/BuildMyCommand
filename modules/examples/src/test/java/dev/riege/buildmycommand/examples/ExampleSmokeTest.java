@@ -42,6 +42,7 @@ import dev.riege.buildmycommand.examples.permissions.PermissionExample;
 import dev.riege.buildmycommand.examples.suggestions.DynamicSuggestionSetExample;
 import dev.riege.buildmycommand.examples.suggestions.SuggestionExample;
 import dev.riege.buildmycommand.examples.testing.TestKitExample;
+import dev.riege.buildmycommand.examples.types.CustomCommandTypeExample;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExampleSmokeTest {
@@ -227,6 +229,11 @@ class ExampleSmokeTest {
         assertSuccess(DynamicSuggestionSetExample.dispatchAnnotation("party invite Ada"), "invite Ada");
         assertSuccess(DynamicSuggestionSetExample.dispatchBuilder("party invite Bob"), "invite Bob");
         assertEquals(Optional.empty(), DynamicSuggestionSetExample.metadata(List.of("Ada"), "world"));
+        assertSuccess(CustomCommandTypeExample.dispatch("shop give diamond"), "giving diamond");
+        assertEquals(CommandResult.Status.FAILURE, CustomCommandTypeExample.dispatch("shop give dirt").status());
+        assertEquals(List.of("diamond"), CustomCommandTypeExample.suggest("shop give d", 11));
+        assertThrows(IllegalArgumentException.class, () -> new CustomCommandTypeExample.Material(""));
+        assertThrows(IllegalArgumentException.class, () -> new CustomCommandTypeExample.Material(null));
         assertSuccess(TestKitExample.exerciseCommand(), "Banned Ada");
     }
 

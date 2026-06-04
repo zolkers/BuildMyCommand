@@ -34,16 +34,21 @@ import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.CommandTypeRegistry;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
+import dev.riege.buildmycommand.dsl.RouteParser;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Consumer;
 
 public final class CommandFramework {
     private final SimpleCommandRegistry registry;
@@ -169,6 +174,7 @@ public final class CommandFramework {
         private boolean caseInsensitiveLiterals;
         private boolean caseInsensitiveOptions;
         private final ArgumentParserRegistry parsers = new ArgumentParserRegistry();
+        private final Map<String, Class<?>> routeTypes = new LinkedHashMap<>();
         private final List<CommandMiddleware> middleware = new ArrayList<>();
         private final List<CommandLifecycleListener> lifecycleListeners = new ArrayList<>();
         private CommandExceptionHandler exceptionHandler = Builder::defaultHandler;
@@ -189,6 +195,50 @@ public final class CommandFramework {
         }
 
         public <T> Builder argumentParser(Class<T> type, ArgumentParser<? extends T> parser) {
+            parsers.register(type, parser);
+            return this;
+        }
+
+        /**
+         * Registers one or more user-friendly route DSL type aliases.
+         *
+         * <p>Use this when commands should say {@code <item:Material>} instead of exposing an internal Java class
+         * name or falling back to {@code String}. Each alias also registers the parser that turns the raw token into
+         * the Java value returned by {@link CommandContext#arg(String, Class)} and
+         * {@link CommandContext#option(String, Class)}.</p>
+         *
+         * <pre>{@code
+         * CommandFramework framework = CommandFramework.builder()
+         *     .types(types -> types.register("Material", Material.class, new MaterialParser()))
+         *     .build();
+         * }</pre>
+         *
+         * @param configure callback that receives the mutable command type registry
+         * @return this builder
+         */
+        public Builder types(Consumer<CommandTypeRegistry> configure) {
+            Objects.requireNonNull(configure, "configure").accept(new BuilderCommandTypeRegistry());
+            return this;
+        }
+
+        /**
+         * Registers a single user-friendly route DSL type alias and its parser.
+         *
+         * <pre>{@code
+         * CommandFramework framework = CommandFramework.builder()
+         *     .type("Material", Material.class, new MaterialParser())
+         *     .build();
+         * }</pre>
+         *
+         * @param alias DSL type name, such as {@code Material}
+         * @param type Java type produced by the parser
+         * @param parser parser used for arguments and options with this type
+         * @param <T> parsed Java type
+         * @return this builder
+         * @throws IllegalArgumentException when the alias or Java type is already registered
+         */
+        public <T> Builder type(String alias, Class<T> type, ArgumentParser<? extends T> parser) {
+            registerRouteType(alias, type);
             parsers.register(type, parser);
             return this;
         }
@@ -243,7 +293,7 @@ public final class CommandFramework {
             CommandMatchingPolicy matchingPolicy =
                 new CommandMatchingPolicy(caseInsensitiveLiterals, caseInsensitiveOptions);
             return new CommandFramework(
-                new SimpleCommandRegistry(matchingPolicy, lifecycleListeners),
+                new SimpleCommandRegistry(matchingPolicy, lifecycleListeners, routeTypes),
                 matchingPolicy,
                 new ArgumentParserRegistry(parsers.parsers(), parsers.suggestionProviders()),
                 middleware,
@@ -270,6 +320,44 @@ public final class CommandFramework {
 
         private static CommandResult defaultHandler(CommandExceptionContext context, Throwable error) {
             return CommandExceptionHandlers.failureMessage().handle(context, error);
+        }
+
+        private <T> void registerRouteType(String alias, Class<T> type) {
+            String validatedAlias = validateTypeAlias(alias);
+            Objects.requireNonNull(type, "type");
+            Map<String, Class<?>> allTypes = new LinkedHashMap<>(RouteParser.defaultTypes());
+            allTypes.putAll(routeTypes);
+            if (allTypes.containsKey(validatedAlias)) {
+                throw new IllegalArgumentException("command type alias already registered: " + validatedAlias);
+            }
+            allTypes.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(type))
+                .findFirst()
+                .ifPresent(entry -> {
+                    throw new IllegalArgumentException("command type already registered as "
+                        + entry.getKey() + ": " + type.getName());
+                });
+            routeTypes.put(validatedAlias, type);
+        }
+
+        private static String validateTypeAlias(String alias) {
+            Objects.requireNonNull(alias, "alias");
+            if (!alias.matches("[A-Za-z][A-Za-z0-9_]*")) {
+                throw new IllegalArgumentException("invalid command type alias: " + alias);
+            }
+            return alias;
+        }
+
+        private final class BuilderCommandTypeRegistry implements CommandTypeRegistry {
+            @Override
+            public <T> CommandTypeRegistry register(
+                String alias,
+                Class<T> type,
+                ArgumentParser<? extends T> parser
+            ) {
+                Builder.this.type(alias, type, parser);
+                return this;
+            }
         }
     }
 }

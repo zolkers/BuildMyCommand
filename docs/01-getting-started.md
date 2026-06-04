@@ -51,7 +51,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.1.1"
+val buildMyCommandVersion = "0.2.0"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -65,7 +65,7 @@ Maven:
 
 ```xml
 <properties>
-    <buildmycommand.version>0.1.1</buildmycommand.version>
+    <buildmycommand.version>0.2.0</buildmycommand.version>
 </properties>
 
 <dependencies>
@@ -107,6 +107,56 @@ Maven adapter example:
 ```
 
 The complete adapter artifact table lives in [Adapters](05-adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.
+
+## Custom Argument Types
+
+Register custom DSL types at framework creation time. This is the recommended path for platform objects such as `Material`, `ItemStack`, `World`, `PlayerProfile`, or your own domain objects.
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .type("Material", Material.class, new MaterialParser())
+    .build();
+
+AnnotationCommandScanner.register(framework.registry(), new ShopCommands());
+```
+
+Then use the alias in routes:
+
+```java
+@Command("shop")
+final class ShopCommands {
+    @SubRoute("give <item:Material>")
+    CommandResult give(@RouteCtx CommandContext ctx) {
+        Material item = ctx.arg("item", Material.class);
+        return Results.success("giving " + item);
+    }
+}
+```
+
+The parser owns validation and suggestions:
+
+```java
+final class MaterialParser implements ArgumentParser<Material> {
+    @Override
+    public ArgumentParseResult<Material> parse(String rawToken, ArgumentParseContext ctx) {
+        return registry.find(rawToken)
+            .map(ArgumentParseResult::success)
+            .orElseGet(() -> ArgumentParseResult.failure("Unknown material: " + rawToken));
+    }
+
+    @Override
+    public List<Suggestion> suggestions(ArgumentParseContext ctx) {
+        return registry.idsStartingWith(ctx.rawToken()).stream()
+            .map(id -> new Suggestion(id, Optional.of("material"), ctx.replacementStart(), ctx.replacementEnd(),
+                SuggestionType.ARGUMENT, 0))
+            .toList();
+    }
+}
+```
+
+Use `.types(types -> types.register(...))` when registering several aliases in one place.
+
+The IntelliJ plugin understands the same Java setup. If a project contains `.type("Material", Material.class, parser)` or `.types(types -> types.register("Material", Material.class, parser))`, routes such as `<item:Material>` are accepted by the DSL annotator without extra IDE configuration. Keep type registrations in a small setup class when possible; it is easier for humans to find and for the IDE to index.
 
 ## CommandSource
 

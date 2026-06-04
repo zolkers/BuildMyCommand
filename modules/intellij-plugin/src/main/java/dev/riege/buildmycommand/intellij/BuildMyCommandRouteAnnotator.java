@@ -46,7 +46,10 @@ public final class BuildMyCommandRouteAnnotator implements Annotator {
             lexer.advance();
         }
 
-        for (BuildMyCommandRouteDsl.Issue issue : BuildMyCommandRouteDsl.validate(route)) {
+        for (BuildMyCommandRouteDsl.Issue issue : BuildMyCommandRouteDsl.validate(
+            route,
+            BuildMyCommandRouteTypeResolver.declaredCommandTypes(element.getContainingFile())
+        )) {
             holder
                 .newAnnotation(HighlightSeverity.WARNING, issue.message())
                 .range(TextRange.create(contentStart + issue.start(), contentStart + issue.end()))

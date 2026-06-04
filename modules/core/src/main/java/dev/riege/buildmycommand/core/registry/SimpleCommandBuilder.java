@@ -29,6 +29,7 @@ import java.util.function.Consumer;
 public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilder {
     private final String literal;
     private final CommandMatchingPolicy matchingPolicy;
+    private final Map<String, Class<?>> routeTypes;
     private String description;
     private String permission;
     private final CommandMetadata.Builder metadata = new CommandMetadata.Builder();
@@ -43,8 +44,13 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     }
 
     SimpleCommandBuilder(String literal, CommandMatchingPolicy matchingPolicy) {
+        this(literal, matchingPolicy, Map.of());
+    }
+
+    SimpleCommandBuilder(String literal, CommandMatchingPolicy matchingPolicy, Map<String, Class<?>> routeTypes) {
         this.literal = Validators.literal(literal, "literal");
         this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
+        this.routeTypes = Map.copyOf(Objects.requireNonNull(routeTypes, "routeTypes"));
     }
 
     @Override
@@ -131,7 +137,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         String validatedLiteral = Validators.literal(literal, "literal");
         Objects.requireNonNull(configure, "configure");
 
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(validatedLiteral, matchingPolicy);
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(validatedLiteral, matchingPolicy, routeTypes);
         configure.accept(builder);
         RegistryCommandNode child = builder.node();
         RegistryNodeMerger.registerAll(children, child.literals(), child, "subcommand already registered: ",
@@ -146,7 +152,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         if (trimmed.isBlank()) {
             throw new IllegalArgumentException("sub route pattern must not be blank");
         }
-        return new RelativeRouteBuilder(RoutePatternParser.parse(literal + " " + trimmed));
+        return new RelativeRouteBuilder(RoutePatternParser.parse(literal + " " + trimmed, routeTypes));
     }
 
     @Override
@@ -304,7 +310,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
         int index,
         Consumer<CommandRegistry.CommandBuilder> configure
     ) {
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(literals[index], matchingPolicy);
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(literals[index], matchingPolicy, routeTypes);
         if (index == literals.length - 1) {
             configure.accept(builder);
         } else {
@@ -463,7 +469,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
 
                 RouteStep step = steps.get(stepIndex);
                 if (step instanceof LiteralRouteStep literalStep) {
-                    SimpleCommandBuilder child = new SimpleCommandBuilder(literalStep.value(), matchingPolicy);
+                    SimpleCommandBuilder child = new SimpleCommandBuilder(literalStep.value(), matchingPolicy, routeTypes);
                     child.aliases(literalStep.aliases().toArray(String[]::new));
                     SimpleCommandBuilder leafBuilder = configureRoute(child, stepIndex + 1, steps, executor);
                     RegistryNodeMerger.mergeChild(builder.children, child.node(), matchingPolicy);

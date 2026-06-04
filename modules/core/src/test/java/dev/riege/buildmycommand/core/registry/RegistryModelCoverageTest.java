@@ -272,12 +272,17 @@ class RegistryModelCoverageTest {
     @Test
     void simpleCommandRegistryCoversLifecycleUpdateFindAndUnregisterBranches() {
         RecordingLifecycleListener listener = new RecordingLifecycleListener();
-        SimpleCommandRegistry registry = new SimpleCommandRegistry(CommandMatchingPolicy.strict(), List.of(listener));
+        SimpleCommandRegistry registry = new SimpleCommandRegistry(
+            CommandMatchingPolicy.strict(),
+            List.of(listener),
+            Map.of("Rank", String.class)
+        );
         registry.caseInsensitiveLiterals().caseInsensitiveOptions();
 
         registry.command("Root", command -> command.alias("r").subcommand("keep", child -> child.executes(ctx -> Results.silent())));
         registry.command("Root", command -> command.path("deep leaf", leaf -> leaf.executes(ctx -> Results.silent())));
 
+        assertEquals(Map.of("Rank", String.class), registry.routeTypes());
         assertTrue(new SimpleCommandRegistry().find("missing") == null);
         assertTrue(registry.find("root").children().containsKey("deep"));
         assertTrue(registry.findPath(List.of()) == null);

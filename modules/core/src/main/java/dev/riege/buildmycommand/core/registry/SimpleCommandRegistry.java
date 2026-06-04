@@ -35,6 +35,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     private final Map<String, RegistryCommandNode> commands = new LinkedHashMap<>();
     private final CommandMatchingPolicy matchingPolicy;
     private final List<CommandLifecycleListener> lifecycleListeners;
+    private final Map<String, Class<?>> routeTypes;
 
     public SimpleCommandRegistry() {
         this(CommandMatchingPolicy.strict());
@@ -45,8 +46,17 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     }
 
     public SimpleCommandRegistry(CommandMatchingPolicy matchingPolicy, List<CommandLifecycleListener> lifecycleListeners) {
+        this(matchingPolicy, lifecycleListeners, Map.of());
+    }
+
+    public SimpleCommandRegistry(
+        CommandMatchingPolicy matchingPolicy,
+        List<CommandLifecycleListener> lifecycleListeners,
+        Map<String, Class<?>> routeTypes
+    ) {
         this.matchingPolicy = Objects.requireNonNull(matchingPolicy, "matchingPolicy");
         this.lifecycleListeners = List.copyOf(Objects.requireNonNull(lifecycleListeners, "lifecycleListeners"));
+        this.routeTypes = Map.copyOf(Objects.requireNonNull(routeTypes, "routeTypes"));
     }
 
     @Override
@@ -65,7 +75,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     public void command(String literal, Consumer<CommandBuilder> configure) {
         Objects.requireNonNull(configure, "configure");
 
-        SimpleCommandBuilder builder = new SimpleCommandBuilder(literal, matchingPolicy);
+        SimpleCommandBuilder builder = new SimpleCommandBuilder(literal, matchingPolicy, routeTypes);
         configure.accept(builder);
         RegistryCommandNode node = builder.node();
         boolean updatesExistingRoot = find(node.literal()) != null;
@@ -113,7 +123,12 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
     @Override
     public RouteBuilder route(String pattern) {
-        return new SimpleRouteBuilder(RoutePatternParser.parse(pattern));
+        return new SimpleRouteBuilder(RoutePatternParser.parse(pattern, routeTypes));
+    }
+
+    @Override
+    public Map<String, Class<?>> routeTypes() {
+        return Map.copyOf(routeTypes);
     }
 
     public RegistryCommandNode find(String literal) {
@@ -367,7 +382,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
         public CommandBuilder executes(CommandExecutor executor) {
             Objects.requireNonNull(executor, "executor");
 
-            SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral(), matchingPolicy);
+            SimpleCommandBuilder builder = new SimpleCommandBuilder(route.rootLiteral(), matchingPolicy, routeTypes);
             builder.aliases(route.rootAliases().toArray(String[]::new));
             configureRoute(builder, 0, route.steps(), executor);
             List<String> path = commandPath(route);
