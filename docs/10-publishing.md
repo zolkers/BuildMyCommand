@@ -123,6 +123,28 @@ modules/intellij-plugin/build/distributions/
 
 Restart IntelliJ after installing.
 
+## IntelliJ Marketplace Publish
+
+Configure a JetBrains Marketplace token outside the repository:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+```
+
+Publish the plugin:
+
+```powershell
+.\gradlew.bat :intellij-plugin:publishPlugin
+```
+
+Optional channel:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_CHANNEL="eap"
+```
+
+The Gradle task also accepts `-PjetbrainsMarketplaceToken=...` for local one-off publishing. Use the `JETBRAINS_MARKETPLACE_TOKEN` repository secret for CI automation.
+
 ## Release Checklist
 
 | Step | Check |

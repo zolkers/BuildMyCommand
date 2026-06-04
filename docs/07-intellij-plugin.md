@@ -37,6 +37,47 @@ The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this 
 
 If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.
 
+## Marketplace Publish
+
+Publishing to JetBrains Marketplace is separate from Maven Central. The plugin is built from `modules/intellij-plugin`.
+
+Create a permanent token from JetBrains Marketplace, then expose it as an environment variable:
+
+PowerShell:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+.\gradlew.bat :intellij-plugin:publishPlugin
+```
+
+Shell:
+
+```sh
+export JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+./gradlew :intellij-plugin:publishPlugin
+```
+
+Optional: publish to a non-default Marketplace channel:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_CHANNEL="eap"
+.\gradlew.bat :intellij-plugin:publishPlugin
+```
+
+The token can also be passed as a Gradle property for local one-off usage:
+
+```powershell
+.\gradlew.bat :intellij-plugin:publishPlugin -PjetbrainsMarketplaceToken="perm:..."
+```
+
+Do not commit Marketplace tokens. For GitHub Actions, store the token as `JETBRAINS_MARKETPLACE_TOKEN`.
+
+Before publishing, build and verify locally:
+
+```powershell
+.\gradlew.bat :intellij-plugin:clean :intellij-plugin:buildPlugin :intellij-plugin:check
+```
+
 ## Inspections
 
 | Example | Diagnostic |
