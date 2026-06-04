@@ -168,7 +168,7 @@ public final class CommandHelp {
         List<String> path,
         List<CommandHelpEntry> entries
     ) {
-        CommandNode node = lineage.get(lineage.size() - 1);
+        CommandNode node = lineage.getLast();
         if (node.metadata().hidden() || denied(source, lineage).isPresent()) {
             return;
         }

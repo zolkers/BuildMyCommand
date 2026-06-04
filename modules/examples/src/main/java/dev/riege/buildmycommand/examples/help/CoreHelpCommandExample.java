@@ -16,6 +16,7 @@ import dev.riege.buildmycommand.annotation.Example;
 import dev.riege.buildmycommand.annotation.Hidden;
 import dev.riege.buildmycommand.annotation.Permission;
 import dev.riege.buildmycommand.annotation.Require;
+import dev.riege.buildmycommand.annotation.Route;
 import dev.riege.buildmycommand.annotation.RouteCtx;
 import dev.riege.buildmycommand.annotation.SubRoute;
 import dev.riege.buildmycommand.annotation.Suggest;
@@ -26,9 +27,9 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.SuggestionContext;
 import dev.riege.buildmycommand.api.SuggestionSet;
-import dev.riege.buildmycommand.annotation.help.AnnotatedCommandHelp;
 import dev.riege.buildmycommand.core.CommandFramework;
 import dev.riege.buildmycommand.core.help.CommandHelp;
+import dev.riege.buildmycommand.core.help.CommandHelpOptions;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +51,7 @@ public final class CoreHelpCommandExample {
         AnnotationCommandScanner.register(framework.registry(), new AdminCommands());
         AnnotationCommandScanner.register(framework.registry(), new StaffCommands());
         AnnotationCommandScanner.register(framework.registry(), new InternalCommands());
-        AnnotationCommandScanner.register(framework.registry(), new AnnotatedCommandHelp(CommandHelp.forFramework(framework)));
+        AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
         return framework;
     }
 
@@ -168,6 +169,36 @@ public final class CoreHelpCommandExample {
         @Description("Hidden internal support command")
         CommandResult diagnostics(@RouteCtx CommandContext route) {
             return Results.success("diagnostics");
+        }
+    }
+
+    @CommandGroup("System")
+    @CaseInsensitive(literals = true, options = true)
+    static final class HelpCommands {
+        private final CommandHelp help;
+
+        private HelpCommands(CommandHelp help) {
+            this.help = help;
+        }
+
+        @Route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+        @Description("Show visible commands or inspect one command")
+        @Usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
+        @Example({"/help", "/help profile message", "/help --alphabetic --page 2"})
+        CommandResult help(@RouteCtx CommandContext route) {
+            String query = route.optionalArg("query", String.class).orElse("");
+            return Results.success(help.render(route.source(), query, CommandHelpOptions.from(route)));
+        }
+
+        @Suggest("query")
+        SuggestionSet commands(SuggestionContext context) {
+            return SuggestionSet.of(help.suggest(context.source(), context.currentToken())).filteringCurrentToken();
+        }
+
+        @Suggest("group")
+        SuggestionSet groups(SuggestionContext context) {
+            return SuggestionSet.of(help.suggestGroups(context.source(), context.currentToken()))
+                .filteringCurrentToken();
         }
     }
 

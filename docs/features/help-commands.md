@@ -5,9 +5,18 @@ Licensed under the MIT License.
 SPDX-License-Identifier: MIT
 -->
 
-# Help Commands
+# Building Help Commands
 
-BuildMyCommand includes a ready-to-register help command. The recommended path is still annotation-first: register your annotated commands, then scan the provided annotated help command.
+BuildMyCommand does not force one universal help command. Instead, `core` gives you reusable help building blocks so each project can expose help in the shape that fits its platform, language, UI, and command namespace.
+
+The usual pattern is:
+
+1. Register your real commands.
+2. Create `CommandHelp.forFramework(framework)`.
+3. Write your own `@Route` or `@SubRoute` help command.
+4. Delegate listing, pagination, details, filters, and suggestions to `CommandHelp`.
+
+## Annotation Pattern
 
 ```java
 CommandFramework framework = CommandFramework.builder()
@@ -17,19 +26,45 @@ CommandFramework framework = CommandFramework.builder()
 
 AnnotationCommandScanner.register(framework.registry(), new ProfileCommands());
 AnnotationCommandScanner.register(framework.registry(), new AdminCommands());
-AnnotationCommandScanner.register(
-    framework.registry(),
-    new AnnotatedCommandHelp(CommandHelp.forFramework(framework))
-);
+AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
 ```
 
-This creates:
+Then define the help command as part of your own command surface:
 
-```text
-help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]
+```java
+@CommandGroup("System")
+@CaseInsensitive(literals = true, options = true)
+final class HelpCommands {
+    private final CommandHelp help;
+
+    HelpCommands(CommandHelp help) {
+        this.help = help;
+    }
+
+    @Route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+    @Description("Show visible commands or inspect one command")
+    @Usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
+    @Example({"/help", "/help profile message", "/help --alphabetic --page 2"})
+    CommandResult help(@RouteCtx CommandContext route) {
+        String query = route.optionalArg("query", String.class).orElse("");
+        return Results.success(help.render(route.source(), query, CommandHelpOptions.from(route)));
+    }
+
+    @Suggest("query")
+    SuggestionSet commands(SuggestionContext context) {
+        return SuggestionSet.of(help.suggest(context.source(), context.currentToken())).filteringCurrentToken();
+    }
+
+    @Suggest("group")
+    SuggestionSet groups(SuggestionContext context) {
+        return SuggestionSet.of(help.suggestGroups(context.source(), context.currentToken())).filteringCurrentToken();
+    }
+}
 ```
 
-## User Syntax
+That route is only an example. You can name it `help`, `wecc help`, `commands`, `?`, or anything else.
+
+## Example User Syntax
 
 | Input | Result |
 | --- | --- |
@@ -41,9 +76,9 @@ help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-
 
 The list automatically hides commands marked with `@Hidden` and commands blocked by `@Permission` or `@Require`.
 
-## Custom Route
+## Builder Pattern
 
-Use the core registration helper when the platform already owns `/help`, or when your framework should expose help under a namespaced command. This path uses the builder internally because Java annotation values cannot be runtime strings.
+If you are not using annotations, `CommandHelp` can also register a route through the builder API:
 
 ```java
 CommandHelp.forFramework(framework)
@@ -51,6 +86,8 @@ CommandHelp.forFramework(framework)
     .footer("Use /wecc help <command> for details.")
     .register("wecc help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]");
 ```
+
+This is a convenience wrapper around `framework.registry().route(...)`. It exists for builder-based applications, not as the only blessed way to do help.
 
 ## Custom Formatting
 
@@ -72,7 +109,7 @@ CommandHelp help = CommandHelp.forFramework(framework)
         }
     });
 
-AnnotationCommandScanner.register(framework.registry(), new AnnotatedCommandHelp(help));
+AnnotationCommandScanner.register(framework.registry(), new HelpCommands(help));
 ```
 
 ## Programmatic Rendering
@@ -109,4 +146,4 @@ String details = help.render(source, "profile message", CommandHelpOptions.defau
 
 ## Suggestions
 
-The registered help command suggests visible command paths for `query` and visible group names for `--group`. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.
+Use `help.suggest(source, currentToken)` for command path suggestions and `help.suggestGroups(source, currentToken)` for group suggestions. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.

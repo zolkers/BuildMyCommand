@@ -109,17 +109,32 @@ final class ShopCommands {
 }
 ```
 
-Register a full help command by scanning the provided annotated help command:
+Build your own help command with the core help toolkit:
 
 ```java
 AnnotationCommandScanner.register(framework.registry(), new PingCommand());
-AnnotationCommandScanner.register(
-    framework.registry(),
-    new AnnotatedCommandHelp(CommandHelp.forFramework(framework))
-);
+AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
+
+@CommandGroup("System")
+final class HelpCommands {
+    private final CommandHelp help;
+
+    HelpCommands(CommandHelp help) {
+        this.help = help;
+    }
+
+    @Route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+    CommandResult help(@RouteCtx CommandContext ctx) {
+        return Results.success(help.render(
+            ctx.source(),
+            ctx.optionalArg("query", String.class).orElse(""),
+            CommandHelpOptions.from(ctx)
+        ));
+    }
+}
 ```
 
-The generated command supports command details, permission-aware listings, pagination, group filtering, alphabetical sorting, and suggestions:
+`CommandHelp` gives you command details, permission-aware entries, pagination, group filtering, alphabetical sorting, and suggestions. You decide the route and formatting:
 
 ```text
 /help

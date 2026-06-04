@@ -281,6 +281,8 @@ class ExampleSmokeTest {
             CoreHelpCommandExample.suggest(admin, "admin audit player A", 20));
         assertEquals(List.of("commands", "permissions", "cache"),
             CoreHelpCommandExample.suggest(admin, "admin reload ", 13));
+        assertEquals(List.of("Administration"),
+            CoreHelpCommandExample.suggest(admin, "help --group A", 14));
         assertSuccess(CoreHelpCommandExample.dispatch(player, "profile view Ada"), "Profile for Ada");
         assertSuccess(CoreHelpCommandExample.dispatch(player, "profile message Ada hello -s"),
             "Message to Ada silent=true: hello");

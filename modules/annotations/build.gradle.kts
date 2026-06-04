@@ -9,7 +9,6 @@ plugins {
 
 dependencies {
     api(project(":api"))
-    implementation(project(":core"))
     implementation(project(":dsl"))
     testImplementation(project(":core"))
 }
