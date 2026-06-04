@@ -53,14 +53,47 @@ Use one platform adapter in application code. Use `adapters-core` directly when 
 
 ## CommandSource
 
-Most integration quality comes from a good `CommandSource` implementation.
+Most integration quality comes from a good `CommandSource` mapping. This is the platform boundary for every runtime, not only Minecraft.
+
+You do not have to name a class `ModCommandSource`, and you do not always need a dedicated class. What is required is that the adapter can turn the native sender/session/player/client into a `CommandSource`.
+
+| Question | Answer |
+| --- | --- |
+| Is a custom `CommandSource` implementation required? | Yes, somewhere, unless the platform adapter already provides one. |
+| Is a dedicated class required? | No. A class, record, lambda-backed anonymous implementation, or adapter-provided factory can all work. |
+| When should I create a named class? | When your project has multiple commands, permissions, native suggestions, middleware, or platform-specific replies. |
+| When is an anonymous implementation enough? | Small tools, tests, examples, or simple apps with no platform state. |
+| Should command classes know Fabric, Bukkit, Discord, etc.? | Usually no. Keep platform APIs in the source wrapper, adapter, middleware, or suggestion providers. |
+
+Recommended shape for real projects:
+
+| Layer | Owns |
+| --- | --- |
+| Native platform | Actual sender/player/session object. |
+| Adapter | Registration, input mapping, suggestion bridge, and result rendering. |
+| `CommandSource` wrapper | Identity, permission policy, native unwrap, reply routing. |
+| Command class | Framework DSL, business logic, `CommandContext`. |
+
+Minimal generic wrapper:
 
 ```java
 public final class AppSource implements CommandSource {
     private final Object nativeSource;
+    private final Consumer<CommandMessage> reply;
+
+    public AppSource(Object nativeSource, Consumer<CommandMessage> reply) {
+        this.nativeSource = Objects.requireNonNull(nativeSource, "nativeSource");
+        this.reply = Objects.requireNonNull(reply, "reply");
+    }
+
+    @Override
+    public void reply(CommandMessage message) {
+        reply.accept(message);
+    }
 
     @Override
     public <T> Optional<T> unwrap(Class<T> type) {
+        Objects.requireNonNull(type, "type");
         return type.isInstance(nativeSource) ? Optional.of(type.cast(nativeSource)) : Optional.empty();
     }
 
@@ -69,6 +102,84 @@ public final class AppSource implements CommandSource {
         return permission == null || permission.isBlank();
     }
 }
+```
+
+Small projects can inline the same idea:
+
+```java
+CommandSource source = new CommandSource() {
+    @Override
+    public void reply(CommandMessage message) {
+        System.out.println(message.text());
+    }
+
+    @Override
+    public boolean hasPermission(String permission) {
+        return permission == null || permission.isBlank();
+    }
+
+    @Override
+    public <T> Optional<T> unwrap(Class<T> type) {
+        return Optional.empty();
+    }
+};
+```
+
+The shape stays the same for every platform:
+
+| Runtime | Native source example | Wrapper responsibility |
+| --- | --- | --- |
+| Fabric client | `FabricClientCommandSource` | Send chat feedback/errors, expose client state through `unwrap(...)`. |
+| Paper/Spigot | `CommandSender` or `Player` | Delegate permissions to Bukkit, send messages to sender. |
+| BungeeCord/Velocity | Proxy command sender | Delegate proxy permissions and route messages through proxy APIs. |
+| Minestom/Sponge | Platform sender/player object | Adapt platform permission and message systems. |
+| Discord | User/member/interaction object | Reply through interaction/channel APIs and expose guild/member state. |
+| Terminal/CLI | Shell session/user object | Print replies to stdout/stderr and provide local permissions. |
+| Custom app | Any session/request/user object | Keep framework commands independent from native APIs. |
+
+The methods have clear meanings:
+
+| Method | Purpose |
+| --- | --- |
+| `reply(CommandMessage)` | Central place that renders success/info/error messages to the platform. |
+| `hasPermission(String)` | Permission policy used by `@Permission`, `@Require`, help filtering, and suggestions. |
+| `unwrap(Class<T>)` | Safe escape hatch for platform-specific suggestions, middleware, or advanced integrations. |
+| `id()` / `name()` | Optional identity for logs, cooldowns, help, metrics, or audit middleware. |
+| `metadata(String)` | Optional place for adapter-specific state when a direct native unwrap is not ideal. |
+
+Commands should usually depend only on `CommandContext`, `CommandSource`, and framework types. Platform APIs should be reached through `unwrap(...)` only in focused places such as suggestion providers or middleware.
+
+## Source Wrapper Recipes
+
+Use the same contract everywhere, but choose the implementation details from the host platform.
+
+| Platform family | `reply(CommandMessage)` | `hasPermission(String)` | `unwrap(Class<T>)` |
+| --- | --- | --- | --- |
+| Fabric client | `sendFeedback` for success/info, `sendError` for errors. | Client-only mods may return `true`; multiplayer tools should use your own policy. | Return `FabricClientCommandSource` so suggestions can read client/player/network state. |
+| Paper/Spigot | `CommandSender.sendMessage(...)`, with your preferred component conversion. | `permission.isBlank() || sender.hasPermission(permission)`. | Return `CommandSender` and `Player` when applicable. |
+| BungeeCord/Velocity | Proxy sender messaging APIs. | Native proxy permission API. | Return proxy sender/player/connection objects. |
+| Minestom/Sponge | Platform audience/message APIs. | Native permission service or your own permission registry. | Return native sender/player/server objects. |
+| Discord | Interaction response, follow-up, or channel message. | Guild role/member policy, bot owner checks, or custom ACL. | Return interaction/member/channel/client objects. |
+| Terminal | `stdout` for success/info, `stderr` for errors. | Local user policy, config file, or always true for trusted tools. | Return shell/session/config objects if needed. |
+| HTTP/WebSocket | Response object, event sink, or session queue. | Auth claims, roles, scopes, or tenant ACL. | Return request/session/user principal objects. |
+
+For a public adapter, prefer exposing a small factory so users do not copy boilerplate:
+
+```java
+public final class MyPlatformSources {
+    private MyPlatformSources() {
+    }
+
+    public static CommandSource of(MyNativeSender sender) {
+        return new MyPlatformCommandSource(sender);
+    }
+}
+```
+
+Then application code can stay clean:
+
+```java
+adapter.register(dispatcher, nativeSource -> MyPlatformSources.of(nativeSource));
 ```
 
 Use `unwrap(...)` for platform-specific suggestion logic:
