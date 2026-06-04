@@ -29,9 +29,34 @@ Command methods must return `CommandResult` and must be public or package-privat
 | `@Usage("...")` | type, method | Custom usage line. |
 | `@Example("...")` | type, method | Help examples. |
 | `@Hidden` | type, method | Hide from public help/suggestions where supported. |
-| `@CommandGroup("...")` | type | Logical grouping metadata. |
+| `@CommandGroup("...")` | type, method | Logical grouping metadata for generated help/docs. |
 
 Blank metadata is invalid.
+
+Class-level groups apply to commands declared by that class. They do not force a group on a shared `@Command`
+root, so separate modules can safely share a root while appearing in different help groups:
+
+```java
+@Command("wec")
+@CommandGroup("Scan")
+final class ScanCommands {
+    @SubRoute("scan start")
+    CommandResult start(@RouteCtx CommandContext ctx) {
+        return Results.success("scan");
+    }
+}
+
+@Command("wec")
+@CommandGroup("Debug")
+final class DebugCommands {
+    @SubRoute("debug registries")
+    CommandResult registries(@RouteCtx CommandContext ctx) {
+        return Results.success("debug");
+    }
+}
+```
+
+Put `@CommandGroup` on a method when one leaf needs to override the class group.
 
 ## Permissions And Requirements
 

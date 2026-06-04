@@ -76,6 +76,20 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void sharedRootCommandModulesCanDeclareDifferentCommandGroups() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new WecScanCommands());
+        AnnotationCommandScanner.register(framework.registry(), new WecDebugCommands());
+
+        assertEquals(Optional.of("scan"), framework.dispatch(source(), "wec scan start").reply());
+        assertEquals(Optional.of("debug"), framework.dispatch(source(), "wec debug registries").reply());
+        assertEquals(Optional.of("Scan"), graphNode(framework, "wec", "scan", "start").metadata().group());
+        assertEquals(Optional.of("Debug"), graphNode(framework, "wec", "debug", "registries").metadata().group());
+        assertEquals(Optional.empty(), framework.graph().roots().get(0).metadata().group());
+    }
+
+    @Test
     void classCommandSubRouteSuggestionsApplyOnlyToMatchingLeaves() {
         CommandFramework framework = CommandFramework.create();
 
@@ -326,6 +340,7 @@ class AnnotationCommandScannerTest {
         assertTargets(Require.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(Middleware.class, ElementType.METHOD, ElementType.TYPE);
         assertTargets(SuggestAliases.class, ElementType.METHOD, ElementType.TYPE);
+        assertTargets(CommandGroup.class, ElementType.METHOD, ElementType.TYPE);
     }
 
     @Test
@@ -409,6 +424,19 @@ class AnnotationCommandScannerTest {
                 return key.equals(requestedKey) ? Optional.of(value) : Optional.empty();
             }
         };
+    }
+
+    private static CommandNode graphNode(CommandFramework framework, String... path) {
+        List<CommandNode> nodes = framework.graph().roots();
+        CommandNode current = null;
+        for (String literal : path) {
+            current = nodes.stream()
+                .filter(node -> node.literal().equals(literal))
+                .findFirst()
+                .orElseThrow();
+            nodes = current.children();
+        }
+        return current;
     }
 
     private static void assertTargets(Class<?> annotation, ElementType... expectedTargets) {
@@ -537,6 +565,24 @@ class AnnotationCommandScannerTest {
                 .filteringCurrentToken()
                 .tooltip("online player")
                 .priority(4);
+        }
+    }
+
+    @Command("wec")
+    @CommandGroup("Scan")
+    static final class WecScanCommands {
+        @SubRoute("scan start")
+        CommandResult start(@RouteCtx CommandContext route) {
+            return Results.success("scan");
+        }
+    }
+
+    @Command("wec")
+    @CommandGroup("Debug")
+    static final class WecDebugCommands {
+        @SubRoute("debug registries")
+        CommandResult registries(@RouteCtx CommandContext route) {
+            return Results.success("debug");
         }
     }
 

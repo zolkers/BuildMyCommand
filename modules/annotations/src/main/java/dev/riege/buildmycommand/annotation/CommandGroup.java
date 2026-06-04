@@ -13,7 +13,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Assigns a documentation/help grouping key to a command class.
+ * Assigns a documentation/help grouping key to a command class or command method.
  *
  * <p>Groups are metadata only: they do not change parsing, permissions, middleware,
  * aliases, or execution. Use them to organize generated help pages, examples, or
@@ -33,7 +33,7 @@ import java.lang.annotation.Target;
  * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.METHOD})
 public @interface CommandGroup {
     /**
      * Stable group key, for example {@code "moderation"} or {@code "admin"}.

@@ -30,6 +30,7 @@ import dev.riege.buildmycommand.dsl.OptionRouteStep;
 import dev.riege.buildmycommand.dsl.RouteParser;
 import dev.riege.buildmycommand.dsl.RouteStep;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -56,7 +57,7 @@ public final class AnnotationCommandCompiler {
         Class<?> owner = commands.getClass();
         CasePolicy classCasePolicy = casePolicy(owner.getAnnotation(CaseInsensitive.class));
         Optional<String> group = commandGroup(owner);
-        Optional<RootCommand> rootCommand = rootCommand(owner, group, classCasePolicy);
+        Optional<RootCommand> rootCommand = rootCommand(owner, classCasePolicy);
 
         Alias rootAlias = owner.getAnnotation(Alias.class);
         List<String> rootAliases = rootAlias == null ? List.of() : List.of(rootAlias.value());
@@ -113,6 +114,7 @@ public final class AnnotationCommandCompiler {
         Optional<String> description = metadata(method.getAnnotation(Description.class), "description");
         Optional<PermissionSpec> permission = permission(method.getAnnotation(Permission.class));
         CasePolicy methodCasePolicy = casePolicy(method.getAnnotation(CaseInsensitive.class));
+        Optional<String> effectiveGroup = commandGroup(method).or(() -> group);
 
         if (ownerCommand != null) {
             validateSingleLiteral(ownerCommand.value(), "@Command", "@Route");
@@ -130,7 +132,7 @@ public final class AnnotationCommandCompiler {
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,
-                group,
+                effectiveGroup,
                 List.of(),
                 List.of(),
                 List.of(),
@@ -146,7 +148,7 @@ public final class AnnotationCommandCompiler {
             return new CompiledCommand(
                 RegistrationKind.SUBCOMMAND,
                 ownerCommand.value(),
-                group,
+                effectiveGroup,
                 rootAliases,
                 withLeaf(prefix, subcommand.value(), methodAlias),
                 List.of(),
@@ -163,7 +165,7 @@ public final class AnnotationCommandCompiler {
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,
-                group,
+                effectiveGroup,
                 List.of(),
                 List.of(),
                 List.of(),
@@ -179,7 +181,7 @@ public final class AnnotationCommandCompiler {
         return new CompiledCommand(
             RegistrationKind.COMMAND,
             command.value(),
-            group,
+            effectiveGroup,
             alias == null ? List.of() : List.of(alias.value()),
             List.of(),
             List.of(),
@@ -289,12 +291,12 @@ public final class AnnotationCommandCompiler {
         );
     }
 
-    private static Optional<String> commandGroup(Class<?> owner) {
+    private static Optional<String> commandGroup(AnnotatedElement owner) {
         CommandGroup group = owner.getAnnotation(CommandGroup.class);
         return group == null ? Optional.empty() : Optional.of(validateMetadata(group.value(), "command group"));
     }
 
-    private static Optional<RootCommand> rootCommand(Class<?> owner, Optional<String> group, CasePolicy casePolicy) {
+    private static Optional<RootCommand> rootCommand(Class<?> owner, CasePolicy casePolicy) {
         Command command = owner.getAnnotation(Command.class);
         if (command == null || !hasRootMetadata(owner)) {
             return Optional.empty();
@@ -304,7 +306,7 @@ public final class AnnotationCommandCompiler {
         return Optional.of(new RootCommand(
             command.value(),
             alias == null ? List.of() : List.of(alias.value()),
-            group,
+            Optional.empty(),
             metadata(owner.getAnnotation(Description.class), "description"),
             permission(owner.getAnnotation(Permission.class)),
             classMetadata(owner),
@@ -321,8 +323,7 @@ public final class AnnotationCommandCompiler {
             || owner.isAnnotationPresent(Cooldown.class)
             || owner.isAnnotationPresent(Require.class)
             || owner.isAnnotationPresent(SuggestAliases.class)
-            || owner.isAnnotationPresent(Middleware.class)
-            || owner.isAnnotationPresent(CommandGroup.class);
+            || owner.isAnnotationPresent(Middleware.class);
     }
 
     private static MethodCommandBinder.CommandMetadata classMetadata(Class<?> owner) {
