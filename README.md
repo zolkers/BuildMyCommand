@@ -123,7 +123,7 @@ final class HelpCommands {
         this.help = help;
     }
 
-    @Route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+    @Route(CommandHelp.DEFAULT_ROUTE)
     CommandResult help(@RouteCtx CommandContext ctx) {
         return Results.success(help.render(
             ctx.source(),

@@ -10,11 +10,8 @@ package dev.riege.buildmycommand.core.help;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandNode;
-import dev.riege.buildmycommand.api.CommandRegistry;
-import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.PermissionSpec;
-import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.ArrayList;
@@ -25,7 +22,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 public final class CommandHelp {
-    private static final String DEFAULT_ROUTE =
+    public static final String DEFAULT_ROUTE =
         "help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]";
 
     private final CommandFramework framework;
@@ -54,34 +51,6 @@ public final class CommandHelp {
     public CommandHelp formatter(CommandHelpFormatter formatter) {
         this.formatter = Objects.requireNonNull(formatter, "formatter");
         return this;
-    }
-
-    public CommandRegistry.CommandBuilder register() {
-        return register(DEFAULT_ROUTE);
-    }
-
-    public CommandRegistry.CommandBuilder register(String routePattern) {
-        Objects.requireNonNull(routePattern, "routePattern");
-        return framework.registry()
-            .route(routePattern)
-            .description("Show visible commands or inspect one command")
-            .usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
-            .example("/help")
-            .example("/help profile message")
-            .example("/help --alphabetic --page 2")
-            .example("/help --group Administration")
-            .group("System")
-            .argumentSuggestions("query", "visible commands", ctx -> suggest(ctx.source(), ctx.rawToken()))
-            .optionSuggestions("group", "help groups", ctx -> suggestGroups(ctx.source(), ctx.rawToken()))
-            .executes(this::execute);
-    }
-
-    public CommandResult execute(CommandContext context) {
-        Objects.requireNonNull(context, "context");
-        String query = context.optionalArg("query", String.class)
-            .map(String::trim)
-            .orElse("");
-        return Results.success(render(context.source(), query, CommandHelpOptions.from(context)));
     }
 
     public String render(CommandSource source, String query, CommandHelpOptions options) {

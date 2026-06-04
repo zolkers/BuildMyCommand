@@ -27,7 +27,7 @@ class CommandHelpTest {
     void rendersDetailListPaginationFilteringAndSuggestions() {
         CommandFramework framework = framework();
         CommandHelp help = CommandHelp.forFramework(framework);
-        help.register();
+        registerHelp(framework, help);
         CommandSource guest = source(Set.of());
         CommandSource admin = source(Set.of("admin.reload", "admin.audit.read", "staff.notes"));
 
@@ -101,7 +101,8 @@ class CommandHelpTest {
     @Test
     void registeredHelpCommandParsesFlagsAndOptions() {
         CommandFramework framework = framework();
-        CommandHelp.forFramework(framework).title("Docs").footer("Done").register();
+        CommandHelp help = CommandHelp.forFramework(framework).title("Docs").footer("Done");
+        registerHelp(framework, help);
         CommandSource admin = source(Set.of("admin.reload", "admin.audit.read", "staff.notes"));
 
         CommandResult result = framework.dispatch(admin, "help --group Administration --alphabetic --size 1 --page 2");
@@ -164,6 +165,25 @@ class CommandHelpTest {
             .hidden()
             .executes(ctx -> Results.success("secret"));
         return framework;
+    }
+
+    private static void registerHelp(CommandFramework framework, CommandHelp help) {
+        framework.registry()
+            .route(CommandHelp.DEFAULT_ROUTE)
+            .description("Show visible commands or inspect one command")
+            .usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
+            .example("/help")
+            .example("/help profile message")
+            .example("/help --alphabetic --page 2")
+            .example("/help --group Administration")
+            .group("System")
+            .argumentSuggestions("query", "visible commands", ctx -> help.suggest(ctx.source(), ctx.rawToken()))
+            .optionSuggestions("group", "help groups", ctx -> help.suggestGroups(ctx.source(), ctx.rawToken()))
+            .executes(ctx -> Results.success(help.render(
+                ctx.source(),
+                ctx.optionalArg("query", String.class).map(String::trim).orElse(""),
+                CommandHelpOptions.from(ctx)
+            )));
     }
 
     private static CommandSource source(Set<String> permissions) {

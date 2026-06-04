@@ -13,6 +13,8 @@ import dev.riege.buildmycommand.adapters.minecraft.common.MinecraftRenderedResul
 import dev.riege.buildmycommand.adapters.terminal.TerminalAdapter;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.core.CommandFramework;
 import dev.riege.buildmycommand.examples.adapters.BrigadierAdapterExample;
 import dev.riege.buildmycommand.examples.adapters.SimpleAdapterExample;
 import dev.riege.buildmycommand.examples.adapters.TerminalAdapterExample;
@@ -33,7 +35,7 @@ import dev.riege.buildmycommand.examples.basics.PlayerManagementBuilderExample;
 import dev.riege.buildmycommand.examples.dsl.NestedRouteExample;
 import dev.riege.buildmycommand.examples.dsl.RouteDslMiddlewareExample;
 import dev.riege.buildmycommand.examples.dsl.RouteDslExample;
-import dev.riege.buildmycommand.examples.help.CoreHelpCommandExample;
+import dev.riege.buildmycommand.examples.help.CommandHelpExample;
 import dev.riege.buildmycommand.examples.lifecycle.CooldownExample;
 import dev.riege.buildmycommand.examples.lifecycle.MiddlewareAndErrorsExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftBrigadierExample;
@@ -240,8 +242,9 @@ class ExampleSmokeTest {
 
     @Test
     void coreHelpCommandExampleBuildsPermissionAwareHelp() {
-        CommandSource player = new CoreHelpCommandExample.ExampleSource("Ada", Set.of());
-        CommandResult publicHelp = CoreHelpCommandExample.dispatch(player, "help");
+        CommandFramework framework = helpExampleFramework();
+        CommandSource player = source();
+        CommandResult publicHelp = framework.dispatch(player, "help");
         assertEquals(CommandResult.Status.SUCCESS, publicHelp.status());
         String publicReply = publicHelp.reply().orElseThrow();
         assertTrue(publicReply.contains("== Command Help =="));
@@ -251,47 +254,42 @@ class ExampleSmokeTest {
         assertEquals(false, publicReply.contains("admin reload"));
         assertEquals(false, publicReply.contains("internal diagnostics"));
         assertEquals(false, publicReply.contains("staff notes"));
-        assertEquals(Optional.of("Ada"), player.name());
 
-        CommandResult details = CoreHelpCommandExample.dispatch(player, "help profile message");
+        CommandResult details = framework.dispatch(player, "help profile message");
         assertEquals(CommandResult.Status.SUCCESS, details.status());
         String detailsReply = details.reply().orElseThrow();
         assertTrue(detailsReply.contains("Usage: /profile message <player> <message> [--silent]"));
         assertTrue(detailsReply.contains("Description: Send a private profile note"));
         assertTrue(detailsReply.contains("Example: /profile message Ada Welcome back -s"));
 
-        CommandSource admin = new CoreHelpCommandExample.ExampleSource(
-            "Root",
-            Set.of("admin.reload", "admin.audit.read", "staff.notes")
-        );
-        String adminReply = CoreHelpCommandExample.dispatch(admin, "help").reply().orElseThrow();
+        CommandSource admin = source("admin.reload", "admin.audit.read", "staff.notes");
+        String adminReply = framework.dispatch(admin, "help").reply().orElseThrow();
         assertTrue(adminReply.contains("admin reload - Reload a server subsystem"));
         assertTrue(adminReply.contains("admin audit player - Read player audit information"));
         assertTrue(adminReply.contains("staff notes list - List staff notes"));
 
         assertEquals(Set.of("profile view", "profile message"),
-            Set.copyOf(CoreHelpCommandExample.suggest(player, "help profile", 12)));
+            Set.copyOf(framework.suggest(player, "help profile", 12)));
         assertEquals(List.of("Ada", "Alex"),
-            CoreHelpCommandExample.suggest(player, "profile view A", 14));
+            framework.suggest(player, "profile view A", 14));
         assertEquals(List.of("Ada", "Alex"),
-            CoreHelpCommandExample.suggest(player, "profile message A", 17));
+            framework.suggest(player, "profile message A", 17));
         assertEquals(List.of("Ada", "Alex"),
-            CoreHelpCommandExample.suggest(player, "party invite A", 14));
+            framework.suggest(player, "party invite A", 14));
         assertEquals(List.of("Ada", "Alex"),
-            CoreHelpCommandExample.suggest(admin, "admin audit player A", 20));
+            framework.suggest(admin, "admin audit player A", 20));
         assertEquals(List.of("commands", "permissions", "cache"),
-            CoreHelpCommandExample.suggest(admin, "admin reload ", 13));
+            framework.suggest(admin, "admin reload ", 13));
         assertEquals(List.of("Administration"),
-            CoreHelpCommandExample.suggest(admin, "help --group A", 14));
-        assertSuccess(CoreHelpCommandExample.dispatch(player, "profile view Ada"), "Profile for Ada");
-        assertSuccess(CoreHelpCommandExample.dispatch(player, "profile message Ada hello -s"),
+            framework.suggest(admin, "help --group A", 14));
+        assertSuccess(framework.dispatch(player, "profile view Ada"), "Profile for Ada");
+        assertSuccess(framework.dispatch(player, "profile message Ada hello -s"),
             "Message to Ada silent=true: hello");
-        assertSuccess(CoreHelpCommandExample.dispatch(player, "party invite Alex"), "Invite sent to Alex");
-        assertSuccess(CoreHelpCommandExample.dispatch(admin, "admin reload commands"), "Reloaded commands");
-        assertEquals(CommandResult.Status.SUCCESS,
-            CoreHelpCommandExample.dispatch(admin, "admin audit player Ada").status());
-        assertSuccess(CoreHelpCommandExample.dispatch(admin, "staff notes list"), "Staff notes");
-        assertSuccess(CoreHelpCommandExample.dispatch(admin, "internal diagnostics dump"), "diagnostics");
+        assertSuccess(framework.dispatch(player, "party invite Alex"), "Invite sent to Alex");
+        assertSuccess(framework.dispatch(admin, "admin reload commands"), "Reloaded commands");
+        assertEquals(CommandResult.Status.SUCCESS, framework.dispatch(admin, "admin audit player Ada").status());
+        assertSuccess(framework.dispatch(admin, "staff notes list"), "Staff notes");
+        assertSuccess(framework.dispatch(admin, "internal diagnostics dump"), "diagnostics");
     }
 
     @Test
@@ -378,8 +376,87 @@ class ExampleSmokeTest {
         assertEquals(Optional.of(reply), result.reply());
     }
 
+    private static CommandFramework helpExampleFramework() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .caseInsensitiveOptions()
+            .build();
+        framework.registry()
+            .route("profile view <target:String>")
+            .description("Open a player's profile card")
+            .usage("/profile view <player>")
+            .example("/profile view Ada")
+            .group("Players")
+            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
+            .executes(ctx -> Results.success("Profile for " + ctx.arg("target", String.class)));
+        framework.registry()
+            .route("profile message <target:String> <message:String...> [--silent|-s]")
+            .description("Send a private profile note")
+            .usage("/profile message <player> <message> [--silent]")
+            .example("/profile message Ada Welcome back -s")
+            .group("Players")
+            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
+            .executes(ctx -> Results.success(
+                "Message to "
+                    + ctx.arg("target", String.class)
+                    + " silent="
+                    + ctx.flag("silent")
+                    + ": "
+                    + ctx.arg("message", String.class)));
+        framework.registry()
+            .route("party invite <target:String>")
+            .description("Invite a player to your party")
+            .usage("/party invite <player>")
+            .example("/party invite Alex")
+            .group("Social")
+            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
+            .executes(ctx -> Results.success("Invite sent to " + ctx.arg("target", String.class)));
+        framework.registry()
+            .route("admin reload [area:String]")
+            .description("Reload a server subsystem")
+            .permission("admin.reload")
+            .usage("/admin reload [area]")
+            .example("/admin reload commands")
+            .group("Administration")
+            .argumentSuggestions("area", "reload areas", ctx -> List.of("commands", "permissions", "cache"))
+            .executes(ctx -> Results.success("Reloaded " + ctx.optionalArg("area", String.class).orElse("all")));
+        framework.registry()
+            .route("admin audit player <target:String>")
+            .description("Read player audit information")
+            .permissionRegex("admin\\.audit\\..*")
+            .usage("/admin audit player <player>")
+            .example("/admin audit player Ada")
+            .group("Administration")
+            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
+            .executes(ctx -> Results.success("Audit for " + ctx.arg("target", String.class)));
+        framework.registry()
+            .route("staff notes list")
+            .description("List staff notes")
+            .requirement("staff.notes")
+            .usage("/staff notes list")
+            .example("/staff notes list")
+            .group("Staff")
+            .executes(ctx -> Results.success("Staff notes"));
+        framework.registry()
+            .route("internal diagnostics dump")
+            .description("Hidden internal support command")
+            .hidden()
+            .executes(ctx -> Results.success("diagnostics"));
+        CommandHelpExample.register(framework);
+        return framework;
+    }
+
+    private static List<String> onlinePlayers(String currentToken) {
+        String normalizedToken = currentToken.toLowerCase();
+        return List.of("Ada", "Alex", "Linus", "Grace").stream()
+            .filter(player -> player.toLowerCase().startsWith(normalizedToken))
+            .toList();
+    }
+
     private static CommandSource source(String... permissions) {
         return new CommandSource() {
+            private final Set<String> permissionSet = Set.of(permissions);
+
             @Override
             public Optional<String> name() {
                 return Optional.of("Ada");
@@ -387,7 +464,12 @@ class ExampleSmokeTest {
 
             @Override
             public boolean hasPermission(String permission) {
-                return List.of(permissions).contains(permission);
+                return permissionSet.contains(permission);
+            }
+
+            @Override
+            public Set<String> permissions() {
+                return permissionSet;
             }
         };
     }

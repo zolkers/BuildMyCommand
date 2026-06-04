@@ -41,7 +41,7 @@ final class HelpCommands {
         this.help = help;
     }
 
-    @Route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+    @Route(CommandHelp.DEFAULT_ROUTE)
     @Description("Show visible commands or inspect one command")
     @Usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
     @Example({"/help", "/help profile message", "/help --alphabetic --page 2"})
@@ -62,7 +62,7 @@ final class HelpCommands {
 }
 ```
 
-That route is only an example. You can name it `help`, `wecc help`, `commands`, `?`, or anything else.
+That route is only the default pattern. You can inline your own route string instead and name it `help`, `wecc help`, `commands`, `?`, or anything else.
 
 ## Example User Syntax
 
@@ -78,16 +78,26 @@ The list automatically hides commands marked with `@Hidden` and commands blocked
 
 ## Builder Pattern
 
-If you are not using annotations, `CommandHelp` can also register a route through the builder API:
+If you are not using annotations, use the exposed default route pattern with the builder API:
 
 ```java
-CommandHelp.forFramework(framework)
+CommandHelp help = CommandHelp.forFramework(framework)
     .title("WECC Commands")
-    .footer("Use /wecc help <command> for details.")
-    .register("wecc help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]");
+    .footer("Use /help <command> for details.");
+
+framework.registry()
+    .route(CommandHelp.DEFAULT_ROUTE)
+    .description("Show command help")
+    .argumentSuggestions("query", "visible commands", ctx -> help.suggest(ctx.source(), ctx.rawToken()))
+    .optionSuggestions("group", "help groups", ctx -> help.suggestGroups(ctx.source(), ctx.rawToken()))
+    .executes(ctx -> Results.success(help.render(
+        ctx.source(),
+        ctx.optionalArg("query", String.class).orElse(""),
+        CommandHelpOptions.from(ctx)
+    )));
 ```
 
-This is a convenience wrapper around `framework.registry().route(...)`. It exists for builder-based applications, not as the only blessed way to do help.
+Use a custom pattern such as `wecc help|h ...` when the platform already owns `/help`, or when your app has a namespaced command tree.
 
 ## Custom Formatting
 
