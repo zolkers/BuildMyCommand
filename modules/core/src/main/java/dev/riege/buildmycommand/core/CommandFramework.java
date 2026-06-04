@@ -37,6 +37,7 @@ import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.CommandTypeRegistry;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
+import dev.riege.buildmycommand.api.help.HelpProviderAPI;
 import dev.riege.buildmycommand.dsl.RouteParser;
 
 import java.time.Clock;
@@ -136,6 +137,10 @@ public final class CommandFramework {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(path, "path");
         return help.help(source, path);
+    }
+
+    public HelpProviderAPI helpProvider() {
+        return HelpProviderAPI.create(this::graph, this::help);
     }
 
     public String schema() {

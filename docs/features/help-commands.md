@@ -12,9 +12,9 @@ BuildMyCommand does not force one universal help command. Instead, `core` gives 
 The usual pattern is:
 
 1. Register your real commands.
-2. Create `CommandHelp.forFramework(framework)`.
+2. Create `framework.helpProvider()`.
 3. Write your own `@Route` or `@SubRoute` help command.
-4. Delegate listing, pagination, details, filters, and suggestions to `CommandHelp`.
+4. Delegate listing, pagination, details, filters, and suggestions to `HelpProviderAPI`.
 
 ## Annotation Pattern
 
@@ -26,7 +26,7 @@ CommandFramework framework = CommandFramework.builder()
 
 AnnotationCommandScanner.register(framework.registry(), new ProfileCommands());
 AnnotationCommandScanner.register(framework.registry(), new AdminCommands());
-AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
+AnnotationCommandScanner.register(framework.registry(), new HelpCommands(framework.helpProvider()));
 ```
 
 Then define the help command as part of your own command surface:
@@ -35,19 +35,19 @@ Then define the help command as part of your own command surface:
 @CommandGroup("System")
 @CaseInsensitive(literals = true, options = true)
 final class HelpCommands {
-    private final CommandHelp help;
+    private final HelpProviderAPI help;
 
-    HelpCommands(CommandHelp help) {
+    HelpCommands(HelpProviderAPI help) {
         this.help = help;
     }
 
-    @Route(CommandHelp.DEFAULT_ROUTE)
+    @Route(HelpProviderAPI.DEFAULT_ROUTE)
     @Description("Show visible commands or inspect one command")
     @Usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
     @Example({"/help", "/help profile message", "/help --alphabetic --page 2"})
     CommandResult help(@RouteCtx CommandContext route) {
         String query = route.optionalArg("query", String.class).orElse("");
-        return Results.success(help.render(route.source(), query, CommandHelpOptions.from(route)));
+        return Results.success(help.render(route.source(), query, HelpOptions.from(route)));
     }
 
     @Suggest("query")
@@ -81,19 +81,19 @@ The list automatically hides commands marked with `@Hidden` and commands blocked
 If you are not using annotations, use the exposed default route pattern with the builder API:
 
 ```java
-CommandHelp help = CommandHelp.forFramework(framework)
+HelpProviderAPI help = framework.helpProvider()
     .title("WECC Commands")
     .footer("Use /help <command> for details.");
 
 framework.registry()
-    .route(CommandHelp.DEFAULT_ROUTE)
+    .route(HelpProviderAPI.DEFAULT_ROUTE)
     .description("Show command help")
     .argumentSuggestions("query", "visible commands", ctx -> help.suggest(ctx.source(), ctx.rawToken()))
     .optionSuggestions("group", "help groups", ctx -> help.suggestGroups(ctx.source(), ctx.rawToken()))
     .executes(ctx -> Results.success(help.render(
         ctx.source(),
         ctx.optionalArg("query", String.class).orElse(""),
-        CommandHelpOptions.from(ctx)
+        HelpOptions.from(ctx)
     )));
 ```
 
@@ -104,10 +104,10 @@ Use a custom pattern such as `wecc help|h ...` when the platform already owns `/
 The help system does not force one visual style. Provide a formatter to render pages and command details however your platform expects:
 
 ```java
-CommandHelp help = CommandHelp.forFramework(framework)
-    .formatter(new CommandHelpFormatter() {
+HelpProviderAPI help = framework.helpProvider()
+    .formatter(new HelpFormatter() {
         @Override
-        public String formatPage(CommandHelpPage page) {
+        public String formatPage(HelpPage page) {
             return page.entries().stream()
                 .map(entry -> "- /" + entry.path() + ": " + entry.description())
                 .collect(Collectors.joining("\n"));
@@ -127,12 +127,12 @@ AnnotationCommandScanner.register(framework.registry(), new HelpCommands(help));
 Adapters and UIs can render help without registering a command:
 
 ```java
-CommandHelp help = CommandHelp.forFramework(framework);
+HelpProviderAPI help = framework.helpProvider();
 
 String page = help.render(
     source,
     "",
-    CommandHelpOptions.builder()
+    HelpOptions.builder()
         .page(1)
         .pageSize(10)
         .alphabetic(true)
@@ -140,7 +140,7 @@ String page = help.render(
         .build()
 );
 
-String details = help.render(source, "profile message", CommandHelpOptions.defaults());
+String details = help.render(source, "profile message", HelpOptions.defaults());
 ```
 
 ## Options

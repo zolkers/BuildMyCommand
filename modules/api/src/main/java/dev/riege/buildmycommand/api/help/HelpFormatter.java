@@ -5,17 +5,17 @@
  * SPDX-License-Identifier: MIT
  */
 
-package dev.riege.buildmycommand.core.help;
+package dev.riege.buildmycommand.api.help;
 
-public interface CommandHelpFormatter {
-    CommandHelpFormatter DEFAULT = new CommandHelpFormatter() {
+public interface HelpFormatter {
+    HelpFormatter DEFAULT = new HelpFormatter() {
     };
 
     default String formatDetails(String title, String details) {
         return header(title) + "\n" + details;
     }
 
-    default String formatPage(CommandHelpPage page) {
+    default String formatPage(HelpPage page) {
         StringBuilder builder = new StringBuilder(header(page.title()))
             .append(" page ")
             .append(page.page())
@@ -31,7 +31,7 @@ public interface CommandHelpFormatter {
         }
 
         String currentGroup = null;
-        for (CommandHelpEntry entry : page.entries()) {
+        for (HelpEntry entry : page.entries()) {
             if (!entry.group().equals(currentGroup)) {
                 currentGroup = entry.group();
                 builder.append("\n\n").append(currentGroup);

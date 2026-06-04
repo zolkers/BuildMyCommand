@@ -5,14 +5,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-package dev.riege.buildmycommand.core.help;
+package dev.riege.buildmycommand.api.help;
 
 import dev.riege.buildmycommand.api.CommandContext;
 
 import java.util.Objects;
 import java.util.Optional;
 
-public record CommandHelpOptions(
+public record HelpOptions(
     int page,
     int pageSize,
     boolean alphabetic,
@@ -23,7 +23,7 @@ public record CommandHelpOptions(
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_PAGE_SIZE = 8;
 
-    public CommandHelpOptions {
+    public HelpOptions {
         if (page < 1) {
             throw new IllegalArgumentException("page must be greater than zero");
         }
@@ -34,11 +34,11 @@ public record CommandHelpOptions(
         Objects.requireNonNull(commandPrefix, "commandPrefix");
     }
 
-    public static CommandHelpOptions defaults() {
+    public static HelpOptions defaults() {
         return builder().build();
     }
 
-    public static CommandHelpOptions from(CommandContext context) {
+    public static HelpOptions from(CommandContext context) {
         Objects.requireNonNull(context, "context");
         return builder()
             .page(context.option("page", Integer.class).orElse(DEFAULT_PAGE))
@@ -108,8 +108,8 @@ public record CommandHelpOptions(
             return this;
         }
 
-        public CommandHelpOptions build() {
-            return new CommandHelpOptions(page, pageSize, alphabetic, group, showAliases, commandPrefix);
+        public HelpOptions build() {
+            return new HelpOptions(page, pageSize, alphabetic, group, showAliases, commandPrefix);
         }
     }
 }

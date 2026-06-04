@@ -5,84 +5,99 @@
  * SPDX-License-Identifier: MIT
  */
 
-package dev.riege.buildmycommand.core.help;
+package dev.riege.buildmycommand.api.help;
 
-import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.PermissionSpec;
-import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-public final class CommandHelp {
+public final class HelpProviderAPI {
     public static final String DEFAULT_ROUTE =
         "help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]";
 
-    private final CommandFramework framework;
+    private final Supplier<CommandGraph> graphSupplier;
+    private final BiFunction<CommandSource, String, String> detailsProvider;
     private String title = "Command Help";
     private String footer = "Use /help <command> for usage, examples, arguments, options, and permissions.";
-    private CommandHelpFormatter formatter = CommandHelpFormatter.DEFAULT;
+    private HelpFormatter formatter = HelpFormatter.DEFAULT;
 
-    private CommandHelp(CommandFramework framework) {
-        this.framework = Objects.requireNonNull(framework, "framework");
+    private HelpProviderAPI(
+        Supplier<CommandGraph> graphSupplier,
+        BiFunction<CommandSource, String, String> detailsProvider
+    ) {
+        this.graphSupplier = Objects.requireNonNull(graphSupplier, "graphSupplier");
+        this.detailsProvider = Objects.requireNonNull(detailsProvider, "detailsProvider");
     }
 
-    public static CommandHelp forFramework(CommandFramework framework) {
-        return new CommandHelp(framework);
+    public static HelpProviderAPI create(
+        Supplier<CommandGraph> graphSupplier,
+        BiFunction<CommandSource, String, String> detailsProvider
+    ) {
+        return new HelpProviderAPI(graphSupplier, detailsProvider);
     }
 
-    public CommandHelp title(String title) {
+    public static HelpProviderAPI of(
+        Supplier<CommandGraph> graphSupplier,
+        BiFunction<CommandSource, String, String> detailsProvider
+    ) {
+        return create(graphSupplier, detailsProvider);
+    }
+
+    public HelpProviderAPI title(String title) {
         this.title = metadata(title, "title");
         return this;
     }
 
-    public CommandHelp footer(String footer) {
+    public HelpProviderAPI footer(String footer) {
         this.footer = metadata(footer, "footer");
         return this;
     }
 
-    public CommandHelp formatter(CommandHelpFormatter formatter) {
+    public HelpProviderAPI formatter(HelpFormatter formatter) {
         this.formatter = Objects.requireNonNull(formatter, "formatter");
         return this;
     }
 
-    public String render(CommandSource source, String query, CommandHelpOptions options) {
+    public String render(CommandSource source, String query, HelpOptions options) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(query, "query");
         Objects.requireNonNull(options, "options");
         String trimmedQuery = query.trim();
         if (!trimmedQuery.isBlank() && hasVisibleEntry(source, trimmedQuery)) {
-            return formatter.formatDetails(title, framework.help(source, trimmedQuery));
+            return formatter.formatDetails(title, detailsProvider.apply(source, trimmedQuery));
         }
 
-        List<CommandHelpEntry> entries = entries(source, options).stream()
+        List<HelpEntry> entries = entries(source, options).stream()
             .filter(entry -> trimmedQuery.isBlank() || entry.path().toLowerCase().contains(trimmedQuery.toLowerCase()))
             .toList();
         return formatter.formatPage(page(entries, options));
     }
 
-    public List<CommandHelpEntry> entries(CommandSource source) {
-        return entries(source, CommandHelpOptions.defaults());
+    public List<HelpEntry> entries(CommandSource source) {
+        return entries(source, HelpOptions.defaults());
     }
 
-    public List<CommandHelpEntry> entries(CommandSource source, CommandHelpOptions options) {
+    public List<HelpEntry> entries(CommandSource source, HelpOptions options) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(options, "options");
-        List<CommandHelpEntry> entries = visibleEntries(framework.graph(), source).stream()
+        List<HelpEntry> entries = visibleEntries(graphSupplier.get(), source).stream()
             .filter(entry -> options.group()
                 .map(group -> entry.group().equalsIgnoreCase(group))
                 .orElse(true))
             .toList();
         if (options.alphabetic()) {
             return entries.stream()
-                .sorted(Comparator.comparing(CommandHelpEntry::path, String.CASE_INSENSITIVE_ORDER))
+                .sorted(Comparator.comparing(HelpEntry::path, String.CASE_INSENSITIVE_ORDER))
                 .toList();
         }
         return entries;
@@ -91,8 +106,8 @@ public final class CommandHelp {
     public List<String> suggest(CommandSource source, String currentToken) {
         Objects.requireNonNull(currentToken, "currentToken");
         String normalizedToken = currentToken.toLowerCase();
-        return entries(source, CommandHelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
-            .map(CommandHelpEntry::path)
+        return entries(source, HelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
+            .map(HelpEntry::path)
             .filter(path -> path.toLowerCase().startsWith(normalizedToken))
             .toList();
     }
@@ -101,30 +116,31 @@ public final class CommandHelp {
         Objects.requireNonNull(currentToken, "currentToken");
         String normalizedToken = currentToken.toLowerCase();
         return entries(source).stream()
-            .map(CommandHelpEntry::group)
+            .map(HelpEntry::group)
             .distinct()
             .sorted(String.CASE_INSENSITIVE_ORDER)
             .filter(group -> group.toLowerCase().startsWith(normalizedToken))
             .toList();
     }
 
-    public CommandHelpPage page(List<CommandHelpEntry> entries, CommandHelpOptions options) {
+    public HelpPage page(List<HelpEntry> entries, HelpOptions options) {
         Objects.requireNonNull(entries, "entries");
         Objects.requireNonNull(options, "options");
         int pageCount = Math.max(1, (int) Math.ceil(entries.size() / (double) options.pageSize()));
         int page = Math.min(options.page(), pageCount);
         int from = Math.min((page - 1) * options.pageSize(), entries.size());
         int to = Math.min(from + options.pageSize(), entries.size());
-        List<CommandHelpEntry> pageEntries = entries.subList(from, to);
-        return new CommandHelpPage(title, footer, pageEntries, options, page, pageCount);
+        List<HelpEntry> pageEntries = entries.subList(from, to);
+        return new HelpPage(title, footer, pageEntries, options, page, pageCount);
     }
 
     private boolean hasVisibleEntry(CommandSource source, String path) {
         return entries(source).stream().anyMatch(entry -> entry.path().equalsIgnoreCase(path));
     }
 
-    private List<CommandHelpEntry> visibleEntries(CommandGraph graph, CommandSource source) {
-        List<CommandHelpEntry> entries = new ArrayList<>();
+    private List<HelpEntry> visibleEntries(CommandGraph graph, CommandSource source) {
+        Objects.requireNonNull(graph, "graph");
+        List<HelpEntry> entries = new ArrayList<>();
         for (CommandNode root : graph.roots()) {
             collectVisibleEntries(source, List.of(root), new ArrayList<>(), entries);
         }
@@ -135,7 +151,7 @@ public final class CommandHelp {
         CommandSource source,
         List<CommandNode> lineage,
         List<String> path,
-        List<CommandHelpEntry> entries
+        List<HelpEntry> entries
     ) {
         CommandNode node = lineage.getLast();
         if (node.metadata().hidden() || denied(source, lineage).isPresent()) {
@@ -145,7 +161,7 @@ public final class CommandHelp {
         List<String> currentPath = new ArrayList<>(path);
         currentPath.add(node.literal());
         if (node.executor().isPresent()) {
-            entries.add(new CommandHelpEntry(
+            entries.add(new HelpEntry(
                 String.join(" ", currentPath),
                 node.description().orElse("No description"),
                 node.metadata().group().orElse("Other"),

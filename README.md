@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.2.3"
+val buildMyCommandVersion = "0.2.4"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -33,7 +33,7 @@ Maven:
 
 ```xml
 <properties>
-    <buildmycommand.version>0.2.3</buildmycommand.version>
+    <buildmycommand.version>0.2.4</buildmycommand.version>
 </properties>
 
 <dependencies>
@@ -113,28 +113,28 @@ Build your own help command with the core help toolkit:
 
 ```java
 AnnotationCommandScanner.register(framework.registry(), new PingCommand());
-AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
+AnnotationCommandScanner.register(framework.registry(), new HelpCommands(framework.helpProvider()));
 
 @CommandGroup("System")
 final class HelpCommands {
-    private final CommandHelp help;
+    private final HelpProviderAPI help;
 
-    HelpCommands(CommandHelp help) {
+    HelpCommands(HelpProviderAPI help) {
         this.help = help;
     }
 
-    @Route(CommandHelp.DEFAULT_ROUTE)
+    @Route(HelpProviderAPI.DEFAULT_ROUTE)
     CommandResult help(@RouteCtx CommandContext ctx) {
         return Results.success(help.render(
             ctx.source(),
             ctx.optionalArg("query", String.class).orElse(""),
-            CommandHelpOptions.from(ctx)
+            HelpOptions.from(ctx)
         ));
     }
 }
 ```
 
-`CommandHelp` gives you command details, permission-aware entries, pagination, group filtering, alphabetical sorting, and suggestions. You decide the route and formatting:
+`HelpProviderAPI` gives you command details, permission-aware entries, pagination, group filtering, alphabetical sorting, and suggestions. You decide the route and formatting:
 
 ```text
 /help

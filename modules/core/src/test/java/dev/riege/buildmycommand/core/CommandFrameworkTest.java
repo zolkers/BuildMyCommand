@@ -30,6 +30,7 @@ import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.FlagSpec;
 import dev.riege.buildmycommand.api.Flags;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.help.HelpOptions;
 import dev.riege.buildmycommand.core.middleware.CooldownMiddleware;
 import dev.riege.buildmycommand.core.middleware.MiddlewareChain;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CommandFrameworkTest {
     @Test
@@ -1795,6 +1797,26 @@ class CommandFrameworkTest {
         assertEquals("""
             Usage: secure
             Description: Secure command""", framework.help("secure"));
+    }
+
+    @Test
+    void exposesApiHelpProviderBackedByFrameworkGraphAndDetails() {
+        CommandFramework framework = CommandFramework.create();
+
+        framework.registry()
+            .route("profile view <target:String>")
+            .description("Open profile")
+            .usage("/profile view <target>")
+            .group("Players")
+            .executes(ctx -> Results.silent());
+
+        String page = framework.helpProvider().render(new CommandSource() {
+        }, "", HelpOptions.defaults());
+        String details = framework.helpProvider().render(new CommandSource() {
+        }, "profile view", HelpOptions.defaults());
+
+        assertTrue(page.contains("/profile view - Open profile"));
+        assertTrue(details.contains("Usage: /profile view <target>"));
     }
 
     @Test

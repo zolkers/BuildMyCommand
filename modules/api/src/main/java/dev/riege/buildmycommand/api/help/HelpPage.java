@@ -5,20 +5,20 @@
  * SPDX-License-Identifier: MIT
  */
 
-package dev.riege.buildmycommand.core.help;
+package dev.riege.buildmycommand.api.help;
 
 import java.util.List;
 import java.util.Objects;
 
-public record CommandHelpPage(
+public record HelpPage(
     String title,
     String footer,
-    List<CommandHelpEntry> entries,
-    CommandHelpOptions options,
+    List<HelpEntry> entries,
+    HelpOptions options,
     int page,
     int pageCount
 ) {
-    public CommandHelpPage {
+    public HelpPage {
         Objects.requireNonNull(title, "title");
         Objects.requireNonNull(footer, "footer");
         entries = List.copyOf(Objects.requireNonNull(entries, "entries"));

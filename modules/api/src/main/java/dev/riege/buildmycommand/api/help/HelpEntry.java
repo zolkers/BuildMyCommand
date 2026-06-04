@@ -5,20 +5,20 @@
  * SPDX-License-Identifier: MIT
  */
 
-package dev.riege.buildmycommand.core.help;
+package dev.riege.buildmycommand.api.help;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public record CommandHelpEntry(
+public record HelpEntry(
     String path,
     String description,
     String group,
     List<String> aliases,
     Optional<String> permission
 ) {
-    public CommandHelpEntry {
+    public HelpEntry {
         Objects.requireNonNull(path, "path");
         if (path.isBlank()) {
             throw new IllegalArgumentException("path must not be blank");

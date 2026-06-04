@@ -21,34 +21,34 @@ import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.SuggestionContext;
 import dev.riege.buildmycommand.api.SuggestionSet;
+import dev.riege.buildmycommand.api.help.HelpOptions;
+import dev.riege.buildmycommand.api.help.HelpProviderAPI;
 import dev.riege.buildmycommand.core.CommandFramework;
-import dev.riege.buildmycommand.core.help.CommandHelp;
-import dev.riege.buildmycommand.core.help.CommandHelpOptions;
 
 public final class CommandHelpExample {
     private CommandHelpExample() {
     }
 
     public static void register(CommandFramework framework) {
-        AnnotationCommandScanner.register(framework.registry(), new HelpCommands(CommandHelp.forFramework(framework)));
+        AnnotationCommandScanner.register(framework.registry(), new HelpCommands(framework.helpProvider()));
     }
 
     @CommandGroup("System")
     @CaseInsensitive(literals = true, options = true)
     public static final class HelpCommands {
-        private final CommandHelp help;
+        private final HelpProviderAPI help;
 
-        public HelpCommands(CommandHelp help) {
+        public HelpCommands(HelpProviderAPI help) {
             this.help = help;
         }
 
-        @Route(CommandHelp.DEFAULT_ROUTE)
+        @Route(HelpProviderAPI.DEFAULT_ROUTE)
         @Description("Show visible commands or inspect one command")
         @Usage("/help [command] [--page <page>] [--size <size>] [--alphabetic] [--group <group>]")
         @Example({"/help", "/help profile message", "/help --alphabetic --page 2"})
         CommandResult help(@RouteCtx CommandContext route) {
             String query = route.optionalArg("query", String.class).orElse("");
-            return Results.success(help.render(route.source(), query, CommandHelpOptions.from(route)));
+            return Results.success(help.render(route.source(), query, HelpOptions.from(route)));
         }
 
         @Suggest("query")
