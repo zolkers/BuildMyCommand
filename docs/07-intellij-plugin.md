@@ -32,10 +32,90 @@ Restart IntelliJ after installation.
 The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this project expects the BuildMyCommand plugin:
 
 ```xml
-<plugin id="dev.riege.buildmycommand.intellij" min-version="0.1.1" />
+<plugin id="dev.riege.buildmycommand.dsl" min-version="0.1.1" />
 ```
 
 If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.
+
+## Marketplace Publish
+
+Publishing to JetBrains Marketplace is separate from Maven Central. The plugin is built from `modules/intellij-plugin`.
+
+Marketplace plugin id:
+
+```text
+dev.riege.buildmycommand.dsl
+```
+
+JetBrains requires the first plugin version to be uploaded manually from the Marketplace UI. This creates the plugin page and lets you set required metadata such as license and repository URL. After that first upload, `publishPlugin` can push later versions.
+
+Build the first zip:
+
+```powershell
+.\gradlew.bat :intellij-plugin:clean :intellij-plugin:buildPlugin
+```
+
+Upload the newest zip from:
+
+```text
+modules/intellij-plugin/build/distributions/
+```
+
+Create a permanent token from JetBrains Marketplace, then expose it as an environment variable:
+
+PowerShell:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+.\gradlew.bat :intellij-plugin:publishPlugin
+```
+
+To persist the token locally and in GitHub Actions without committing it:
+
+```powershell
+.\scripts\setup-jetbrains-marketplace-token.ps1
+```
+
+If the token is already in the current PowerShell session, the script reuses it:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+.\scripts\setup-jetbrains-marketplace-token.ps1
+```
+
+Shell:
+
+```sh
+export JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+./gradlew :intellij-plugin:publishPlugin
+```
+
+Shell helper:
+
+```sh
+./scripts/setup-jetbrains-marketplace-token.sh
+```
+
+Optional: publish to a non-default Marketplace channel:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_CHANNEL="eap"
+.\gradlew.bat :intellij-plugin:publishPlugin
+```
+
+The token can also be passed as a Gradle property for local one-off usage:
+
+```powershell
+.\gradlew.bat :intellij-plugin:publishPlugin -PjetbrainsMarketplaceToken="perm:..."
+```
+
+Do not commit Marketplace tokens. For GitHub Actions, store the token as `JETBRAINS_MARKETPLACE_TOKEN`.
+
+Before publishing, build and verify locally:
+
+```powershell
+.\gradlew.bat :intellij-plugin:clean :intellij-plugin:buildPlugin :intellij-plugin:check
+```
 
 ## Inspections
 

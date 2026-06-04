@@ -26,8 +26,31 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.patchPluginXml {
+    version.set(rootProject.version.toString())
     sinceBuild.set("241")
     untilBuild.set("")
+    changeNotes.set(
+        """
+        <ul>
+          <li>Route and SubRoute DSL highlighting.</li>
+          <li>Requirement expression highlighting for @Require.</li>
+          <li>Inspections for common BuildMyCommand annotation mistakes.</li>
+          <li>Suggestion provider validation.</li>
+        </ul>
+        """.trimIndent()
+    )
+}
+
+tasks.publishPlugin {
+    token.set(
+        providers.environmentVariable("JETBRAINS_MARKETPLACE_TOKEN")
+            .orElse(providers.gradleProperty("jetbrainsMarketplaceToken"))
+    )
+    channels.set(
+        providers.environmentVariable("JETBRAINS_MARKETPLACE_CHANNEL")
+            .map { listOf(it) }
+            .orElse(listOf("default"))
+    )
 }
 
 tasks.withType<Test>().configureEach {

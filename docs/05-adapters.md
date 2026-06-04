@@ -20,6 +20,33 @@ dependencies {
 }
 ```
 
+
+Maven:
+
+```xml
+<properties>
+    <buildmycommand.version>0.1.1</buildmycommand.version>
+</properties>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-api</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-core</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-annotations</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+</dependencies>
+```
+
 Then add the adapter that matches your runtime.
 
 | Runtime | Artifact |
@@ -40,6 +67,17 @@ Then add the adapter that matches your runtime.
 | Sponge | `io.github.zolkers:buildmycommand-adapters-minecraft-sponge:$buildMyCommandVersion` |
 
 Use one platform adapter in application code. Use `adapters-core` directly when you are building your own adapter or integration library.
+
+
+Maven adapter example:
+
+```xml
+<dependency>
+    <groupId>io.github.zolkers</groupId>
+    <artifactId>buildmycommand-adapters-minecraft-fabric</artifactId>
+    <version>${buildmycommand.version}</version>
+</dependency>
+```
 
 ## Adapter Responsibilities
 
@@ -216,6 +254,17 @@ dependencies {
     implementation("io.github.zolkers:buildmycommand-core:$buildMyCommandVersion")
     implementation("io.github.zolkers:buildmycommand-adapters-core:$buildMyCommandVersion")
 }
+```
+
+
+Maven:
+
+```xml
+<dependency>
+    <groupId>io.github.zolkers</groupId>
+    <artifactId>buildmycommand-adapters-core</artifactId>
+    <version>${buildmycommand.version}</version>
+</dependency>
 ```
 
 ```java

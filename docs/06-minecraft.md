@@ -26,6 +26,38 @@ dependencies {
 }
 ```
 
+
+Maven:
+
+```xml
+<properties>
+    <buildmycommand.version>0.1.1</buildmycommand.version>
+</properties>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-api</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-core</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-annotations</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-adapters-minecraft-fabric</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+</dependencies>
+```
+
 ## Command Class
 
 ```java
