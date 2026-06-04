@@ -62,7 +62,7 @@ Snapshot versions and `mavenLocal()` are not part of the public installation pat
 
 ## GitHub Release Workflow
 
-CI publishes Maven artifacts automatically when a tag matching `v*` is pushed. The version is derived from the tag name:
+CI publishes Maven artifacts and creates a GitHub Release automatically when a tag matching `v*` is pushed. The version is derived from the tag name:
 
 | Tag | Published version |
 | --- | --- |
@@ -84,6 +84,8 @@ Configure these repository secrets before relying on the workflow:
 | `MAVEN_CENTRAL_PASSWORD` | Maven Central password/token password. |
 | `SIGNING_IN_MEMORY_KEY` | ASCII-armored GPG private key. |
 | `SIGNING_IN_MEMORY_KEY_PASSWORD` | Password for the signing key. |
+
+GitHub Actions only reacts to tag pushes that happen after the workflow exists. If a tag already exists, create the GitHub Release manually or move the tag only when the Maven version has not already been published.
 
 ## IntelliJ Plugin Local Release
 
