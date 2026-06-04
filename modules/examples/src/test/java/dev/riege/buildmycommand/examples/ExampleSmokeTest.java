@@ -33,6 +33,7 @@ import dev.riege.buildmycommand.examples.basics.PlayerManagementBuilderExample;
 import dev.riege.buildmycommand.examples.dsl.NestedRouteExample;
 import dev.riege.buildmycommand.examples.dsl.RouteDslMiddlewareExample;
 import dev.riege.buildmycommand.examples.dsl.RouteDslExample;
+import dev.riege.buildmycommand.examples.help.CoreHelpCommandExample;
 import dev.riege.buildmycommand.examples.lifecycle.CooldownExample;
 import dev.riege.buildmycommand.examples.lifecycle.MiddlewareAndErrorsExample;
 import dev.riege.buildmycommand.examples.minecraft.MinecraftBrigadierExample;
@@ -235,6 +236,60 @@ class ExampleSmokeTest {
         assertThrows(IllegalArgumentException.class, () -> new CustomCommandTypeExample.Material(""));
         assertThrows(IllegalArgumentException.class, () -> new CustomCommandTypeExample.Material(null));
         assertSuccess(TestKitExample.exerciseCommand(), "Banned Ada");
+    }
+
+    @Test
+    void coreHelpCommandExampleBuildsPermissionAwareHelp() {
+        CommandSource player = new CoreHelpCommandExample.ExampleSource("Ada", Set.of());
+        CommandResult publicHelp = CoreHelpCommandExample.dispatch(player, "help");
+        assertEquals(CommandResult.Status.SUCCESS, publicHelp.status());
+        String publicReply = publicHelp.reply().orElseThrow();
+        assertTrue(publicReply.contains("== Command Help =="));
+        assertTrue(publicReply.contains("profile message - Send a private profile note"));
+        assertTrue(publicReply.contains("party invite - Invite a player to your party"));
+        assertTrue(publicReply.contains("help - Show visible commands or inspect one command (aliases: h)"));
+        assertEquals(false, publicReply.contains("admin reload"));
+        assertEquals(false, publicReply.contains("internal diagnostics"));
+        assertEquals(false, publicReply.contains("staff notes"));
+        assertEquals(Optional.of("Ada"), player.name());
+
+        CommandResult details = CoreHelpCommandExample.dispatch(player, "help profile message");
+        assertEquals(CommandResult.Status.SUCCESS, details.status());
+        String detailsReply = details.reply().orElseThrow();
+        assertTrue(detailsReply.contains("Usage: /profile message <player> <message> [--silent]"));
+        assertTrue(detailsReply.contains("Description: Send a private profile note"));
+        assertTrue(detailsReply.contains("Example: /profile message Ada Welcome back -s"));
+
+        CommandSource admin = new CoreHelpCommandExample.ExampleSource(
+            "Root",
+            Set.of("admin.reload", "admin.audit.read", "staff.notes")
+        );
+        String adminReply = CoreHelpCommandExample.dispatch(admin, "help").reply().orElseThrow();
+        assertTrue(adminReply.contains("admin reload - Reload a server subsystem"));
+        assertTrue(adminReply.contains("admin audit player - Read player audit information"));
+        assertTrue(adminReply.contains("staff notes list - List staff notes"));
+
+        assertEquals(List.of("profile view", "profile message"),
+            CoreHelpCommandExample.suggest(player, "help profile", 12));
+        assertEquals(List.of("Ada", "Alex"),
+            CoreHelpCommandExample.suggest(player, "profile view A", 14));
+        assertEquals(List.of("Ada", "Alex"),
+            CoreHelpCommandExample.suggest(player, "profile message A", 17));
+        assertEquals(List.of("Ada", "Alex"),
+            CoreHelpCommandExample.suggest(player, "party invite A", 14));
+        assertEquals(List.of("Ada", "Alex"),
+            CoreHelpCommandExample.suggest(admin, "admin audit player A", 20));
+        assertEquals(List.of("commands", "permissions", "cache"),
+            CoreHelpCommandExample.suggest(admin, "admin reload ", 13));
+        assertSuccess(CoreHelpCommandExample.dispatch(player, "profile view Ada"), "Profile for Ada");
+        assertSuccess(CoreHelpCommandExample.dispatch(player, "profile message Ada hello -s"),
+            "Message to Ada silent=true: hello");
+        assertSuccess(CoreHelpCommandExample.dispatch(player, "party invite Alex"), "Invite sent to Alex");
+        assertSuccess(CoreHelpCommandExample.dispatch(admin, "admin reload commands"), "Reloaded commands");
+        assertEquals(CommandResult.Status.SUCCESS,
+            CoreHelpCommandExample.dispatch(admin, "admin audit player Ada").status());
+        assertSuccess(CoreHelpCommandExample.dispatch(admin, "staff notes list"), "Staff notes");
+        assertSuccess(CoreHelpCommandExample.dispatch(admin, "internal diagnostics dump"), "diagnostics");
     }
 
     @Test
