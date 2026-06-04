@@ -3,7 +3,7 @@ param(
     [switch] $Install,
     [string] $IdeConfigDir = "",
     [string] $PluginId = "dev.riege.buildmycommand.intellij",
-    [string] $PluginVersion = "0.0.4-SNAPSHOT"
+    [string] $PluginVersion = "0.1.0"
 )
 
 $ErrorActionPreference = "Stop"

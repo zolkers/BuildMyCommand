@@ -2,7 +2,7 @@
 set -eu
 
 plugin_id="dev.riege.buildmycommand.intellij"
-plugin_version="0.0.4-SNAPSHOT"
+plugin_version="0.1.0"
 skip_build="false"
 install="false"
 ide_config_dir=""

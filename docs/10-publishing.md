@@ -55,7 +55,7 @@ io.github.zolkers
 Current release line:
 
 ```text
-0.0.4
+0.1.0
 ```
 
 Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version, run the full checks, publish, then move development back to the next `-SNAPSHOT`.

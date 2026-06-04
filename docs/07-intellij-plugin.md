@@ -32,7 +32,7 @@ Restart IntelliJ after installation.
 The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this project expects the BuildMyCommand plugin:
 
 ```xml
-<plugin id="dev.riege.buildmycommand.intellij" min-version="0.0.4" />
+<plugin id="dev.riege.buildmycommand.intellij" min-version="0.1.0" />
 ```
 
 If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.

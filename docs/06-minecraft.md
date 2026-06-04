@@ -16,7 +16,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.0.4"
+val buildMyCommandVersion = "0.1.0"
 
 dependencies {
     implementation("io.github.zolkers:api:$buildMyCommandVersion")
