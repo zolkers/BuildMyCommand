@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.2.1"
+val buildMyCommandVersion = "0.2.2"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -33,7 +33,7 @@ Maven:
 
 ```xml
 <properties>
-    <buildmycommand.version>0.2.1</buildmycommand.version>
+    <buildmycommand.version>0.2.2</buildmycommand.version>
 </properties>
 
 <dependencies>
@@ -109,6 +109,25 @@ final class ShopCommands {
 }
 ```
 
+Register a full help command by scanning the provided annotated help command:
+
+```java
+AnnotationCommandScanner.register(framework.registry(), new PingCommand());
+AnnotationCommandScanner.register(
+    framework.registry(),
+    new AnnotatedCommandHelp(CommandHelp.forFramework(framework))
+);
+```
+
+The generated command supports command details, permission-aware listings, pagination, group filtering, alphabetical sorting, and suggestions:
+
+```text
+/help
+/help wecc bang
+/help --alphabetic --page 2 --size 5
+/help --group Players
+```
+
 ## Modules
 
 | Artifact | Purpose |
@@ -137,6 +156,7 @@ final class ShopCommands {
 | [Middleware And Permissions](docs/08-errors-middleware-permissions.md) | `@Middleware`, `@Require`, `@Permission`, errors. |
 | [Testing](docs/09-testing.md) | Command tests and adapter smoke tests. |
 | [Publishing](docs/10-publishing.md) | Maven Central and local publishing notes. |
+| [Help Commands](docs/11-help.md) | Built-in help command registration, pagination, filters, and suggestions. |
 
 ## Build
 

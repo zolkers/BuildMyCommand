@@ -7,7 +7,7 @@
 set -eu
 
 plugin_id="dev.riege.buildmycommand.dsl"
-plugin_version="0.2.1"
+plugin_version="0.2.2"
 skip_build="false"
 install="false"
 ide_config_dir=""
