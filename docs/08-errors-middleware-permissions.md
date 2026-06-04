@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Middleware, Permissions, And Errors
 
 BuildMyCommand keeps command logic small by pushing cross-cutting behavior into middleware and source policies.

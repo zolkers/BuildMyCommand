@@ -1,4 +1,9 @@
 #!/usr/bin/env sh
+# Copyright (c) 2026 Zolkers
+#
+# Licensed under the MIT License.
+# SPDX-License-Identifier: MIT
+
 set -eu
 
 plugin_id="dev.riege.buildmycommand.dsl"

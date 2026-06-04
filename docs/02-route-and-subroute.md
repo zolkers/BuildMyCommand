@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Route And SubRoute
 
 `@Route` and `@SubRoute` are the recommended declaration API.

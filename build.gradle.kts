@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Zolkers
+//
+// Licensed under the MIT License.
+// SPDX-License-Identifier: MIT
+
 import java.math.BigDecimal
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import org.gradle.api.plugins.BasePluginExtension
@@ -15,6 +20,26 @@ version = providers.gradleProperty("releaseVersion").orElse("0.1.1").get()
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
     include("**/src/main/java/**/*.java")
+}
+
+val licenseHeaderSources = fileTree(layout.projectDirectory) {
+    include("**/*.java")
+    include("**/*.kts")
+    include("**/*.gradle")
+    include("**/*.ps1")
+    include("**/*.sh")
+    include("**/*.xml")
+    include("**/*.md")
+    include("**/*.properties")
+    include("**/*.yml")
+    include("**/*.yaml")
+    exclude(".git/**")
+    exclude(".gradle/**")
+    exclude(".idea/**")
+    exclude("**/build/**")
+    exclude("gradle/wrapper/**")
+    exclude("LICENSE")
+    exclude("HEADER.txt")
 }
 
 tasks.register("qualityStyle") {
@@ -65,8 +90,24 @@ tasks.register("qualityStaticAnalysis") {
     }
 }
 
+tasks.register("qualityLicenseHeaders") {
+    group = "verification"
+    description = "Checks MIT SPDX license headers on repository files that support comments."
+    inputs.files(licenseHeaderSources)
+
+    doLast {
+        val violations = licenseHeaderSources.files
+            .sortedBy { it.path }
+            .filterNot { file -> file.readText().contains("SPDX-License-Identifier: MIT") }
+            .map { file -> "${file.relativeTo(rootDir)}: missing MIT SPDX license header" }
+        if (violations.isNotEmpty()) {
+            throw GradleException("License header violations:\n" + violations.joinToString("\n"))
+        }
+    }
+}
+
 tasks.named("check") {
-    dependsOn("qualityStyle", "qualityStaticAnalysis")
+    dependsOn("qualityStyle", "qualityStaticAnalysis", "qualityLicenseHeaders")
 }
 
 tasks.register<Exec>("setupIntellijPlugin") {

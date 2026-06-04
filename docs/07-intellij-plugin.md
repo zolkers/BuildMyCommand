@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # IntelliJ Plugin
 
 The IntelliJ plugin is optional but strongly recommended while authoring route DSL commands.

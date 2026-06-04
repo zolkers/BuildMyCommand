@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # BuildMyCommand IntelliJ Plugin
 
 This module is the in-repository home for IDE support around the BuildMyCommand route DSL.

@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Publishing
 
 Publishing is split into Maven artifacts and the IntelliJ plugin.

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026 Zolkers
+ *
+ * Licensed under the MIT License.
+ * SPDX-License-Identifier: MIT
+ */
+
 package dev.riege.buildmycommand.adapters.minecraft.bungee;
 
 import net.md_5.bungee.api.plugin.Command;

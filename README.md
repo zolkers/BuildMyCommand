@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # BuildMyCommand
 
 BuildMyCommand is a modular Java command framework. It gives you one command runtime, a readable route DSL, annotation scanning, dynamic suggestions, middleware, permissions, and adapters for runtimes such as Fabric/Brigadier.
@@ -121,3 +128,7 @@ public final class PingCommand {
 ```
 
 The repo currently enforces full test coverage for publishable modules.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md), and [LICENSE](LICENSE). Source, docs, scripts, and configuration files that support comments carry the MIT SPDX header from [HEADER.txt](HEADER.txt).

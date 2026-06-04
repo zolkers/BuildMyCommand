@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Builder API
 
 The builder API exists for dynamic or generated command trees. For ordinary command classes, prefer annotations with `@Command` and `@SubRoute`.

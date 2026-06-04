@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Testing
 
 Command tests should exercise real parsing, suggestions, permissions, and middleware.

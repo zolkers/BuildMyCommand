@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Adapters
 
 Adapters connect BuildMyCommand to a host runtime. The core framework does not know about Minecraft, terminals, Discord, or IDEs.
