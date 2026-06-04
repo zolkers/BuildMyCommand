@@ -8,7 +8,7 @@ param(
     [switch] $Install,
     [string] $IdeConfigDir = "",
     [string] $PluginId = "dev.riege.buildmycommand.dsl",
-    [string] $PluginVersion = "0.2.0"
+    [string] $PluginVersion = "0.2.1"
 )
 
 $ErrorActionPreference = "Stop"
