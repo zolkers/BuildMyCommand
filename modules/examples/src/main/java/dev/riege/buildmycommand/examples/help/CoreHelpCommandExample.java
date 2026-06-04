@@ -7,14 +7,30 @@
 
 package dev.riege.buildmycommand.examples.help;
 
+import dev.riege.buildmycommand.annotation.Alias;
+import dev.riege.buildmycommand.annotation.AnnotationCommandScanner;
+import dev.riege.buildmycommand.annotation.CaseInsensitive;
+import dev.riege.buildmycommand.annotation.Command;
+import dev.riege.buildmycommand.annotation.CommandGroup;
+import dev.riege.buildmycommand.annotation.Description;
+import dev.riege.buildmycommand.annotation.Example;
+import dev.riege.buildmycommand.annotation.Hidden;
+import dev.riege.buildmycommand.annotation.Permission;
+import dev.riege.buildmycommand.annotation.Require;
+import dev.riege.buildmycommand.annotation.Route;
+import dev.riege.buildmycommand.annotation.RouteCtx;
+import dev.riege.buildmycommand.annotation.SubRoute;
+import dev.riege.buildmycommand.annotation.Suggest;
+import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandContext;
 import dev.riege.buildmycommand.api.CommandGraph;
-import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandResult;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.SuggestionContext;
+import dev.riege.buildmycommand.api.SuggestionSet;
 import dev.riege.buildmycommand.core.CommandFramework;
 
 import java.util.ArrayList;
@@ -37,8 +53,12 @@ public final class CoreHelpCommandExample {
             .caseInsensitiveOptions()
             .build();
 
-        registerApplicationCommands(framework);
-        registerHelpCommand(framework);
+        AnnotationCommandScanner.register(framework.registry(), new ProfileCommands());
+        AnnotationCommandScanner.register(framework.registry(), new PartyCommands());
+        AnnotationCommandScanner.register(framework.registry(), new AdminCommands());
+        AnnotationCommandScanner.register(framework.registry(), new StaffCommands());
+        AnnotationCommandScanner.register(framework.registry(), new InternalCommands());
+        AnnotationCommandScanner.register(framework.registry(), new HelpCommands(framework));
         return framework;
     }
 
@@ -50,130 +70,175 @@ public final class CoreHelpCommandExample {
         return create().suggest(source, input, cursor);
     }
 
-    private static void registerApplicationCommands(CommandFramework framework) {
-        framework.registry()
-            .route("profile view <target:String>")
-            .description("Open a player's profile card")
-            .usage("/profile view <player>")
-            .example("/profile view Ada")
-            .group("Players")
-            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
-            .executes(ctx -> Results.success("Profile for " + ctx.arg("target", String.class)));
-
-        framework.registry()
-            .route("profile message <target:String> <message:String...> [--silent|-s]")
-            .description("Send a private profile note")
-            .usage("/profile message <player> <message> [--silent]")
-            .example("/profile message Ada Welcome back -s")
-            .group("Players")
-            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
-            .executes(ctx -> Results.success(
-                "Message to "
-                    + ctx.arg("target", String.class)
-                    + " silent="
-                    + ctx.flag("silent")
-                    + ": "
-                    + ctx.arg("message", String.class)));
-
-        framework.registry()
-            .route("party invite <target:String>")
-            .description("Invite a player to your party")
-            .usage("/party invite <player>")
-            .example("/party invite Alex")
-            .group("Social")
-            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
-            .executes(ctx -> Results.success("Invite sent to " + ctx.arg("target", String.class)));
-
-        framework.registry()
-            .route("admin reload [area:String]")
-            .description("Reload a server subsystem")
-            .permission("admin.reload")
-            .usage("/admin reload [area]")
-            .example("/admin reload commands")
-            .group("Administration")
-            .argumentSuggestions("area", "reload areas", ctx -> List.of("commands", "permissions", "cache"))
-            .executes(ctx -> Results.success("Reloaded " + ctx.optionalArg("area", String.class).orElse("all")));
-
-        framework.registry()
-            .route("admin audit player <target:String>")
-            .description("Read player audit information")
-            .permissionRegex("admin\\.audit\\..*")
-            .usage("/admin audit player <player>")
-            .example("/admin audit player Ada")
-            .group("Administration")
-            .argumentSuggestions("target", "online players", ctx -> onlinePlayers(ctx.rawToken()))
-            .executes(ctx -> Results.success("Audit for " + ctx.arg("target", String.class)));
-
-        framework.registry()
-            .route("staff notes list")
-            .description("List staff notes")
-            .requirement("staff.notes")
-            .usage("/staff notes list")
-            .example("/staff notes list")
-            .group("Staff")
-            .executes(ctx -> Results.success("Staff notes"));
-
-        framework.registry()
-            .route("internal diagnostics dump")
-            .description("Hidden internal support command")
-            .hidden()
-            .executes(ctx -> Results.success("diagnostics"));
-    }
-
-    private static void registerHelpCommand(CommandFramework framework) {
-        framework.registry()
-            .route("help|h [query:String...]")
-            .description("Show visible commands or inspect one command")
-            .usage("/help [command]")
-            .example("/help")
-            .example("/help profile message")
-            .group("System")
-            .argumentSuggestions("query", "visible commands",
-                ctx -> helpSuggestions(framework, ctx.source(), ctx.rawToken()))
-            .executes(ctx -> renderHelp(framework, ctx));
-    }
-
-    private static CommandResult renderHelp(CommandFramework framework, CommandContext ctx) {
-        String query = ctx.optionalArg("query", String.class)
-            .map(String::trim)
-            .orElse("");
-        if (!query.isBlank()) {
-            String details = framework.help(ctx.source(), query);
-            return Results.success(header("Command Help") + "\n" + details);
+    @Command("profile")
+    @CommandGroup("Players")
+    @CaseInsensitive(literals = true, options = true)
+    static final class ProfileCommands {
+        @SubRoute("view <target:String>")
+        @Description("Open a player's profile card")
+        @Usage("/profile view <player>")
+        @Example("/profile view Ada")
+        CommandResult view(@RouteCtx CommandContext route) {
+            return Results.success("Profile for " + route.arg("target", String.class));
         }
 
-        List<HelpEntry> entries = visibleEntries(framework.graph(), ctx.source());
-        Map<String, List<HelpEntry>> byGroup = entries.stream()
-            .sorted(Comparator.comparing(HelpEntry::group).thenComparing(HelpEntry::path))
-            .collect(Collectors.groupingBy(
-                HelpEntry::group,
-                LinkedHashMap::new,
-                Collectors.toList()
-            ));
+        @SubRoute("message <target:String> <message:String...> [--silent|-s]")
+        @Description("Send a private profile note")
+        @Usage("/profile message <player> <message> [--silent]")
+        @Example("/profile message Ada Welcome back -s")
+        CommandResult message(@RouteCtx CommandContext route) {
+            return Results.success(
+                "Message to "
+                    + route.arg("target", String.class)
+                    + " silent="
+                    + route.flag("silent")
+                    + ": "
+                    + route.arg("message", String.class)
+            );
+        }
 
-        StringBuilder builder = new StringBuilder(header("Command Help"));
-        byGroup.forEach((group, groupEntries) -> {
-            builder.append("\n\n").append(group);
-            for (HelpEntry entry : groupEntries) {
-                builder.append("\n  ")
-                    .append(entry.path())
-                    .append(" - ")
-                    .append(entry.description());
-                if (!entry.aliases().isEmpty()) {
-                    builder.append(" (aliases: ").append(String.join(", ", entry.aliases())).append(")");
-                }
-            }
-        });
-        builder.append("\n\nUse /help <command> for usage, examples, arguments, options, and permissions.");
-        return Results.success(builder.toString());
+        @Suggest("target")
+        SuggestionSet onlinePlayers(SuggestionContext context) {
+            return onlinePlayersFromContext(context);
+        }
     }
 
-    private static List<String> helpSuggestions(CommandFramework framework, CommandSource source, String currentToken) {
-        String normalizedToken = currentToken.toLowerCase();
-        return visibleEntries(framework.graph(), source).stream()
-            .map(HelpEntry::path)
-            .filter(path -> path.toLowerCase().startsWith(normalizedToken))
-            .toList();
+    @Command("party")
+    @CommandGroup("Social")
+    @CaseInsensitive(literals = true, options = true)
+    static final class PartyCommands {
+        @SubRoute("invite <target:String>")
+        @Description("Invite a player to your party")
+        @Usage("/party invite <player>")
+        @Example("/party invite Alex")
+        CommandResult invite(@RouteCtx CommandContext route) {
+            return Results.success("Invite sent to " + route.arg("target", String.class));
+        }
+
+        @Suggest("target")
+        SuggestionSet onlinePlayers(SuggestionContext context) {
+            return onlinePlayersFromContext(context);
+        }
+    }
+
+    @Command("admin")
+    @CommandGroup("Administration")
+    @CaseInsensitive(literals = true, options = true)
+    static final class AdminCommands {
+        @SubRoute("reload [area:String]")
+        @Description("Reload a server subsystem")
+        @Permission("admin.reload")
+        @Usage("/admin reload [area]")
+        @Example("/admin reload commands")
+        CommandResult reload(@RouteCtx CommandContext route) {
+            return Results.success("Reloaded " + route.optionalArg("area", String.class).orElse("all"));
+        }
+
+        @SubRoute("audit player <target:String>")
+        @Description("Read player audit information")
+        @Permission(value = "admin\\.audit\\..*", regex = true)
+        @Usage("/admin audit player <player>")
+        @Example("/admin audit player Ada")
+        CommandResult auditPlayer(@RouteCtx CommandContext route) {
+            return Results.success("Audit for " + route.arg("target", String.class));
+        }
+
+        @Suggest("area")
+        SuggestionSet reloadAreas(SuggestionContext context) {
+            return SuggestionSet.of("commands", "permissions", "cache").filteringCurrentToken();
+        }
+
+        @Suggest("target")
+        SuggestionSet onlinePlayers(SuggestionContext context) {
+            return onlinePlayersFromContext(context);
+        }
+    }
+
+    @Command("staff")
+    @CommandGroup("Staff")
+    @CaseInsensitive(literals = true, options = true)
+    static final class StaffCommands {
+        @SubRoute("notes list")
+        @Description("List staff notes")
+        @Require("staff.notes")
+        @Usage("/staff notes list")
+        @Example("/staff notes list")
+        CommandResult listNotes(@RouteCtx CommandContext route) {
+            return Results.success("Staff notes");
+        }
+    }
+
+    @Command("internal")
+    @Hidden
+    @CaseInsensitive(literals = true, options = true)
+    static final class InternalCommands {
+        @SubRoute("diagnostics dump")
+        @Description("Hidden internal support command")
+        CommandResult diagnostics(@RouteCtx CommandContext route) {
+            return Results.success("diagnostics");
+        }
+    }
+
+    @CommandGroup("System")
+    @CaseInsensitive(literals = true, options = true)
+    static final class HelpCommands {
+        private final CommandFramework framework;
+
+        private HelpCommands(CommandFramework framework) {
+            this.framework = framework;
+        }
+
+        @Route("help [query:String...]")
+        @Alias("h")
+        @Description("Show visible commands or inspect one command")
+        @Usage("/help [command]")
+        @Example({"/help", "/help profile message"})
+        CommandResult help(@RouteCtx CommandContext route) {
+            String query = route.optionalArg("query", String.class)
+                .map(String::trim)
+                .orElse("");
+            if (!query.isBlank()) {
+                String details = framework.help(route.source(), query);
+                return Results.success(header("Command Help") + "\n" + details);
+            }
+
+            List<HelpEntry> entries = visibleEntries(framework.graph(), route.source());
+            Map<String, List<HelpEntry>> byGroup = entries.stream()
+                .sorted(Comparator.comparing(HelpEntry::group).thenComparing(HelpEntry::path))
+                .collect(Collectors.groupingBy(
+                    HelpEntry::group,
+                    LinkedHashMap::new,
+                    Collectors.toList()
+                ));
+
+            StringBuilder builder = new StringBuilder(header("Command Help"));
+            byGroup.forEach((group, groupEntries) -> {
+                builder.append("\n\n").append(group);
+                for (HelpEntry entry : groupEntries) {
+                    builder.append("\n  ")
+                        .append(entry.path())
+                        .append(" - ")
+                        .append(entry.description());
+                    if (!entry.aliases().isEmpty()) {
+                        builder.append(" (aliases: ").append(String.join(", ", entry.aliases())).append(")");
+                    }
+                }
+            });
+            builder.append("\n\nUse /help <command> for usage, examples, arguments, options, and permissions.");
+            return Results.success(builder.toString());
+        }
+
+        @Suggest("query")
+        SuggestionSet commands(SuggestionContext context) {
+            List<String> paths = visibleEntries(framework.graph(), context.source()).stream()
+                .map(HelpEntry::path)
+                .toList();
+            return SuggestionSet.of(paths).filteringCurrentToken();
+        }
+    }
+
+    private static SuggestionSet onlinePlayersFromContext(SuggestionContext context) {
+        return SuggestionSet.of("Ada", "Alex", "Linus", "Grace").filteringCurrentToken();
     }
 
     private static List<HelpEntry> visibleEntries(CommandGraph graph, CommandSource source) {
@@ -232,13 +297,6 @@ public final class CoreHelpCommandExample {
             return source.hasPermissionMatching(Pattern.compile(permission.value()));
         }
         return source.hasPermission(permission.value());
-    }
-
-    private static List<String> onlinePlayers(String currentToken) {
-        String normalizedToken = currentToken.toLowerCase();
-        return List.of("Ada", "Alex", "Linus", "Grace").stream()
-            .filter(player -> player.toLowerCase().startsWith(normalizedToken))
-            .toList();
     }
 
     private static String header(String title) {

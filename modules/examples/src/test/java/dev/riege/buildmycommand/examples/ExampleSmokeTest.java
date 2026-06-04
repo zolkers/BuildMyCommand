@@ -269,8 +269,8 @@ class ExampleSmokeTest {
         assertTrue(adminReply.contains("admin audit player - Read player audit information"));
         assertTrue(adminReply.contains("staff notes list - List staff notes"));
 
-        assertEquals(List.of("profile view", "profile message"),
-            CoreHelpCommandExample.suggest(player, "help profile", 12));
+        assertEquals(Set.of("profile view", "profile message"),
+            Set.copyOf(CoreHelpCommandExample.suggest(player, "help profile", 12)));
         assertEquals(List.of("Ada", "Alex"),
             CoreHelpCommandExample.suggest(player, "profile view A", 14));
         assertEquals(List.of("Ada", "Alex"),
