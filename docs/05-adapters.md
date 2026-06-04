@@ -14,9 +14,9 @@ repositories {
 val buildMyCommandVersion = "0.1.0"
 
 dependencies {
-    implementation("io.github.zolkers:api:$buildMyCommandVersion")
-    implementation("io.github.zolkers:core:$buildMyCommandVersion")
-    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-annotations:$buildMyCommandVersion")
 }
 ```
 
@@ -24,20 +24,20 @@ Then add the adapter that matches your runtime.
 
 | Runtime | Artifact |
 | --- | --- |
-| Generic adapter contracts | `io.github.zolkers:adapters-core:$buildMyCommandVersion` |
-| Brigadier command trees | `io.github.zolkers:adapters-brigadier:$buildMyCommandVersion` |
-| Terminal/CLI apps | `io.github.zolkers:adapters-terminal:$buildMyCommandVersion` |
-| Discord text/slash command export | `io.github.zolkers:adapters-discord:$buildMyCommandVersion` |
-| Minecraft shared native bridge | `io.github.zolkers:adapters-minecraft-common:$buildMyCommandVersion` |
-| Fabric | `io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion` |
-| Forge | `io.github.zolkers:adapters-minecraft-forge:$buildMyCommandVersion` |
-| NeoForge | `io.github.zolkers:adapters-minecraft-neoforge:$buildMyCommandVersion` |
-| Paper | `io.github.zolkers:adapters-minecraft-paper:$buildMyCommandVersion` |
-| Spigot | `io.github.zolkers:adapters-minecraft-spigot:$buildMyCommandVersion` |
-| BungeeCord | `io.github.zolkers:adapters-minecraft-bungee:$buildMyCommandVersion` |
-| Velocity | `io.github.zolkers:adapters-minecraft-velocity:$buildMyCommandVersion` |
-| Minestom | `io.github.zolkers:adapters-minecraft-minestom:$buildMyCommandVersion` |
-| Sponge | `io.github.zolkers:adapters-minecraft-sponge:$buildMyCommandVersion` |
+| Generic adapter contracts | `io.github.zolkers:buildmycommand-adapters-core:$buildMyCommandVersion` |
+| Brigadier command trees | `io.github.zolkers:buildmycommand-adapters-brigadier:$buildMyCommandVersion` |
+| Terminal/CLI apps | `io.github.zolkers:buildmycommand-adapters-terminal:$buildMyCommandVersion` |
+| Discord text/slash command export | `io.github.zolkers:buildmycommand-adapters-discord:$buildMyCommandVersion` |
+| Minecraft shared native bridge | `io.github.zolkers:buildmycommand-adapters-minecraft-common:$buildMyCommandVersion` |
+| Fabric | `io.github.zolkers:buildmycommand-adapters-minecraft-fabric:$buildMyCommandVersion` |
+| Forge | `io.github.zolkers:buildmycommand-adapters-minecraft-forge:$buildMyCommandVersion` |
+| NeoForge | `io.github.zolkers:buildmycommand-adapters-minecraft-neoforge:$buildMyCommandVersion` |
+| Paper | `io.github.zolkers:buildmycommand-adapters-minecraft-paper:$buildMyCommandVersion` |
+| Spigot | `io.github.zolkers:buildmycommand-adapters-minecraft-spigot:$buildMyCommandVersion` |
+| BungeeCord | `io.github.zolkers:buildmycommand-adapters-minecraft-bungee:$buildMyCommandVersion` |
+| Velocity | `io.github.zolkers:buildmycommand-adapters-minecraft-velocity:$buildMyCommandVersion` |
+| Minestom | `io.github.zolkers:buildmycommand-adapters-minecraft-minestom:$buildMyCommandVersion` |
+| Sponge | `io.github.zolkers:buildmycommand-adapters-minecraft-sponge:$buildMyCommandVersion` |
 
 Use one platform adapter in application code. Use `adapters-core` directly when you are building your own adapter or integration library.
 
@@ -212,9 +212,9 @@ For most custom runtimes, start with `SimpleCommandAdapter`. It lets you provide
 
 ```kotlin
 dependencies {
-    implementation("io.github.zolkers:api:$buildMyCommandVersion")
-    implementation("io.github.zolkers:core:$buildMyCommandVersion")
-    implementation("io.github.zolkers:adapters-core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-adapters-core:$buildMyCommandVersion")
 }
 ```
 

@@ -47,18 +47,18 @@ repositories {
 val buildMyCommandVersion = "0.1.0"
 
 dependencies {
-    implementation("io.github.zolkers:api:$buildMyCommandVersion")
-    implementation("io.github.zolkers:core:$buildMyCommandVersion")
-    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-annotations:$buildMyCommandVersion")
 }
 ```
 
 Add one adapter for your runtime:
 
 ```kotlin
-implementation("io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion")
-implementation("io.github.zolkers:adapters-brigadier:$buildMyCommandVersion")
-implementation("io.github.zolkers:adapters-terminal:$buildMyCommandVersion")
+implementation("io.github.zolkers:buildmycommand-adapters-minecraft-fabric:$buildMyCommandVersion")
+implementation("io.github.zolkers:buildmycommand-adapters-brigadier:$buildMyCommandVersion")
+implementation("io.github.zolkers:buildmycommand-adapters-terminal:$buildMyCommandVersion")
 ```
 
 The complete adapter artifact table lives in [Adapters](05-adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.

@@ -98,7 +98,8 @@ subprojects {
 
     group = if (path == ":adapters:core") "${rootProject.group}.adapters" else rootProject.group
     version = rootProject.version
-    val artifact = path.removePrefix(":").replace(':', '-')
+    val moduleName = path.removePrefix(":").replace(':', '-')
+    val artifact = "buildmycommand-$moduleName"
 
     apply(plugin = "java")
     apply(plugin = "jacoco")

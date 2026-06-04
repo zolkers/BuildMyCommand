@@ -19,10 +19,10 @@ repositories {
 val buildMyCommandVersion = "0.1.0"
 
 dependencies {
-    implementation("io.github.zolkers:api:$buildMyCommandVersion")
-    implementation("io.github.zolkers:core:$buildMyCommandVersion")
-    implementation("io.github.zolkers:annotations:$buildMyCommandVersion")
-    implementation("io.github.zolkers:adapters-minecraft-fabric:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-core:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-annotations:$buildMyCommandVersion")
+    implementation("io.github.zolkers:buildmycommand-adapters-minecraft-fabric:$buildMyCommandVersion")
 }
 ```
 
