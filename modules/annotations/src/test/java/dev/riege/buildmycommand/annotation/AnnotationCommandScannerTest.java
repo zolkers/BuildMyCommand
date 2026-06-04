@@ -90,6 +90,16 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void methodCommandGroupOverridesClassCommandGroup() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new GroupOverrideCommands());
+
+        assertEquals(Optional.of("Default"), graphNode(framework, "grouped", "status").metadata().group());
+        assertEquals(Optional.of("Custom"), graphNode(framework, "grouped", "audit").metadata().group());
+    }
+
+    @Test
     void classCommandSubRouteSuggestionsApplyOnlyToMatchingLeaves() {
         CommandFramework framework = CommandFramework.create();
 
@@ -583,6 +593,21 @@ class AnnotationCommandScannerTest {
         @SubRoute("debug registries")
         CommandResult registries(@RouteCtx CommandContext route) {
             return Results.success("debug");
+        }
+    }
+
+    @Command("grouped")
+    @CommandGroup("Default")
+    static final class GroupOverrideCommands {
+        @SubRoute("status")
+        CommandResult status(@RouteCtx CommandContext route) {
+            return Results.success("status");
+        }
+
+        @SubRoute("audit")
+        @CommandGroup("Custom")
+        CommandResult audit(@RouteCtx CommandContext route) {
+            return Results.success("audit");
         }
     }
 

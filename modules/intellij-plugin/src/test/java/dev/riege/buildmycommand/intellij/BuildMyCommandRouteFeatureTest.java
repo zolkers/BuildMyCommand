@@ -905,6 +905,10 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                     java.util.List<String> metadataOnly() {
                         return java.util.List.of("Ada");
                     }
+
+                    @dev.riege.buildmycommand.annotation.CommandGroup("qualified-group")
+                    void methodGroupOnly() {
+                    }
                 }
             }
             """);
@@ -917,6 +921,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         PsiMethod punish = findMethod(file, "punish");
         PsiMethod helper = findMethod(file, "helper");
         PsiMethod metadataOnly = findMethod(file, "metadataOnly");
+        PsiMethod methodGroupOnly = findMethod(file, "methodGroupOnly");
         PsiParameter route = punish.getParameterList().getParameters()[0];
         PsiParameter value = helper.getParameterList().getParameters()[0];
 
@@ -925,6 +930,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertTrue(provider.isImplicitUsage(metadataOnlyClass));
         assertTrue(provider.isImplicitUsage(punish));
         assertTrue(provider.isImplicitUsage(metadataOnly));
+        assertTrue(provider.isImplicitUsage(methodGroupOnly));
         assertTrue(provider.isImplicitUsage(route));
         assertTrue(provider.isImplicitRead(route));
         assertFalse(provider.isImplicitUsage(plain));

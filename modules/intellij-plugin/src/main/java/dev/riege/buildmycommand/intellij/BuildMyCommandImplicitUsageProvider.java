@@ -36,6 +36,7 @@ public final class BuildMyCommandImplicitUsageProvider implements ImplicitUsageP
     );
     private static final Set<String> COMMAND_METADATA_ANNOTATIONS = Set.of(
         "dev.riege.buildmycommand.annotation.Alias",
+        "dev.riege.buildmycommand.annotation.CommandGroup",
         "dev.riege.buildmycommand.annotation.Description",
         "dev.riege.buildmycommand.annotation.Permission",
         "dev.riege.buildmycommand.annotation.Usage",

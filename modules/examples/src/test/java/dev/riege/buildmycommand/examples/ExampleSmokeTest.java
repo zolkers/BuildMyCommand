@@ -24,6 +24,7 @@ import dev.riege.buildmycommand.examples.annotations.AnnotationParameterExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteMiddlewareExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationRouteSubcommandExample;
+import dev.riege.buildmycommand.examples.annotations.AnnotationShowcaseExample;
 import dev.riege.buildmycommand.examples.annotations.AnnotationSubcommandExample;
 import dev.riege.buildmycommand.examples.annotations.DeepAnnotationNestingExample;
 import dev.riege.buildmycommand.examples.annotations.NestedSubcommandExample;
@@ -174,6 +175,45 @@ class ExampleSmokeTest {
             "Teleporting Ada to current world");
         assertSuccess(AnnotationRouteSubcommandExample.dispatch("user teleport Ada nether"),
             "Teleporting Ada to nether");
+        CommandSource showcaseSource = AnnotationShowcaseExample.source(
+            "staff",
+            "showcase.moderation.punish",
+            "showcase.audit.read"
+        );
+        assertEquals(Optional.of("Ada"), showcaseSource.name());
+        assertEquals(Optional.of(List.of("Ada", "Alex", "Grace", "Linus")), showcaseSource.metadata("players"));
+        assertEquals(Optional.empty(), showcaseSource.metadata("missing"));
+        assertTrue(showcaseSource.hasPermission(""));
+        assertTrue(showcaseSource.hasPermission("staff"));
+        assertEquals(false, showcaseSource.hasPermission("missing.permission"));
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "showcase profile Ada Alex"),
+            "Profile target=Ada viewer=Alex");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "sc mod punish Ada spam -d 30 -s"),
+            "Punished Ada for 30m silent=true: spam [showcase/moderation/punish]");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "showcase audit Ada --format json"),
+            "Audit Ada format=json");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "showcase diagnostics dump"),
+            "Diagnostics at 1970-01-01T00:00:00Z");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "showcase version"),
+            "showcase version");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "showcase legacy status"),
+            "legacy status");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "about"),
+            "BuildMyCommand annotation showcase");
+        assertSuccess(AnnotationShowcaseExample.dispatch(showcaseSource, "utility echo hello annotations"),
+            "hello annotations");
+        assertEquals(List.of("Ada", "Alex"),
+            AnnotationShowcaseExample.suggest(
+                AnnotationShowcaseExample.source(List.of("Ada", "Alex", "Grace"), "staff"),
+                "showcase profile A",
+                18
+            ));
+        assertEquals(List.of("self", "console", "staff"),
+            AnnotationShowcaseExample.suggest(showcaseSource, "showcase profile Ada ", 21));
+        assertEquals(List.of("text", "json", "compact"),
+            AnnotationShowcaseExample.suggest(showcaseSource, "showcase audit Ada --format ", 28));
+        assertEquals(List.of("spam", "griefing", "toxicity"),
+            AnnotationShowcaseExample.suggest(showcaseSource, "showcase mod punish Ada s", 24));
         assertSuccess(AnnotationSubcommandExample.dispatch("server status"), "Server online");
         assertSuccess(AnnotationSubcommandExample.dispatch("server reload"), "Server reloaded");
         assertSuccess(AnnotationSubcommandExample.dispatch("srv maint"), "Maintenance status");
