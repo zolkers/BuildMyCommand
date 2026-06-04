@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - ddev
       - "feature/**"
       - "codex/**"
   pull_request:

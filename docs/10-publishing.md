@@ -58,16 +58,18 @@ Current release line:
 0.1.1
 ```
 
-Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version, run the full checks, publish, then move development back to the next `-SNAPSHOT`.
+Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version on the development branch, open a pull request into `master`, then merge it.
 
 ## GitHub Release Workflow
 
-CI publishes Maven artifacts and creates a GitHub Release automatically when a tag matching `v*` is pushed. The version is derived from the tag name:
+CI publishes Maven artifacts and creates a GitHub Release automatically when `master` receives a push, usually through a merged pull request.
 
-| Tag | Published version |
+The version is read from the Gradle project version. The workflow creates the Git tag automatically:
+
+| Gradle version | Created tag |
 | --- | --- |
-| `v0.1.1` | `0.1.1` |
-| `v1.2.3` | `1.2.3` |
+| `0.1.1` | `v0.1.1` |
+| `1.2.3` | `v1.2.3` |
 
 The workflow runs:
 
@@ -75,6 +77,8 @@ The workflow runs:
 ./gradlew clean check -PreleaseVersion=<version>
 ./gradlew publishAndReleaseToMavenCentral -PreleaseVersion=<version>
 ```
+
+If `v<version>` already exists, the workflow skips publishing. This makes ordinary documentation or maintenance merges into `master` safe when the version has not changed.
 
 Configure these repository secrets before relying on the workflow:
 
@@ -85,7 +89,23 @@ Configure these repository secrets before relying on the workflow:
 | `SIGNING_IN_MEMORY_KEY` | ASCII-armored GPG private key. |
 | `SIGNING_IN_MEMORY_KEY_PASSWORD` | Password for the signing key. |
 
-GitHub Actions only reacts to tag pushes that happen after the workflow exists. If a tag already exists, create the GitHub Release manually or move the tag only when the Maven version has not already been published.
+Do not push release tags manually. Tags are an output of the `master` release workflow, not the trigger.
+
+## Branch Workflow
+
+Use `ddev` for development work:
+
+```bash
+git switch ddev
+```
+
+For each new version:
+
+1. Implement changes on `ddev`.
+2. Update the Gradle version and public docs to the new version.
+3. Open a pull request from `ddev` to `master`.
+4. Merge the pull request into `master`.
+5. Let CI create `v<version>`, publish Maven Central, and create the GitHub Release.
 
 ## IntelliJ Plugin Local Release
 
