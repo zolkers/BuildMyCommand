@@ -131,6 +131,12 @@ Configure a JetBrains Marketplace token outside the repository:
 $env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
 ```
 
+Persist it locally and as a GitHub Actions repository secret:
+
+```powershell
+.\scripts\setup-jetbrains-marketplace-token.ps1
+```
+
 Publish the plugin:
 
 ```powershell

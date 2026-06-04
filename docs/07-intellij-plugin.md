@@ -70,11 +70,30 @@ $env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
 .\gradlew.bat :intellij-plugin:publishPlugin
 ```
 
+To persist the token locally and in GitHub Actions without committing it:
+
+```powershell
+.\scripts\setup-jetbrains-marketplace-token.ps1
+```
+
+If the token is already in the current PowerShell session, the script reuses it:
+
+```powershell
+$env:JETBRAINS_MARKETPLACE_TOKEN="perm:..."
+.\scripts\setup-jetbrains-marketplace-token.ps1
+```
+
 Shell:
 
 ```sh
 export JETBRAINS_MARKETPLACE_TOKEN="perm:..."
 ./gradlew :intellij-plugin:publishPlugin
+```
+
+Shell helper:
+
+```sh
+./scripts/setup-jetbrains-marketplace-token.sh
 ```
 
 Optional: publish to a non-default Marketplace channel:
