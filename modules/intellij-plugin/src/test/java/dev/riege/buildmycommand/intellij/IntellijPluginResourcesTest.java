@@ -36,6 +36,8 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRequirementSyntaxHighlighterFactory"));
+        assertTrue(pluginXml.contains("multiHostInjector"));
+        assertTrue(!pluginXml.contains("<languageInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRequirementInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteAnnotator"));
