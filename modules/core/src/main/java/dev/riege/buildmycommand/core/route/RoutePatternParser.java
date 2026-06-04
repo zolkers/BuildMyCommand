@@ -16,6 +16,7 @@ import dev.riege.buildmycommand.dsl.RouteParser;
 import dev.riege.buildmycommand.dsl.RouteType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class RoutePatternParser {
@@ -26,7 +27,11 @@ public final class RoutePatternParser {
      * Compatibility facade for core callers; public DSL parsing lives in the :dsl module.
      */
     public static RoutePattern parse(String pattern) {
-        dev.riege.buildmycommand.dsl.RoutePattern parsed = RouteParser.parse(pattern);
+        return parse(pattern, Map.of());
+    }
+
+    public static RoutePattern parse(String pattern, Map<String, Class<?>> customTypes) {
+        dev.riege.buildmycommand.dsl.RoutePattern parsed = RouteParser.parse(pattern, customTypes);
         List<RouteStep> steps = new ArrayList<>();
         for (dev.riege.buildmycommand.dsl.RouteStep step : parsed.steps()) {
             steps.add(convertStep(step));

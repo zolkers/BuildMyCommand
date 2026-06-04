@@ -511,6 +511,7 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, registry::caseInsensitiveLiterals);
         assertThrows(UnsupportedOperationException.class, registry::caseInsensitiveOptions);
         assertThrows(UnsupportedOperationException.class, () -> registry.unregister("x"));
+        assertEquals(Map.of(), registry.routeTypes());
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").hidden());
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").usage("u"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").example("e"));

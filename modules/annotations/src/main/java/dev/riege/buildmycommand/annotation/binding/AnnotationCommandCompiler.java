@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -45,7 +46,12 @@ public final class AnnotationCommandCompiler {
     }
 
     public static CompiledCommands compile(Object commands) {
+        return compile(commands, Map.of());
+    }
+
+    public static CompiledCommands compile(Object commands, Map<String, Class<?>> routeTypes) {
         Objects.requireNonNull(commands, "commands");
+        routeTypes = Map.copyOf(Objects.requireNonNull(routeTypes, "routeTypes"));
         Class<?> owner = commands.getClass();
         CasePolicy classCasePolicy = casePolicy(owner.getAnnotation(CaseInsensitive.class));
         Optional<String> group = commandGroup(owner);
@@ -54,27 +60,22 @@ public final class AnnotationCommandCompiler {
         Alias rootAlias = owner.getAnnotation(Alias.class);
         List<String> rootAliases = rootAlias == null ? List.of() : List.of(rootAlias.value());
         List<CompiledCommand> compiled = new ArrayList<>();
-        collectCommands(commands, owner, owner.getAnnotation(Command.class), rootAliases, group, List.of(), compiled);
-        validateSuggestionProviders(compiled);
+        collectCommands(commands, owner, owner.getAnnotation(Command.class), rootAliases, group, List.of(), compiled,
+            routeTypes);
+        validateSuggestionProviders(compiled, routeTypes);
 
         return new CompiledCommands(classCasePolicy, rootCommand, compiled);
     }
 
-    private static void collectCommands(
-        Object target,
-        Class<?> owner,
-        Command rootCommand,
-        List<String> rootAliases,
-        Optional<String> group,
-        List<SubcommandSegment> prefix,
-        List<CompiledCommand> compiled
-    ) {
+    private static void collectCommands(Object target, Class<?> owner, Command rootCommand, List<String> rootAliases,
+                                        Optional<String> group, List<SubcommandSegment> prefix,
+                                        List<CompiledCommand> compiled, Map<String, Class<?>> routeTypes) {
         Arrays.stream(owner.getDeclaredMethods())
             .filter(method -> isAnnotatedCommandMethod(rootCommand, prefix, method))
             .sorted(Comparator
                 .comparing((Method method) -> routeKey(rootCommand, prefix, method))
                 .thenComparing(AnnotationCommandCompiler::signature))
-            .map(method -> compileMethod(target, method, rootCommand, rootAliases, prefix, group))
+            .map(method -> compileMethod(target, method, rootCommand, rootAliases, prefix, group, routeTypes))
             .forEach(compiled::add);
 
         Arrays.stream(owner.getDeclaredClasses())
@@ -85,7 +86,7 @@ public final class AnnotationCommandCompiler {
                 Object nestedTarget = instantiateNestedCommandGroup(target, nested);
                 List<SubcommandSegment> nestedPrefix = new ArrayList<>(prefix);
                 nestedPrefix.add(segment);
-                collectCommands(nestedTarget, nested, rootCommand, rootAliases, group, nestedPrefix, compiled);
+                collectCommands(nestedTarget, nested, rootCommand, rootAliases, group, nestedPrefix, compiled, routeTypes);
             });
     }
 
@@ -95,7 +96,8 @@ public final class AnnotationCommandCompiler {
         Command ownerCommand,
         List<String> rootAliases,
         List<SubcommandSegment> prefix,
-        Optional<String> group
+        Optional<String> group,
+        Map<String, Class<?>> routeTypes
     ) {
         Command command = method.getAnnotation(Command.class);
         Route route = method.getAnnotation(Route.class);
@@ -122,7 +124,8 @@ public final class AnnotationCommandCompiler {
                 method.getAnnotation(Alias.class),
                 prefix.size() + 1
             );
-            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
+            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings(),
+                routeTypes);
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,
@@ -154,7 +157,8 @@ public final class AnnotationCommandCompiler {
         }
         if (route != null) {
             String commandRoute = AnnotationRouteAliases.aliasedRoute(route.value(), method.getAnnotation(Alias.class));
-            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings());
+            AnnotationRouteValidator.validateRouteContextUsage(commandRoute, method, boundMethod.bindings(),
+                routeTypes);
             return new CompiledCommand(
                 RegistrationKind.ROUTE,
                 commandRoute,
@@ -416,10 +420,10 @@ public final class AnnotationCommandCompiler {
         return builder.append(')').toString();
     }
 
-    private static void validateSuggestionProviders(List<CompiledCommand> compiled) {
+    private static void validateSuggestionProviders(List<CompiledCommand> compiled, Map<String, Class<?>> routeTypes) {
         List<RouteStep> routeSteps = compiled.stream()
             .filter(command -> command.kind() == RegistrationKind.ROUTE)
-            .flatMap(command -> RouteParser.parse(command.route()).steps().stream())
+            .flatMap(command -> RouteParser.parse(command.route(), routeTypes).steps().stream())
             .toList();
         compiled.stream()
             .flatMap(command -> command.metadata().suggestions().stream())
@@ -451,10 +455,11 @@ public final class AnnotationCommandCompiler {
 
         public void register(CommandRegistry registry) {
             Objects.requireNonNull(registry, "registry");
+            Map<String, Class<?>> routeTypes = registry.routeTypes();
             classCasePolicy.apply(registry);
             rootCommand.ifPresent(root -> root.register(registry));
             for (CompiledCommand command : commands) {
-                command.register(registry);
+                command.register(registry, routeTypes);
             }
         }
     }
@@ -533,13 +538,13 @@ public final class AnnotationCommandCompiler {
             return boundMethod.metadata();
         }
 
-        void register(CommandRegistry registry) {
+        void register(CommandRegistry registry, Map<String, Class<?>> routeTypes) {
             casePolicy.apply(registry);
             if (kind == RegistrationKind.ROUTE) {
                 CommandRegistry.RouteBuilder builder = registry.route(route);
                 description.ifPresent(builder::description);
                 permission.ifPresent(builder::permission);
-                applyMetadata(builder);
+                applyMetadata(builder, routeTypes);
                 builder.executes(boundMethod::invoke);
                 return;
             }
@@ -594,7 +599,7 @@ public final class AnnotationCommandCompiler {
             group.ifPresent(builder::group);
         }
 
-        private void applyMetadata(CommandRegistry.RouteBuilder builder) {
+        private void applyMetadata(CommandRegistry.RouteBuilder builder, Map<String, Class<?>> routeTypes) {
             MethodCommandBinder.CommandMetadata metadata = metadata();
             if (metadata.hidden()) {
                 builder.hidden();
@@ -604,16 +609,14 @@ public final class AnnotationCommandCompiler {
             metadata.cooldown().ifPresent(builder::cooldown);
             metadata.requirement().ifPresent(builder::requirement);
             builder.suggestAliases(metadata.suggestAliases());
-            applyRouteSuggestions(builder, metadata.suggestions());
+            applyRouteSuggestions(builder, metadata.suggestions(), routeTypes);
             metadata.middlewares().forEach(builder::middleware);
             group.ifPresent(builder::group);
         }
 
-        private void applyRouteSuggestions(
-            CommandRegistry.RouteBuilder builder,
-            List<MethodCommandBinder.SuggestionBinding> suggestions
-        ) {
-            List<RouteStep> steps = RouteParser.parse(route).steps();
+        private void applyRouteSuggestions(CommandRegistry.RouteBuilder builder,
+            List<MethodCommandBinder.SuggestionBinding> suggestions, Map<String, Class<?>> routeTypes) {
+            List<RouteStep> steps = RouteParser.parse(route, routeTypes).steps();
             for (MethodCommandBinder.SuggestionBinding suggestion : suggestions) {
                 for (RouteStep step : steps) {
                     if (step instanceof ArgumentRouteStep argument && argument.name().equals(suggestion.name())) {

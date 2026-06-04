@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -167,6 +168,28 @@ class RouteParserTest {
             .type().runtimeType());
         assertEquals(double.class, ((ArgumentRouteStep) RouteParser.parse("x <v:double{1..2}>").steps().get(0))
             .type().runtimeType());
+    }
+
+    @Test
+    void parsesCustomRuntimeTypesFromCallerProvidedAliases() {
+        RoutePattern route = RouteParser.parse(
+            "shop give <item:Material> [--fallback:Material|-f]",
+            Map.of("Material", Material.class)
+        );
+
+        assertEquals(String.class, RouteParser.defaultTypes().get("String"));
+        assertEquals(new ArgumentRouteStep(
+            "item",
+            RouteType.runtime("Material", Material.class),
+            RouteArgumentKind.REQUIRED
+        ), route.steps().get(1));
+        assertEquals(new OptionRouteStep(
+            "fallback",
+            RouteType.runtime("Material", Material.class),
+            "f",
+            RouteOptionKind.VALUE
+        ), route.steps().get(2));
+        assertThrows(NullPointerException.class, () -> RouteParser.parse("shop <item:Material>", null));
     }
 
     @Test
@@ -354,5 +377,8 @@ class RouteParserTest {
         InvocationTargetException exception = assertThrows(InvocationTargetException.class,
             () -> method.invoke(null, raw, token));
         assertTrue(exception.getCause() instanceof IllegalArgumentException);
+    }
+
+    private record Material(String id) {
     }
 }

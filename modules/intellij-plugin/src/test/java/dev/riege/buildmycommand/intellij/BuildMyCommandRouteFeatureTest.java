@@ -228,6 +228,60 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 && "Unknown argument type: Player".equals(record.message)));
     }
 
+    public void testAnnotatorAcceptsRouteTypesRegisteredInBuilderDsl() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                static final class Material {
+                }
+
+                static final class Rank {
+                }
+
+                void setup(
+                    dev.riege.buildmycommand.core.CommandFramework.Builder builder,
+                    dev.riege.buildmycommand.api.ArgumentParser<Material> materialParser,
+                    dev.riege.buildmycommand.api.ArgumentParser<Rank> rankParser
+                ) {
+                    builder.type("Material", Material.class, materialParser);
+                    builder.types(types -> types.register("Rank", Rank.class, rankParser));
+                }
+
+                @dev.riege.buildmycommand.annotation.Route("shop give <item:Material> [--fallback:Rank|-f]")
+                void annotated() {
+                }
+            }
+            """);
+        PsiLiteralExpression route = literal(file, "shop give <item:Material> [--fallback:Rank|-f]");
+        RecordingAnnotationHolder holder = new RecordingAnnotationHolder();
+
+        new BuildMyCommandRouteAnnotator().annotate(route, holder.proxy());
+
+        assertFalse(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.WARNING
+                && record.message != null
+                && record.message.startsWith("Unknown")));
+    }
+
+    public void testRouteTypeResolverIgnoresMalformedBuilderRegistrations() {
+        PsiFile file = (PsiFile) myFixture.configureByText("Demo.java", """
+            final class Demo {
+                static final class Material {
+                }
+
+                void setup(Object builder, Object parser) {
+                    builder.type("Material", Material.class, parser);
+                    builder.type("TooShort");
+                    builder.type("NoClassLiteral", parser, parser);
+                    builder.type(Material.class, Material.class, parser);
+                    builder.register("Bad-Type", Material.class, parser);
+                }
+            }
+            """);
+
+        assertEquals(java.util.Set.of(), BuildMyCommandRouteTypeResolver.declaredCommandTypes(null));
+        assertEquals(java.util.Set.of("Material"), BuildMyCommandRouteTypeResolver.declaredCommandTypes(file));
+    }
+
     public void testRequirementAnnotatorHighlightsBooleanDslAndWarnsMalformedExpressions() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -844,6 +898,9 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         var constructor = BuildMyCommandRouteDsl.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         assertNotNull(constructor.newInstance());
+        var resolverConstructor = BuildMyCommandRouteTypeResolver.class.getDeclaredConstructor();
+        resolverConstructor.setAccessible(true);
+        assertNotNull(resolverConstructor.newInstance());
     }
 
     public void testRequirementDslValidationCoversValidAndMalformedInputs() throws Exception {

@@ -16,6 +16,7 @@ import dev.riege.buildmycommand.dsl.RouteType;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public final class AnnotationRouteValidator {
@@ -27,9 +28,19 @@ public final class AnnotationRouteValidator {
         Method method,
         List<MethodCommandBinder.ParameterBinding> bindings
     ) {
+        validateRouteContextUsage(route, method, bindings, Map.of());
+    }
+
+    public static void validateRouteContextUsage(
+        String route,
+        Method method,
+        List<MethodCommandBinder.ParameterBinding> bindings,
+        Map<String, Class<?>> routeTypes
+    ) {
         Objects.requireNonNull(route, "route");
         Objects.requireNonNull(method, "method");
         Objects.requireNonNull(bindings, "bindings");
+        Objects.requireNonNull(routeTypes, "routeTypes");
 
         long routeContexts = bindings.stream()
             .filter(binding -> binding.kind() == MethodCommandBinder.Kind.ROUTE_CONTEXT)
@@ -41,11 +52,11 @@ public final class AnnotationRouteValidator {
             throw new IllegalArgumentException("@Route method must declare exactly one @RouteCtx CommandContext parameter: "
                 + method.getName());
         }
-        validateRuntimeTypes(route);
+        validateRuntimeTypes(route, routeTypes);
     }
 
-    private static void validateRuntimeTypes(String route) {
-        RoutePattern pattern = RouteParser.parse(route);
+    private static void validateRuntimeTypes(String route, Map<String, Class<?>> routeTypes) {
+        RoutePattern pattern = RouteParser.parse(route, routeTypes);
         for (RouteStep step : pattern.steps()) {
             if (step instanceof ArgumentRouteStep argument) {
                 runtimeType("route argument", argument.name(), argument.type());

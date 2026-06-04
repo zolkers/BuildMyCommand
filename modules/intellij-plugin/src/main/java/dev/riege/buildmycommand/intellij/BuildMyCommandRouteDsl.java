@@ -44,8 +44,14 @@ final class BuildMyCommandRouteDsl {
     }
 
     static List<Issue> validate(String route) {
+        return validate(route, Set.of());
+    }
+
+    static List<Issue> validate(String route, Set<String> customTypes) {
         List<Issue> issues = new ArrayList<>();
         Set<String> aliases = new HashSet<>();
+        Set<String> knownTypes = new HashSet<>(TYPE_SET);
+        knownTypes.addAll(customTypes);
         boolean optionalArgumentSeen = false;
         int index = 0;
         for (String token : route.split("\\s+")) {
@@ -61,17 +67,17 @@ final class BuildMyCommandRouteDsl {
                 if (optionalArgumentSeen) {
                     issues.add(new Issue(start, end, "Required argument cannot follow an optional argument"));
                 }
-                validateArgument(token.substring(1, token.length() - 1), start + 1, issues);
+                validateArgument(token.substring(1, token.length() - 1), start + 1, knownTypes, issues);
                 continue;
             }
 
             if (token.startsWith("[") && token.endsWith("]")) {
                 String body = token.substring(1, token.length() - 1);
                 if (body.startsWith("--")) {
-                    validateOption(body, start + 1, aliases, issues);
+                    validateOption(body, start + 1, aliases, knownTypes, issues);
                 } else {
                     optionalArgumentSeen = true;
-                    validateArgument(body, start + 1, issues);
+                    validateArgument(body, start + 1, knownTypes, issues);
                 }
                 continue;
             }
@@ -137,7 +143,7 @@ final class BuildMyCommandRouteDsl {
         }
     }
 
-    private static void validateArgument(String body, int offset, List<Issue> issues) {
+    private static void validateArgument(String body, int offset, Set<String> knownTypes, List<Issue> issues) {
         String greedyType = null;
         if (body.endsWith("...")) {
             int separator = body.indexOf(':');
@@ -155,7 +161,7 @@ final class BuildMyCommandRouteDsl {
             return;
         }
         String type = matcher.group(2);
-        if (!TYPE_SET.contains(type)) {
+        if (!knownTypes.contains(type)) {
             issues.add(new Issue(offset + matcher.start(2), offset + matcher.end(2), "Unknown argument type: " + type));
         }
         if (matcher.group(3) != null && !"String".equals(type)) {
@@ -163,14 +169,20 @@ final class BuildMyCommandRouteDsl {
         }
     }
 
-    private static void validateOption(String body, int offset, Set<String> aliases, List<Issue> issues) {
+    private static void validateOption(
+        String body,
+        int offset,
+        Set<String> aliases,
+        Set<String> knownTypes,
+        List<Issue> issues
+    ) {
         Matcher matcher = OPTION.matcher(body);
         if (!matcher.matches()) {
             issues.add(new Issue(offset, offset + body.length(), "Malformed option"));
             return;
         }
         String type = matcher.group(2);
-        if (type != null && !TYPE_SET.contains(type)) {
+        if (type != null && !knownTypes.contains(type)) {
             issues.add(new Issue(offset + matcher.start(2), offset + matcher.end(2), "Unknown option type: " + type));
         }
         String alias = matcher.group(3);

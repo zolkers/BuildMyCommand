@@ -7,6 +7,6 @@
 -->
 <project version="4">
   <component name="ExternalDependencies">
-    <plugin id="dev.riege.buildmycommand.dsl" min-version="0.1.1" />
+    <plugin id="dev.riege.buildmycommand.dsl" min-version="0.2.0" />
   </component>
 </project>

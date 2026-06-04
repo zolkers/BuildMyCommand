@@ -18,7 +18,7 @@ public final class AnnotationCommandScanner {
 
     public static void register(CommandRegistry registry, Object commands) {
         Objects.requireNonNull(registry, "registry");
-        AnnotationCommandCompiler.compile(Objects.requireNonNull(commands, "commands"))
+        AnnotationCommandCompiler.compile(Objects.requireNonNull(commands, "commands"), registry.routeTypes())
             .register(registry);
     }
 }
