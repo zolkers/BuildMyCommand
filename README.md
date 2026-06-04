@@ -146,17 +146,16 @@ The generated command supports command details, permission-aware listings, pagin
 
 | File | Content |
 | --- | --- |
-| [Getting Started](docs/01-getting-started.md) | Minimal framework setup and command registration. |
-| [Route And SubRoute](docs/02-route-and-subroute.md) | The recommended DSL style. |
-| [Annotations](docs/03-annotations.md) | Annotation contracts and IntelliJ rules. |
-| [Builder API](docs/04-builder-api.md) | Programmatic command trees when annotations are not enough. |
-| [Adapters](docs/05-adapters.md) | Adapter artifacts, `IAdapter`, and custom adapter examples. |
-| [Minecraft/Fabric](docs/06-minecraft.md) | Fabric client setup, `ModCommandSource`, and suggestions. |
-| [IntelliJ Plugin](docs/07-intellij-plugin.md) | Local plugin install, highlighting, inspections. |
-| [Middleware And Permissions](docs/08-errors-middleware-permissions.md) | `@Middleware`, `@Require`, `@Permission`, errors. |
-| [Testing](docs/09-testing.md) | Command tests and adapter smoke tests. |
-| [Publishing](docs/10-publishing.md) | Maven Central and local publishing notes. |
-| [Help Commands](docs/11-help.md) | Built-in help command registration, pagination, filters, and suggestions. |
+Start with [Documentation Home](docs/README.md), or jump directly by goal:
+
+| Goal | Docs |
+| --- | --- |
+| Install and register commands | [Getting Started](docs/getting-started/installation.md) |
+| Learn the canonical DSL/annotation model | [Route DSL](docs/concepts/route-dsl.md), [Annotations](docs/concepts/annotations.md) |
+| Use advanced runtime features | [Help Commands](docs/features/help-commands.md), [Middleware, Permissions, Errors](docs/features/middleware-permissions-errors.md) |
+| Integrate with a platform | [Adapters](docs/integrations/adapters.md), [Minecraft/Fabric](docs/integrations/minecraft.md) |
+| Tooling and tests | [IntelliJ Plugin](docs/tooling/intellij-plugin.md), [Testing](docs/tooling/testing.md) |
+| Maintain and publish the project | [Publishing](docs/maintainers/publishing.md) |
 
 ## Build
 

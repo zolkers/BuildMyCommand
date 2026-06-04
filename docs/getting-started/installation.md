@@ -106,7 +106,7 @@ Maven adapter example:
 </dependency>
 ```
 
-The complete adapter artifact table lives in [Adapters](05-adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.
+The complete adapter artifact table lives in [Adapters](../integrations/adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.
 
 ## Custom Argument Types
 
@@ -173,7 +173,7 @@ It answers:
 | `reply(CommandMessage)` | Platform-specific reply rendering. |
 | `unwrap(Class<T>)` | Access to the native source for suggestions or platform logic. |
 
-For Fabric client commands, wrap `FabricClientCommandSource` once and keep command classes clean. See [Minecraft/Fabric](06-minecraft.md).
+For Fabric client commands, wrap `FabricClientCommandSource` once and keep command classes clean. See [Minecraft/Fabric](../integrations/minecraft.md).
 
 Regex permissions are opt-in:
 

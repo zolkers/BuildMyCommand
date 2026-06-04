@@ -407,4 +407,4 @@ Register commands using your native runtime API, then call `execute(...)` and `s
 7. Preserve `@SuggestAliases(false)` by delegating suggestions to the framework or filtering exported alias metadata.
 8. Add smoke tests for unknown command, incomplete command, success, failure, permissions, aliases, hidden aliases, and suggestions.
 
-For Minecraft/Fabric, see [Minecraft/Fabric](06-minecraft.md).
+For Minecraft/Fabric, see [Minecraft/Fabric](minecraft.md).

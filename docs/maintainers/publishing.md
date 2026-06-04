@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 
 Publishing is split into Maven artifacts and the IntelliJ plugin.
 
-This page is for maintainers and contributors. Application users should consume released artifacts from Maven Central as shown in [Getting Started](01-getting-started.md).
+This page is for maintainers and contributors. Application users should consume released artifacts from Maven Central as shown in [Getting Started](../getting-started/installation.md).
 
 ## Local Development
 
