@@ -60,6 +60,31 @@ Current release line:
 
 Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version, run the full checks, publish, then move development back to the next `-SNAPSHOT`.
 
+## GitHub Release Workflow
+
+CI publishes Maven artifacts automatically when a tag matching `v*` is pushed. The version is derived from the tag name:
+
+| Tag | Published version |
+| --- | --- |
+| `v0.1.0` | `0.1.0` |
+| `v1.2.3` | `1.2.3` |
+
+The workflow runs:
+
+```bash
+./gradlew clean check -PreleaseVersion=<version>
+./gradlew publishAndReleaseToMavenCentral -PreleaseVersion=<version>
+```
+
+Configure these repository secrets before relying on the workflow:
+
+| Secret | Value |
+| --- | --- |
+| `MAVEN_CENTRAL_USERNAME` | Maven Central username/token username. |
+| `MAVEN_CENTRAL_PASSWORD` | Maven Central password/token password. |
+| `SIGNING_IN_MEMORY_KEY` | ASCII-armored GPG private key. |
+| `SIGNING_IN_MEMORY_KEY_PASSWORD` | Password for the signing key. |
+
 ## IntelliJ Plugin Local Release
 
 Build and install locally:
