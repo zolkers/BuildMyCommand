@@ -1,3 +1,9 @@
+<!--
+  Copyright (c) 2026 Zolkers
+
+  Licensed under the MIT License.
+  SPDX-License-Identifier: MIT
+-->
 <component name="LanguageInjectionConfiguration">
     <injection language="BuildMyCommandRoute" injector-id="java">
         <display-name>BuildMyCommand annotation route DSL</display-name>

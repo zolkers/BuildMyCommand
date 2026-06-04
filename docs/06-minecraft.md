@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Minecraft And Fabric
 
 Minecraft integrations are built around Brigadier-style command trees, but your command code should stay framework-first.

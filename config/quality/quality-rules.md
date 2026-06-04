@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026 Zolkers
+
+Licensed under the MIT License.
+SPDX-License-Identifier: MIT
+-->
+
 # Quality Rules
 
 The repository uses local Gradle quality tasks so CI does not depend on extra analysis services.
