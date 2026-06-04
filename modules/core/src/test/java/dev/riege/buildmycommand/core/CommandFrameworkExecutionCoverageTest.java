@@ -59,11 +59,17 @@ class CommandFrameworkExecutionCoverageTest {
         framework.registry().route("perm view")
             .permission("perm.view")
             .executes(ctx -> Results.success("view"));
+        framework.registry().route("perm audit")
+            .permissionRegex("perm\\.audit\\..*")
+            .executes(ctx -> Results.success("audit"));
         framework.registry().command("user", command -> command
             .argument("id", Integer.class)
             .subcommand("info", info -> info.executes(ctx -> Results.success("user " + ctx.arg("id", Integer.class)))));
         assertEquals(Optional.of("Unknown command: "), framework.dispatch(source(Set.of()), "").reply());
         assertEquals(Optional.of("Missing permission: perm.view"), framework.dispatch(source(Set.of()), "perm view").reply());
+        assertEquals(Optional.of("Missing permission: /perm\\.audit\\..*/"),
+            framework.dispatch(source(Set.of()), "perm audit").reply());
+        assertEquals(Optional.of("audit"), framework.dispatch(source(Set.of("perm.audit.read")), "perm audit").reply());
         assertEquals(Optional.of("Invalid integer for argument id: bad"), framework.dispatch(source(Set.of()), "user bad info").reply());
         assertEquals(Optional.of("user 5"), framework.dispatch(source(Set.of()), "user 5 info").reply());
     }
@@ -226,6 +232,11 @@ class CommandFrameworkExecutionCoverageTest {
             @Override
             public boolean hasPermission(String permission) {
                 return permissions.contains(permission);
+            }
+
+            @Override
+            public Set<String> permissions() {
+                return permissions;
             }
         };
     }

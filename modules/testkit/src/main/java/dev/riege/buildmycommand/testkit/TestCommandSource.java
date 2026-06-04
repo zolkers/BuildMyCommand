@@ -86,6 +86,11 @@ public final class TestCommandSource implements CommandSource {
         return permissions.contains(permission);
     }
 
+    @Override
+    public Set<String> permissions() {
+        return permissions;
+    }
+
     public static final class Builder {
         private String id = "test-source";
         private String name = "Test Source";

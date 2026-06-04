@@ -10,6 +10,7 @@ package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.CommandMetadata;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 
 import java.util.ArrayList;
@@ -98,10 +99,11 @@ public final class RegistryNodeMerger {
 
         CommandRegistry.CommandExecutor executor = incoming.isExecutable() ? incoming.executor() : existing.executor();
         String description = mergeMetadata(existing.description(), incoming.description(), "description");
-        String permission = mergeMetadata(existing.permission(), incoming.permission(), "permission");
+        PermissionSpec permission = mergePermission(existing.permissionSpec(), incoming.permissionSpec());
         return new RegistryCommandNode(
             existing.literal(),
             description,
+            permission == null ? null : permission.value(),
             permission,
             existing.aliases(),
             executor,
@@ -110,6 +112,16 @@ public final class RegistryNodeMerger {
             mergeCommandMetadata(existing.metadata(), incoming.metadata()),
             children
         );
+    }
+
+    private static PermissionSpec mergePermission(PermissionSpec existing, PermissionSpec incoming) {
+        if (existing == null) {
+            return incoming;
+        }
+        if (incoming == null || existing.equals(incoming)) {
+            return existing;
+        }
+        throw new IllegalArgumentException("route conflicts with existing permission");
     }
 
     private static CommandMetadata mergeCommandMetadata(CommandMetadata existing, CommandMetadata incoming) {

@@ -21,6 +21,26 @@ CommandResult ping(@RouteCtx CommandContext ctx) {
 }
 ```
 
+It can also be a Java regex when one command should accept a family of
+permission nodes:
+
+```java
+@Permission(value = "wecc\\.admin\\..*", regex = true)
+@SubRoute("admin audit")
+CommandResult audit(@RouteCtx CommandContext ctx) {
+    return Results.success("audit");
+}
+```
+
+The builder equivalent is:
+
+```java
+framework.registry()
+    .route("admin audit")
+    .permissionRegex("wecc\\.admin\\..*")
+    .executes(ctx -> Results.success("audit"));
+```
+
 `@Require` is a boolean expression:
 
 ```java
@@ -31,16 +51,36 @@ CommandResult reload(@RouteCtx CommandContext ctx) {
 }
 ```
 
-Expressions support `&&`, `||`, `!`, and parentheses.
+Expressions support `&&`, `||`, `!`, and parentheses. Keep boolean logic in
+`@Require`; use regex permissions only for matching permission names.
 
 ## CommandSource Permission Policy
 
-Permissions call `CommandSource.hasPermission(String)`.
+Exact permissions call `CommandSource.hasPermission(String)`.
 
 ```java
 @Override
 public boolean hasPermission(String permission) {
     return permission == null || permission.isBlank() || elevated;
+}
+```
+
+Regex permissions call `CommandSource.hasPermissionMatching(Pattern)`. The
+default implementation checks the values returned by `permissions()`:
+
+```java
+@Override
+public Set<String> permissions() {
+    return Set.copyOf(permissionNodes);
+}
+```
+
+If your platform has a native way to check patterns, override the matcher:
+
+```java
+@Override
+public boolean hasPermissionMatching(Pattern pattern) {
+    return nativePermissions().stream().anyMatch(permission -> pattern.matcher(permission).matches());
 }
 ```
 

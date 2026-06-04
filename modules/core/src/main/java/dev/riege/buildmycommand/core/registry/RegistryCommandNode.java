@@ -12,6 +12,7 @@ import dev.riege.buildmycommand.core.route.*;
 import dev.riege.buildmycommand.core.support.Validators;
 import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.PermissionSpec;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,6 +26,7 @@ public record RegistryCommandNode(
     String literal,
     String description,
     String permission,
+    PermissionSpec permissionSpec,
     List<String> aliases,
     CommandRegistry.CommandExecutor executor,
     List<RegistryArgumentSpec> arguments,
@@ -40,12 +42,40 @@ public record RegistryCommandNode(
         if (permission != null && permission.isBlank()) {
             throw new IllegalArgumentException("permission must not be blank");
         }
+        if (permissionSpec != null && !permissionSpec.value().equals(permission)) {
+            throw new IllegalArgumentException("permission must match permissionSpec value");
+        }
         aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
         Objects.requireNonNull(executor, "executor");
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         options = List.copyOf(Objects.requireNonNull(options, "options"));
         metadata = Objects.requireNonNull(metadata, "metadata");
         children = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(children, "children")));
+    }
+
+    public RegistryCommandNode(
+        String literal,
+        String description,
+        String permission,
+        List<String> aliases,
+        CommandRegistry.CommandExecutor executor,
+        List<RegistryArgumentSpec> arguments,
+        List<RegistryOptionSpec> options,
+        CommandMetadata metadata,
+        Map<String, RegistryCommandNode> children
+    ) {
+        this(
+            literal,
+            description,
+            permission,
+            permission == null ? null : PermissionSpec.exact(permission),
+            aliases,
+            executor,
+            arguments,
+            options,
+            metadata,
+            children
+        );
     }
 
     public List<String> literals() {
@@ -61,6 +91,10 @@ public record RegistryCommandNode(
 
     public Optional<String> permissionOptional() {
         return Optional.ofNullable(permission);
+    }
+
+    public Optional<PermissionSpec> permissionSpecOptional() {
+        return Optional.ofNullable(permissionSpec);
     }
 
     public boolean isExecutable() {

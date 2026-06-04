@@ -14,6 +14,7 @@ import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
@@ -31,7 +32,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     private final CommandMatchingPolicy matchingPolicy;
     private final Map<String, Class<?>> routeTypes;
     private String description;
-    private String permission;
+    private PermissionSpec permission;
     private final CommandMetadata.Builder metadata = new CommandMetadata.Builder();
     private final List<String> aliases = new ArrayList<>();
     private final List<RegistryArgumentSpec> arguments = new ArrayList<>();
@@ -61,7 +62,13 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
 
     @Override
     public CommandRegistry.CommandBuilder permission(String permission) {
-        this.permission = Validators.metadata(permission, "permission");
+        this.permission = PermissionSpec.exact(Validators.metadata(permission, "permission"));
+        return this;
+    }
+
+    @Override
+    public CommandRegistry.CommandBuilder permissionRegex(String pattern) {
+        this.permission = PermissionSpec.regex(Validators.metadata(pattern, "permission"));
         return this;
     }
 
@@ -258,8 +265,12 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     }
 
     RegistryCommandNode node() {
-        return new RegistryCommandNode(literal, description, permission, aliases, executor, arguments, options,
+        return new RegistryCommandNode(literal, description, permissionValue(), permission, aliases, executor, arguments, options,
             metadata.build(), children);
+    }
+
+    private String permissionValue() {
+        return permission == null ? null : permission.value();
     }
 
     private void validateCanAdd(String nextName, RegistryArgumentKind nextKind) {
@@ -340,7 +351,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
     private final class RelativeRouteBuilder implements CommandRegistry.RouteBuilder {
         private final RoutePattern route;
         private String description;
-        private String permission;
+        private PermissionSpec permission;
         private final CommandMetadata.Builder routeMetadata = new CommandMetadata.Builder();
         private final Map<String, SuggestionProvider> argumentSuggestions = new LinkedHashMap<>();
         private final Map<String, SuggestionProvider> optionSuggestions = new LinkedHashMap<>();
@@ -360,7 +371,13 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
 
         @Override
         public CommandRegistry.RouteBuilder permission(String permission) {
-            this.permission = Validators.metadata(permission, "permission");
+            this.permission = PermissionSpec.exact(Validators.metadata(permission, "permission"));
+            return this;
+        }
+
+        @Override
+        public CommandRegistry.RouteBuilder permissionRegex(String pattern) {
+            this.permission = PermissionSpec.regex(Validators.metadata(pattern, "permission"));
             return this;
         }
 
@@ -488,7 +505,7 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
                 builder.description(description);
             }
             if (permission != null) {
-                builder.permission(permission);
+                applyPermission(builder, permission);
             }
             CommandMetadata builtMetadata = routeMetadata.build();
             if (builtMetadata.hidden()) {
@@ -513,6 +530,14 @@ public final class SimpleCommandBuilder implements CommandRegistry.CommandBuilde
 
         private String providerName(SuggestionProvider provider) {
             return provider instanceof NamedSuggestionProvider named ? named.name() : null;
+        }
+    }
+
+    private static void applyPermission(CommandRegistry.CommandBuilder builder, PermissionSpec permission) {
+        if (permission.regex()) {
+            builder.permissionRegex(permission.value());
+        } else {
+            builder.permission(permission.value());
         }
     }
 

@@ -14,6 +14,7 @@ import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
 import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.FlagSpec;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
@@ -267,6 +268,15 @@ class RegistryModelCoverageTest {
         assertThrows(IllegalStateException.class, () -> new SimpleCommandBuilder("x").argumentSuggestions("a", ctx -> List.of()));
         assertThrows(NullPointerException.class, () -> new SimpleCommandBuilder("x").optionSuggestions("a", null));
         assertThrows(IllegalStateException.class, () -> new SimpleCommandBuilder("x").optionSuggestions("a", ctx -> List.of()));
+
+        SimpleCommandBuilder regexRouteBuilder = new SimpleCommandBuilder("secure");
+        regexRouteBuilder.subRoute("audit")
+            .permissionRegex("secure\\.audit\\..*")
+            .executes(ctx -> Results.silent());
+        RegistryCommandNode regexLeaf = regexRouteBuilder.node().children().get("audit");
+        assertEquals(Optional.of(PermissionSpec.regex("secure\\.audit\\..*")),
+            regexLeaf.permissionSpecOptional());
+        assertThrows(IllegalArgumentException.class, () -> regexRouteBuilder.subRoute("broken").permissionRegex("["));
     }
 
     @Test
@@ -353,18 +363,24 @@ class RegistryModelCoverageTest {
             .argumentSuggestions("target", ctx -> List.of("Ada"))
             .optionSuggestions("duration", ctx -> List.of("10"))
             .executes(ctx -> Results.silent());
+        registry.route("root audit")
+            .permissionRegex("root\\.audit\\..*")
+            .executes(ctx -> Results.silent());
         registry.command("root", command -> command.path("sibling child", child -> child.executes(ctx -> Results.silent())));
         registry.route("root sibling").description("updated").executes(ctx -> Results.silent());
 
         RegistryCommandNode child = registry.findPath(List.of("root", "child")).node();
+        RegistryCommandNode audit = registry.findPath(List.of("root", "audit")).node();
         assertEquals("Child command", child.description());
         assertEquals("root.child", child.permission());
+        assertEquals(Optional.of(PermissionSpec.regex("root\\.audit\\..*")), audit.permissionSpecOptional());
         assertTrue(child.metadata().hidden());
         assertTrue(child.arguments().get(0).suggestionProviderName() == null);
         assertTrue(child.options().get(0).suggestionProviderName() == null);
         assertTrue(listener.events.contains("updated:root sibling"));
         assertThrows(IllegalArgumentException.class, () -> registry.route("broken [a:String] <b:String>")
             .executes(ctx -> Results.silent()));
+        assertThrows(IllegalArgumentException.class, () -> registry.route("broken").permissionRegex("["));
     }
 
     @Test
@@ -420,7 +436,7 @@ class RegistryModelCoverageTest {
             .build();
         CommandNode node = Commands.literal("root")
             .description("Root")
-            .permission("root.use")
+            .permissionRegex("root\\..*")
             .aliases("r")
             .argument(new ArgumentSpec<>("target", String.class, ArgumentSpec.Kind.REQUIRED))
             .argument(new ArgumentSpec<>("count", Integer.class, ArgumentSpec.Kind.OPTIONAL))
@@ -441,7 +457,8 @@ class RegistryModelCoverageTest {
         CommandNode exported = ManualCommandImporter.exportNode(imported);
 
         assertEquals("Root", exported.description().orElseThrow());
-        assertEquals("root.use", exported.permission().orElseThrow());
+        assertEquals("root\\..*", exported.permission().orElseThrow());
+        assertEquals(PermissionSpec.regex("root\\..*"), exported.permissionSpec().orElseThrow());
         assertEquals(List.of("r"), exported.aliases());
         assertEquals(2, exported.arguments().size());
         assertEquals(2, exported.children().size());
@@ -543,6 +560,9 @@ class RegistryModelCoverageTest {
             policy));
         RegistryCommandNode described = new RegistryCommandNode("root", "one", null, List.of(), SimpleCommandRegistry.DEFAULT_EXECUTOR,
             List.of(), List.of(), CommandMetadata.empty(), Map.of());
+        RegistryCommandNode noDescription = new RegistryCommandNode("root", null, null, List.of(),
+            SimpleCommandRegistry.DEFAULT_EXECUTOR, List.of(), List.of(), CommandMetadata.empty(), Map.of());
+        RegistryNodeMerger.mergeRoot(new LinkedHashMap<>(Map.of("root", described)), noDescription, policy);
         RegistryCommandNode otherDescription = new RegistryCommandNode("root", "two", null, List.of(), SimpleCommandRegistry.DEFAULT_EXECUTOR,
             List.of(), List.of(), CommandMetadata.empty(), Map.of());
         assertThrows(IllegalArgumentException.class, () -> RegistryNodeMerger.mergeRoot(new LinkedHashMap<>(Map.of("root", described)),
@@ -578,6 +598,13 @@ class RegistryModelCoverageTest {
             List.of(), List.of(), CommandMetadata.empty(), Map.of());
         RegistryNodeMerger.mergeRoot(new LinkedHashMap<>(Map.of("perm", permissioned)), noPermission, policy);
         RegistryNodeMerger.mergeRoot(new LinkedHashMap<>(Map.of("perm", permissioned)), permissioned, policy);
+        assertThrows(IllegalArgumentException.class, () -> new RegistryCommandNode("bad", null, "", List.of(),
+            SimpleCommandRegistry.DEFAULT_EXECUTOR, List.of(), List.of(), CommandMetadata.empty(), Map.of()));
+        assertThrows(IllegalArgumentException.class, () -> new RegistryCommandNode("bad", null, "", null, List.of(),
+            SimpleCommandRegistry.DEFAULT_EXECUTOR, List.of(), List.of(), CommandMetadata.empty(), Map.of()));
+        assertThrows(IllegalArgumentException.class, () -> new RegistryCommandNode("bad", null, "exact",
+            PermissionSpec.regex("other\\..*"), List.of(), SimpleCommandRegistry.DEFAULT_EXECUTOR, List.of(),
+            List.of(), CommandMetadata.empty(), Map.of()));
         RegistryCommandNode argsOne = new RegistryCommandNode("shape", null, null, List.of(), SimpleCommandRegistry.DEFAULT_EXECUTOR,
             List.of(new RegistryArgumentSpec("a", String.class, RegistryArgumentKind.REQUIRED)), List.of(), CommandMetadata.empty(), Map.of());
         RegistryCommandNode argsTwo = new RegistryCommandNode("shape", null, null, List.of(), SimpleCommandRegistry.DEFAULT_EXECUTOR,

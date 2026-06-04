@@ -167,11 +167,26 @@ It answers:
 | Method | Purpose |
 | --- | --- |
 | `name()` | Optional display name for help, logging, middleware, replies. |
-| `hasPermission(String)` | Permission check used by `@Permission` and `@Require`. |
+| `hasPermission(String)` | Exact permission check used by `@Permission` and `@Require`. |
+| `permissions()` | Optional permission set used by regex permissions. |
+| `hasPermissionMatching(Pattern)` | Optional regex permission matcher. |
 | `reply(CommandMessage)` | Platform-specific reply rendering. |
 | `unwrap(Class<T>)` | Access to the native source for suggestions or platform logic. |
 
 For Fabric client commands, wrap `FabricClientCommandSource` once and keep command classes clean. See [Minecraft/Fabric](06-minecraft.md).
+
+Regex permissions are opt-in:
+
+```java
+@Permission(value = "admin\\.audit\\..*", regex = true)
+@SubRoute("audit")
+CommandResult audit(@RouteCtx CommandContext ctx) {
+    return Results.success("audit");
+}
+```
+
+They match against `CommandSource.permissions()` by default, or against your
+custom `hasPermissionMatching(Pattern)` override.
 
 ## Dispatch Results
 

@@ -187,12 +187,35 @@ The methods have clear meanings:
 | Method | Purpose |
 | --- | --- |
 | `reply(CommandMessage)` | Central place that renders success/info/error messages to the platform. |
-| `hasPermission(String)` | Permission policy used by `@Permission`, `@Require`, help filtering, and suggestions. |
+| `hasPermission(String)` | Exact permission policy used by `@Permission`, `@Require`, help filtering, and suggestions. |
+| `permissions()` | Optional enumerable permission set used by regex permissions. |
+| `hasPermissionMatching(Pattern)` | Optional native regex/pattern permission matcher. |
 | `unwrap(Class<T>)` | Safe escape hatch for platform-specific suggestions, middleware, or advanced integrations. |
 | `id()` / `name()` | Optional identity for logs, cooldowns, help, metrics, or audit middleware. |
 | `metadata(String)` | Optional place for adapter-specific state when a direct native unwrap is not ideal. |
 
 Commands should usually depend only on `CommandContext`, `CommandSource`, and framework types. Platform APIs should be reached through `unwrap(...)` only in focused places such as suggestion providers or middleware.
+
+Regex permissions use the same source boundary:
+
+```java
+@Override
+public Set<String> permissions() {
+    return Set.copyOf(effectivePermissions);
+}
+```
+
+or, when the native platform has a better permission store:
+
+```java
+@Override
+public boolean hasPermissionMatching(Pattern pattern) {
+    return effectivePermissions().stream().anyMatch(permission -> pattern.matcher(permission).matches());
+}
+```
+
+If a source only implements `hasPermission(String)`, exact permissions and
+`@Require` work normally, but regex permissions cannot discover matching nodes.
 
 ## Source Wrapper Recipes
 
@@ -201,7 +224,7 @@ Use the same contract everywhere, but choose the implementation details from the
 | Platform family | `reply(CommandMessage)` | `hasPermission(String)` | `unwrap(Class<T>)` |
 | --- | --- | --- | --- |
 | Fabric client | `sendFeedback` for success/info, `sendError` for errors. | Client-only mods may return `true`; multiplayer tools should use your own policy. | Return `FabricClientCommandSource` so suggestions can read client/player/network state. |
-| Paper/Spigot | `CommandSender.sendMessage(...)`, with your preferred component conversion. | `permission.isBlank() || sender.hasPermission(permission)`. | Return `CommandSender` and `Player` when applicable. |
+| Paper/Spigot | `CommandSender.sendMessage(...)`, with your preferred component conversion. | `permission.isBlank() \|\| sender.hasPermission(permission)`. | Return `CommandSender` and `Player` when applicable. |
 | BungeeCord/Velocity | Proxy sender messaging APIs. | Native proxy permission API. | Return proxy sender/player/connection objects. |
 | Minestom/Sponge | Platform audience/message APIs. | Native permission service or your own permission registry. | Return native sender/player/server objects. |
 | Discord | Interaction response, follow-up, or channel message. | Guild role/member policy, bot owner checks, or custom ACL. | Return interaction/member/channel/client objects. |

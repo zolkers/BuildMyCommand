@@ -135,6 +135,18 @@ class AnnotationCommandScannerTest {
     }
 
     @Test
+    void permissionAnnotationCanUseRegexPermissionSpec() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new RegexPermissionCommands());
+
+        assertEquals(Optional.of("Missing permission: /admin\\.audit\\..*/"),
+            framework.dispatch(permittedSource("admin.reload"), "audit view").reply());
+        assertEquals(Optional.of("view"),
+            framework.dispatch(permittedSource("admin.audit.view"), "audit view").reply());
+    }
+
+    @Test
     void routeDslSuggestionsCanUseSuggestionContextAndSuggestionSets() {
         CommandFramework framework = CommandFramework.create();
 
@@ -195,6 +207,27 @@ class AnnotationCommandScannerTest {
 
         assertEquals(Optional.of("status"), framework.dispatch(source(), "server status").reply());
         assertEquals(Optional.of("reloaded"), framework.dispatch(source(), "server reload").reply());
+    }
+
+    @Test
+    void legacyCommandAnnotationsApplyExactAndRegexPermissions() {
+        CommandFramework framework = CommandFramework.create();
+
+        AnnotationCommandScanner.register(framework.registry(), new LegacyPermissionCommands());
+        AnnotationCommandScanner.register(framework.registry(), new LegacyRootPermissionCommands());
+
+        assertEquals(Optional.of("Missing permission: legacy.simple"),
+            framework.dispatch(permittedSource(), "legacy-simple").reply());
+        assertEquals(Optional.of("simple"),
+            framework.dispatch(permittedSource("legacy.simple"), "legacy-simple").reply());
+        assertEquals(Optional.of("Missing permission: /legacy\\.regex\\..*/"),
+            framework.dispatch(permittedSource("legacy.simple"), "legacy-regex").reply());
+        assertEquals(Optional.of("regex"),
+            framework.dispatch(permittedSource("legacy.regex.use"), "legacy-regex").reply());
+        assertEquals(Optional.of("Missing permission: legacy.group"),
+            framework.dispatch(permittedSource("legacy.leaf"), "legacy tree run").reply());
+        assertEquals(Optional.of("run"),
+            framework.dispatch(permittedSource("legacy.group", "legacy.leaf"), "legacy tree run").reply());
     }
 
     @Test
@@ -361,6 +394,11 @@ class AnnotationCommandScannerTest {
             public boolean hasPermission(String permission) {
                 return List.of(permissions).contains(permission);
             }
+
+            @Override
+            public Set<String> permissions() {
+                return Set.of(permissions);
+            }
         };
     }
 
@@ -499,6 +537,42 @@ class AnnotationCommandScannerTest {
                 .filteringCurrentToken()
                 .tooltip("online player")
                 .priority(4);
+        }
+    }
+
+    static final class RegexPermissionCommands {
+        @Route("audit view")
+        @Permission(value = "admin\\.audit\\..*", regex = true)
+        CommandResult view(@RouteCtx CommandContext route) {
+            return Results.success("view");
+        }
+    }
+
+    static final class LegacyPermissionCommands {
+        @Command("legacy-simple")
+        @Permission("legacy.simple")
+        CommandResult simple() {
+            return Results.success("simple");
+        }
+
+        @Command("legacy-regex")
+        @Permission(value = "legacy\\.regex\\..*", regex = true)
+        CommandResult regex() {
+            return Results.success("regex");
+        }
+
+    }
+
+    @Command("legacy")
+    static final class LegacyRootPermissionCommands {
+        @Subcommand("tree")
+        @Permission("legacy.group")
+        static final class Tree {
+            @Subcommand("run")
+            @Permission("legacy.leaf")
+            CommandResult run() {
+                return Results.success("run");
+            }
         }
     }
 

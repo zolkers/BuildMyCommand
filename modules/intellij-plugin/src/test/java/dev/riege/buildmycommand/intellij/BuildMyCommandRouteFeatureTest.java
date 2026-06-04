@@ -473,10 +473,20 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void annotated() {
                 }
 
+                @Permission(value = "admin\\\\..*", regex = true)
+                void regexAnnotated() {
+                }
+
+                @Permission(value = "[", regex = true)
+                void badRegexAnnotated() {
+                }
+
                 void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
                     registry.route("admin reload")
                         .permission(12)
                         .permission("admin.reload && staff")
+                        .permissionRegex("admin\\\\..*")
+                        .permissionRegex("[")
                         .permission("admin.simple", "ignored")
                         .requirement("staff && (!banned || owner)")
                         .executes(ctx -> dev.riege.buildmycommand.api.Results.silent());
@@ -497,6 +507,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         }
 
         assertTrue(holder.messages.contains("@Permission accepts one permission node; use @Require for boolean expressions"));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.PERMISSION_REGEX_INVALID));
         assertTrue(holder.messages.contains("Requirement expression is missing an operand"));
         assertFalse(holder.messages.contains("staff && (!banned || owner)"));
     }
