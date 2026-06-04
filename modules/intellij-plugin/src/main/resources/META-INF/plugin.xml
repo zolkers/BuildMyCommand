@@ -23,8 +23,8 @@
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
-        <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
-        <languageInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementInjector"/>
+        <multiHostInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
+        <multiHostInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementInjector"/>
         <implicitUsageProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandImplicitUsageProvider"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteAnnotator"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementAnnotator"/>
