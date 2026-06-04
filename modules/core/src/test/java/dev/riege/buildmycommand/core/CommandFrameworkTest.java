@@ -674,6 +674,70 @@ class CommandFrameworkTest {
     }
 
     @Test
+    void customTypeAliasLetsRouteDslUseUserFriendlyTypeNames() {
+        CommandFramework framework = CommandFramework.builder()
+            .type("Rank", Rank.class, rankParser("admin", "mod", "helper"))
+            .build();
+
+        framework.registry()
+            .route("team promote <rank:Rank> [--fallback:Rank|-f]")
+            .executes(ctx -> Results.success(
+                ctx.arg("rank", Rank.class).name()
+                    + ":"
+                    + ctx.option("fallback", Rank.class).map(Rank::name).orElse("none")
+            ));
+
+        CommandResult success = framework.dispatch(new CommandSource() {
+        }, "team promote admin --fallback mod");
+        CommandResult failure = framework.dispatch(new CommandSource() {
+        }, "team promote owner");
+
+        assertEquals(CommandResult.Status.SUCCESS, success.status());
+        assertEquals(Optional.of("admin:mod"), success.reply());
+        assertEquals(Optional.of("Unknown rank for argument rank: owner"), failure.reply());
+        assertEquals(List.of("admin", "mod", "helper"), framework.suggest(new CommandSource() {
+        }, "team promote ", 13));
+        assertEquals(List.of("admin", "mod", "helper"), framework.suggest(new CommandSource() {
+        }, "team promote admin --fallback ", 30));
+    }
+
+    @Test
+    void customTypeRegistryConsumerRegistersRouteDslAliases() {
+        CommandFramework framework = CommandFramework.builder()
+            .types(types -> types.register("Rank", Rank.class, rankParser("admin", "mod")))
+            .build();
+
+        framework.registry()
+            .route("team audit <rank:Rank>")
+            .executes(ctx -> Results.success(ctx.arg("rank", Rank.class).name()));
+
+        CommandResult result = framework.dispatch(new CommandSource() {
+        }, "team audit mod");
+
+        assertEquals(CommandResult.Status.SUCCESS, result.status());
+        assertEquals(Optional.of("mod"), result.reply());
+    }
+
+    @Test
+    void customTypeAliasRegistrationRejectsDuplicateNamesAndTypes() {
+        CommandFramework.Builder builder = CommandFramework.builder()
+            .type("Rank", Rank.class, rankParser("admin"));
+
+        assertEquals("command type alias already registered: Rank",
+            assertThrows(IllegalArgumentException.class,
+                () -> builder.type("Rank", Material.class, materialParser("stone"))).getMessage());
+        assertEquals("command type already registered as Rank: " + Rank.class.getName(),
+            assertThrows(IllegalArgumentException.class,
+                () -> builder.type("Role", Rank.class, rankParser("mod"))).getMessage());
+        assertEquals("command type alias already registered: String",
+            assertThrows(IllegalArgumentException.class,
+                () -> CommandFramework.builder().type("String", Rank.class, rankParser("admin"))).getMessage());
+        assertEquals("invalid command type alias: 1Rank",
+            assertThrows(IllegalArgumentException.class,
+                () -> CommandFramework.builder().type("1Rank", Rank.class, rankParser("admin"))).getMessage());
+    }
+
+    @Test
     void customPublicParserSuggestionsFeedStringAndRichSuggestionApis() {
         CommandFramework framework = CommandFramework.builder()
             .argumentParser(Rank.class, new ArgumentParser<>() {
@@ -2428,6 +2492,40 @@ class CommandFrameworkTest {
         SAFE
     }
 
+    private static ArgumentParser<Rank> rankParser(String... names) {
+        return new ArgumentParser<>() {
+            @Override
+            public ArgumentParseResult<Rank> parse(String rawToken, ArgumentParseContext context) {
+                return List.of(names).contains(rawToken)
+                    ? ArgumentParseResult.success(new Rank(rawToken))
+                    : ArgumentParseResult.failure("Unknown rank");
+            }
+
+            @Override
+            public List<Suggestion> suggestions(ArgumentParseContext context) {
+                return List.of(names).stream()
+                    .map(name -> new Suggestion(
+                        name,
+                        Optional.empty(),
+                        context.replacementStart(),
+                        context.replacementEnd(),
+                        context.suggestionType(),
+                        0
+                    ))
+                    .toList();
+            }
+        };
+    }
+
+    private static ArgumentParser<Material> materialParser(String... names) {
+        return (rawToken, context) -> List.of(names).contains(rawToken)
+            ? ArgumentParseResult.success(new Material(rawToken))
+            : ArgumentParseResult.failure("Unknown material");
+    }
+
     private record Rank(String name) {
+    }
+
+    private record Material(String name) {
     }
 }

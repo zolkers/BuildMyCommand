@@ -60,6 +60,28 @@ framework.registry()
     .executes(ctx -> Results.success("punished " + ctx.arg("target", String.class)));
 ```
 
+## Custom Route Types
+
+Use `.type(...)` for one alias or `.types(...)` for a small registry block. The alias is what users write in the route DSL; the Java class is what commands read from `CommandContext`.
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .types(types -> types
+        .register("Material", Material.class, new MaterialParser())
+        .register("ItemStack", ItemStack.class, new ItemStackParser()))
+    .build();
+
+framework.registry()
+    .route("shop give <item:Material> [--fallback:Material|-f]")
+    .executes(ctx -> {
+        Material item = ctx.arg("item", Material.class);
+        Material fallback = ctx.option("fallback", Material.class).orElse(item);
+        return Results.success("giving " + item + " fallback=" + fallback);
+    });
+```
+
+Aliases must be unique and cannot replace built-in names such as `String`, `Integer`, `Boolean`, `double`, or `UUID`. Java types are also unique, so a framework cannot accidentally register the same parser target under two DSL names.
+
 ## Recommendation
 
 Do not duplicate every annotation example in builder style. Keep the builder for dynamic cases. For a normal mod or app command registry, annotation route classes are easier to read, easier to inspect, and easier to test.

@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.1.1"
+val buildMyCommandVersion = "0.2.0"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -33,7 +33,7 @@ Maven:
 
 ```xml
 <properties>
-    <buildmycommand.version>0.1.1</buildmycommand.version>
+    <buildmycommand.version>0.2.0</buildmycommand.version>
 </properties>
 
 <dependencies>
@@ -91,6 +91,23 @@ public final class PingCommand {
 ```
 
 `@Command` declares the root. `@SubRoute` declares executable leaves. The route string is the source of truth for arguments, options, aliases, and optional segments. Parameter annotations such as `@Arg`/`@Option` are intentionally not the canonical style anymore.
+
+Custom argument types are registered once when the framework is created. After that, routes can use friendly names such as `<item:Material>`, and IntelliJ recognizes them from the builder setup.
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .type("Material", Material.class, new MaterialParser())
+    .build();
+
+@Command("shop")
+final class ShopCommands {
+    @SubRoute("give <item:Material>")
+    CommandResult give(@RouteCtx CommandContext ctx) {
+        Material item = ctx.arg("item", Material.class);
+        return Results.success("giving " + item);
+    }
+}
+```
 
 ## Modules
 

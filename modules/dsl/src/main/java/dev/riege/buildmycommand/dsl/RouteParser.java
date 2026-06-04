@@ -13,8 +13,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -23,7 +25,12 @@ public final class RouteParser {
     }
 
     public static RoutePattern parse(String pattern) {
+        return parse(pattern, Map.of());
+    }
+
+    public static RoutePattern parse(String pattern, Map<String, Class<?>> customTypes) {
         Objects.requireNonNull(pattern, "pattern");
+        Map<String, Class<?>> routeTypes = routeTypes(customTypes);
         if (pattern.isBlank()) {
             throw new IllegalArgumentException("route pattern must not be blank");
         }
@@ -34,7 +41,7 @@ public final class RouteParser {
         boolean seenOption = false;
 
         for (String token : tokens) {
-            RouteStep step = parseStep(token);
+            RouteStep step = parseStep(token, routeTypes);
             if (step == null) {
                 if (seenOption) {
                     throw new IllegalArgumentException("route options must appear after literals: " + token);
@@ -93,12 +100,16 @@ public final class RouteParser {
         return new LiteralToken(literal, aliases);
     }
 
-    private static RouteStep parseStep(String token) {
+    public static Map<String, Class<?>> defaultTypes() {
+        return Map.copyOf(builtinTypes());
+    }
+
+    private static RouteStep parseStep(String token, Map<String, Class<?>> routeTypes) {
         if (token.startsWith("<") || token.endsWith(">")) {
             if (!token.startsWith("<") || !token.endsWith(">")) {
                 throw new IllegalArgumentException("invalid required argument token: " + token);
             }
-            ArgumentToken argument = parseArgumentToken(token.substring(1, token.length() - 1), token);
+            ArgumentToken argument = parseArgumentToken(token.substring(1, token.length() - 1), token, routeTypes);
             return new ArgumentRouteStep(argument.name(), argument.type(),
                 argument.greedy() ? RouteArgumentKind.GREEDY : RouteArgumentKind.REQUIRED);
         }
@@ -109,10 +120,10 @@ public final class RouteParser {
             }
             String body = token.substring(1, token.length() - 1);
             if (body.startsWith("--")) {
-                return parseOptionToken(body, token);
+                return parseOptionToken(body, token, routeTypes);
             }
 
-            ArgumentToken argument = parseArgumentToken(body, token);
+            ArgumentToken argument = parseArgumentToken(body, token, routeTypes);
             return new ArgumentRouteStep(argument.name(), argument.type(),
                 argument.greedy() ? RouteArgumentKind.OPTIONAL_GREEDY : RouteArgumentKind.OPTIONAL);
         }
@@ -120,7 +131,7 @@ public final class RouteParser {
         return null;
     }
 
-    private static ArgumentToken parseArgumentToken(String body, String token) {
+    private static ArgumentToken parseArgumentToken(String body, String token, Map<String, Class<?>> routeTypes) {
         int separator = body.indexOf(':');
         if (separator <= 0 || separator == body.length() - 1 || body.indexOf(':', separator + 1) != -1) {
             throw new IllegalArgumentException("invalid argument token: " + token);
@@ -133,14 +144,14 @@ public final class RouteParser {
             typeName = typeName.substring(0, typeName.length() - 3);
         }
 
-        RouteType type = typeFor(typeName);
+        RouteType type = typeFor(typeName, routeTypes);
         if (greedy && type.runtimeType() != String.class) {
             throw new IllegalArgumentException("greedy route arguments must be String: " + token);
         }
         return new ArgumentToken(validateName(name, "argument name"), type, greedy);
     }
 
-    private static OptionRouteStep parseOptionToken(String body, String token) {
+    private static OptionRouteStep parseOptionToken(String body, String token, Map<String, Class<?>> routeTypes) {
         String[] parts = body.split("\\|", -1);
         if (parts.length > 2) {
             throw new IllegalArgumentException("invalid option token: " + token);
@@ -158,7 +169,7 @@ public final class RouteParser {
         }
 
         String name = parseLongOptionName(option.substring(0, separator), token);
-        RouteType type = typeFor(option.substring(separator + 1));
+        RouteType type = typeFor(option.substring(separator + 1), routeTypes);
         return new OptionRouteStep(name, type, alias, RouteOptionKind.VALUE);
     }
 
@@ -176,7 +187,7 @@ public final class RouteParser {
         return validateName(raw.substring(1), "option alias");
     }
 
-    private static RouteType typeFor(String typeName) {
+    private static RouteType typeFor(String typeName, Map<String, Class<?>> routeTypes) {
         if (typeName.startsWith("enum(") && typeName.endsWith(")")) {
             return RouteType.inlineEnum(parseEnumValues(typeName));
         }
@@ -192,7 +203,7 @@ public final class RouteParser {
             range = parseRange(typeName.substring(rangeStart + 1, typeName.length() - 1), typeName);
         }
 
-        Class<?> runtimeType = runtimeTypeFor(baseTypeName);
+        Class<?> runtimeType = runtimeTypeFor(baseTypeName, routeTypes);
         if (range != null && !isNumeric(runtimeType)) {
             throw new IllegalArgumentException("route type range requires a numeric type: " + typeName);
         }
@@ -227,32 +238,43 @@ public final class RouteParser {
         return new RouteRange(min, max);
     }
 
-    private static Class<?> runtimeTypeFor(String typeName) {
-        Class<?> type = switch (typeName) {
-            case "String" -> String.class;
-            case "Integer" -> Integer.class;
-            case "int" -> int.class;
-            case "Long" -> Long.class;
-            case "long" -> long.class;
-            case "Float" -> Float.class;
-            case "float" -> float.class;
-            case "Double" -> Double.class;
-            case "double" -> double.class;
-            case "Boolean" -> Boolean.class;
-            case "boolean" -> boolean.class;
-            case "UUID" -> UUID.class;
-            case "Duration" -> Duration.class;
-            case "LocalDate" -> LocalDate.class;
-            case "LocalDateTime" -> LocalDateTime.class;
-            case "Path" -> Path.class;
-            case "URI" -> URI.class;
-            case "URL" -> URL.class;
-            default -> null;
-        };
+    private static Class<?> runtimeTypeFor(String typeName, Map<String, Class<?>> routeTypes) {
+        Class<?> type = routeTypes.get(typeName);
         if (type != null) {
             return type;
         }
         throw new IllegalArgumentException("unknown route type: " + typeName);
+    }
+
+    private static Map<String, Class<?>> routeTypes(Map<String, Class<?>> customTypes) {
+        Objects.requireNonNull(customTypes, "customTypes");
+        Map<String, Class<?>> routeTypes = new LinkedHashMap<>(builtinTypes());
+        customTypes.forEach((name, type) ->
+            routeTypes.put(validateName(name, "route type alias"), Objects.requireNonNull(type, "type")));
+        return Map.copyOf(routeTypes);
+    }
+
+    private static Map<String, Class<?>> builtinTypes() {
+        Map<String, Class<?>> types = new LinkedHashMap<>();
+        types.put("String", String.class);
+        types.put("Integer", Integer.class);
+        types.put("int", int.class);
+        types.put("Long", Long.class);
+        types.put("long", long.class);
+        types.put("Float", Float.class);
+        types.put("float", float.class);
+        types.put("Double", Double.class);
+        types.put("double", double.class);
+        types.put("Boolean", Boolean.class);
+        types.put("boolean", boolean.class);
+        types.put("UUID", UUID.class);
+        types.put("Duration", Duration.class);
+        types.put("LocalDate", LocalDate.class);
+        types.put("LocalDateTime", LocalDateTime.class);
+        types.put("Path", Path.class);
+        types.put("URI", URI.class);
+        types.put("URL", URL.class);
+        return types;
     }
 
     private static boolean isNumeric(Class<?> type) {

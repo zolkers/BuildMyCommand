@@ -432,11 +432,17 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
 
     private static Iterable<BuildMyCommandRouteDsl.Issue> routeIssues(PsiLiteralExpression expression, String route) {
         if (!BuildMyCommandRouteLiteralMatcher.isLiteralPathLiteral(expression)) {
-            return BuildMyCommandRouteDsl.validate(route);
+            return BuildMyCommandRouteDsl.validate(
+                route,
+                BuildMyCommandRouteTypeResolver.declaredCommandTypes(expression.getContainingFile())
+            );
         }
         TextRange pathDslRange = pathDslRange(route);
         if (pathDslRange.isEmpty()) {
-            return BuildMyCommandRouteDsl.validate(route);
+            return BuildMyCommandRouteDsl.validate(
+                route,
+                BuildMyCommandRouteTypeResolver.declaredCommandTypes(expression.getContainingFile())
+            );
         }
         return java.util.List.of(new BuildMyCommandRouteDsl.Issue(
             pathDslRange.getStartOffset(),

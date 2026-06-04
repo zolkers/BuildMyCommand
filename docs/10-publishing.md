@@ -62,7 +62,7 @@ io.github.zolkers
 Current release line:
 
 ```text
-0.1.1
+0.2.0
 ```
 
 Snapshot versions and `mavenLocal()` are not part of the public installation path. Before publishing, set the Gradle project version to the release version on the development branch, open a pull request into `master`, then merge it.
@@ -75,7 +75,7 @@ The version is read from the Gradle project version. The workflow creates the Gi
 
 | Gradle version | Created tag |
 | --- | --- |
-| `0.1.1` | `v0.1.1` |
+| `0.2.0` | `v0.2.0` |
 | `1.2.3` | `v1.2.3` |
 
 The workflow runs:
