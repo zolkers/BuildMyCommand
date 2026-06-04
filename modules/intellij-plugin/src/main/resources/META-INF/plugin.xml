@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>dev.riege.buildmycommand.intellij</id>
+    <id>dev.riege.buildmycommand.dsl</id>
     <name>BuildMyCommand DSL Support</name>
     <vendor>Riege</vendor>
 

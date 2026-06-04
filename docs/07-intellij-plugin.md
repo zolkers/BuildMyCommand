@@ -32,7 +32,7 @@ Restart IntelliJ after installation.
 The setup script writes `.idea/externalDependencies.xml` so IntelliJ knows this project expects the BuildMyCommand plugin:
 
 ```xml
-<plugin id="dev.riege.buildmycommand.intellij" min-version="0.1.1" />
+<plugin id="dev.riege.buildmycommand.dsl" min-version="0.1.1" />
 ```
 
 If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install the local plugin first with `installIntellijPluginLocal`, then restart.
@@ -40,6 +40,26 @@ If IntelliJ opens an empty "Choose Plugins to Install or Enable" window, install
 ## Marketplace Publish
 
 Publishing to JetBrains Marketplace is separate from Maven Central. The plugin is built from `modules/intellij-plugin`.
+
+Marketplace plugin id:
+
+```text
+dev.riege.buildmycommand.dsl
+```
+
+JetBrains requires the first plugin version to be uploaded manually from the Marketplace UI. This creates the plugin page and lets you set required metadata such as license and repository URL. After that first upload, `publishPlugin` can push later versions.
+
+Build the first zip:
+
+```powershell
+.\gradlew.bat :intellij-plugin:clean :intellij-plugin:buildPlugin
+```
+
+Upload the newest zip from:
+
+```text
+modules/intellij-plugin/build/distributions/
+```
 
 Create a permanent token from JetBrains Marketplace, then expose it as an environment variable:
 
