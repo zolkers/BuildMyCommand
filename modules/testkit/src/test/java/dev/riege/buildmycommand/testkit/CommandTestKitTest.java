@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -154,6 +155,7 @@ class CommandTestKitTest {
         assertEquals(Optional.empty(), anonymous.id());
         assertEquals(Optional.empty(), anonymous.name());
         assertEquals(true, anonymous.hasPermission("a"));
+        assertEquals(Set.of("a", "b"), anonymous.permissions());
         assertEquals(false, anonymous.hasPermission("missing"));
         assertEquals(4, anonymous.metadata("level").orElseThrow());
         assertEquals(java.util.List.of(CommandMessage.info("hello")), anonymous.replies());

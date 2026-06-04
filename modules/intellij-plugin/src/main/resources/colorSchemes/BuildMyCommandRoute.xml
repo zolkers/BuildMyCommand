@@ -57,6 +57,38 @@
             <option name="FOREGROUND" value="555555"/>
         </value>
     </option>
+    <option name="ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="00627A"/>
+        </value>
+    </option>
+    <option name="CONSTANT_CHARACTER_ESCAPE_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="008000"/>
+        </value>
+    </option>
+    <option name="CONSTANT_CHARACTER_CLASS_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="660E7A"/>
+        </value>
+    </option>
+    <option name="KEYWORD_OPERATOR_QUANTIFIER_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="808000"/>
+            <option name="FONT_TYPE" value="1"/>
+        </value>
+    </option>
+    <option name="PUNCTUATION_GROUP_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="555555"/>
+        </value>
+    </option>
+    <option name="KEYWORD_OPERATOR_BUILDMYCOMMAND_REGEX">
+        <value>
+            <option name="FOREGROUND" value="808000"/>
+            <option name="FONT_TYPE" value="1"/>
+        </value>
+    </option>
     <option name="TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE ENTITY_NAME_FUNCTION_LITERAL_BUILDMYCOMMAND_ROUTE">
         <value>
             <option name="FOREGROUND" value="000080"/>

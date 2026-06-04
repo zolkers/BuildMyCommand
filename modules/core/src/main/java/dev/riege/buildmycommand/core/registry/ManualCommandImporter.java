@@ -40,7 +40,7 @@ public final class ManualCommandImporter {
     public static CommandNode exportNode(RegistryCommandNode node) {
         CommandNode.Builder builder = Commands.literal(node.literal());
         node.descriptionOptional().ifPresent(builder::description);
-        node.permissionOptional().ifPresent(builder::permission);
+        node.permissionSpecOptional().ifPresent(permission -> applyPermission(builder, permission));
         builder.metadata(node.metadata());
         builder.aliases(node.aliases().toArray(String[]::new));
         for (RegistryArgumentSpec argument : node.arguments()) {
@@ -63,7 +63,7 @@ public final class ManualCommandImporter {
             builder.alias(alias);
         }
         node.description().ifPresent(builder::description);
-        node.permission().ifPresent(builder::permission);
+        node.permissionSpec().ifPresent(permission -> applyPermission(builder, permission));
         applyMetadata(builder, node.metadata());
         for (ArgumentSpec<?> argument : node.arguments()) {
             applyArgument(builder, argument);
@@ -108,6 +108,22 @@ public final class ManualCommandImporter {
             builder.flag(flag.name(), alias);
         } else {
             builder.option(flag.name(), flag.type(), alias);
+        }
+    }
+
+    private static void applyPermission(CommandNode.Builder builder, dev.riege.buildmycommand.api.PermissionSpec permission) {
+        if (permission.regex()) {
+            builder.permissionRegex(permission.value());
+        } else {
+            builder.permission(permission.value());
+        }
+    }
+
+    private static void applyPermission(SimpleCommandBuilder builder, dev.riege.buildmycommand.api.PermissionSpec permission) {
+        if (permission.regex()) {
+            builder.permissionRegex(permission.value());
+        } else {
+            builder.permission(permission.value());
         }
     }
 

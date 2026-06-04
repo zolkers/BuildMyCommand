@@ -17,6 +17,7 @@ import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandMiddleware;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
 import dev.riege.buildmycommand.api.SuggestionProvider;
@@ -257,6 +258,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             node.literal(),
             node.description(),
             node.permission(),
+            node.permissionSpec(),
             node.aliases(),
             node.executor(),
             node.arguments(),
@@ -281,7 +283,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
     private final class SimpleRouteBuilder implements RouteBuilder {
         private final RoutePattern route;
         private String description;
-        private String permission;
+        private PermissionSpec permission;
         private final CommandMetadata.Builder metadata = new CommandMetadata.Builder();
         private final Map<String, SuggestionProvider> argumentSuggestions = new LinkedHashMap<>();
         private final Map<String, SuggestionProvider> optionSuggestions = new LinkedHashMap<>();
@@ -298,7 +300,13 @@ public final class SimpleCommandRegistry implements CommandRegistry {
 
         @Override
         public RouteBuilder permission(String permission) {
-            this.permission = Validators.metadata(permission, "permission");
+            this.permission = PermissionSpec.exact(Validators.metadata(permission, "permission"));
+            return this;
+        }
+
+        @Override
+        public RouteBuilder permissionRegex(String pattern) {
+            this.permission = PermissionSpec.regex(Validators.metadata(pattern, "permission"));
             return this;
         }
 
@@ -433,7 +441,7 @@ public final class SimpleCommandRegistry implements CommandRegistry {
                 builder.description(description);
             }
             if (permission != null) {
-                builder.permission(permission);
+                applyPermission(builder, permission);
             }
             CommandMetadata builtMetadata = metadata.build();
             if (builtMetadata.hidden()) {
@@ -483,6 +491,14 @@ public final class SimpleCommandRegistry implements CommandRegistry {
             ArgumentParseContext context
         ) {
             return delegate.richSuggestions(context);
+        }
+    }
+
+    private static void applyPermission(CommandBuilder builder, PermissionSpec permission) {
+        if (permission.regex()) {
+            builder.permissionRegex(permission.value());
+        } else {
+            builder.permission(permission.value());
         }
     }
 }

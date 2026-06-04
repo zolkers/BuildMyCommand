@@ -16,6 +16,7 @@ public record CommandNode(
     String literal,
     Optional<String> description,
     Optional<String> permission,
+    Optional<PermissionSpec> permissionSpec,
     List<String> aliases,
     List<ArgumentSpec<?>> arguments,
     List<FlagSpec<?>> flags,
@@ -30,6 +31,7 @@ public record CommandNode(
         }
         description = Objects.requireNonNull(description, "description");
         permission = Objects.requireNonNull(permission, "permission");
+        permissionSpec = Objects.requireNonNull(permissionSpec, "permissionSpec");
         description.ifPresent(value -> validateMetadata(value, "description"));
         permission.ifPresent(value -> validateMetadata(value, "permission"));
         aliases = List.copyOf(Objects.requireNonNull(aliases, "aliases"));
@@ -43,7 +45,7 @@ public record CommandNode(
     public static final class Builder {
         private final String literal;
         private String description;
-        private String permission;
+        private PermissionSpec permission;
         private final List<String> aliases = new ArrayList<>();
         private final List<ArgumentSpec<?>> arguments = new ArrayList<>();
         private final List<FlagSpec<?>> flags = new ArrayList<>();
@@ -61,7 +63,12 @@ public record CommandNode(
         }
 
         public Builder permission(String permission) {
-            this.permission = validateMetadata(permission, "permission");
+            this.permission = PermissionSpec.exact(validateMetadata(permission, "permission"));
+            return this;
+        }
+
+        public Builder permissionRegex(String pattern) {
+            this.permission = PermissionSpec.regex(validateMetadata(pattern, "permission"));
             return this;
         }
 
@@ -107,6 +114,7 @@ public record CommandNode(
             return new CommandNode(
                 literal,
                 Optional.ofNullable(description),
+                Optional.ofNullable(permission).map(PermissionSpec::value),
                 Optional.ofNullable(permission),
                 aliases,
                 arguments,

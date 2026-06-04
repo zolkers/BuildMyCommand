@@ -40,6 +40,10 @@ public interface CommandRegistry {
 
         RouteBuilder permission(String permission);
 
+        default RouteBuilder permissionRegex(String pattern) {
+            throw new UnsupportedOperationException("regex permissions are not supported by this registry");
+        }
+
         default RouteBuilder hidden() {
             throw new UnsupportedOperationException("hidden command metadata is not supported by this registry");
         }
@@ -95,6 +99,10 @@ public interface CommandRegistry {
         CommandBuilder description(String description);
 
         CommandBuilder permission(String permission);
+
+        default CommandBuilder permissionRegex(String pattern) {
+            throw new UnsupportedOperationException("regex permissions are not supported by this registry");
+        }
 
         default CommandBuilder hidden() {
             throw new UnsupportedOperationException("hidden command metadata is not supported by this registry");

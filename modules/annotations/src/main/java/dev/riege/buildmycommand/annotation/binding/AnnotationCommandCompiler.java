@@ -24,6 +24,7 @@ import dev.riege.buildmycommand.annotation.Subcommand;
 import dev.riege.buildmycommand.annotation.SuggestAliases;
 import dev.riege.buildmycommand.annotation.Usage;
 import dev.riege.buildmycommand.api.CommandRegistry;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.dsl.ArgumentRouteStep;
 import dev.riege.buildmycommand.dsl.OptionRouteStep;
 import dev.riege.buildmycommand.dsl.RouteParser;
@@ -110,7 +111,7 @@ public final class AnnotationCommandCompiler {
 
         MethodCommandBinder.BoundMethod boundMethod = MethodCommandBinder.bind(target, method);
         Optional<String> description = metadata(method.getAnnotation(Description.class), "description");
-        Optional<String> permission = metadata(method.getAnnotation(Permission.class), "permission");
+        Optional<PermissionSpec> permission = permission(method.getAnnotation(Permission.class));
         CasePolicy methodCasePolicy = casePolicy(method.getAnnotation(CaseInsensitive.class));
 
         if (ownerCommand != null) {
@@ -249,7 +250,7 @@ public final class AnnotationCommandCompiler {
             subcommand.value(),
             alias == null ? List.of() : List.of(alias.value()),
             metadata(owner.getAnnotation(Description.class), "description"),
-            metadata(owner.getAnnotation(Permission.class), "permission"),
+            permission(owner.getAnnotation(Permission.class)),
             classMetadata(owner)
         );
     }
@@ -305,7 +306,7 @@ public final class AnnotationCommandCompiler {
             alias == null ? List.of() : List.of(alias.value()),
             group,
             metadata(owner.getAnnotation(Description.class), "description"),
-            metadata(owner.getAnnotation(Permission.class), "permission"),
+            permission(owner.getAnnotation(Permission.class)),
             classMetadata(owner),
             casePolicy
         ));
@@ -361,8 +362,12 @@ public final class AnnotationCommandCompiler {
         return description == null ? Optional.empty() : Optional.of(validateMetadata(description.value(), label));
     }
 
-    private static Optional<String> metadata(Permission permission, String label) {
-        return permission == null ? Optional.empty() : Optional.of(validateMetadata(permission.value(), label));
+    private static Optional<PermissionSpec> permission(Permission permission) {
+        if (permission == null) {
+            return Optional.empty();
+        }
+        String value = validateMetadata(permission.value(), "permission");
+        return Optional.of(permission.regex() ? PermissionSpec.regex(value) : PermissionSpec.exact(value));
     }
 
     private static String validateMetadata(String value, String label) {
@@ -469,7 +474,7 @@ public final class AnnotationCommandCompiler {
         List<String> aliases,
         Optional<String> group,
         Optional<String> description,
-        Optional<String> permission,
+        Optional<PermissionSpec> permission,
         MethodCommandBinder.CommandMetadata metadata,
         CasePolicy casePolicy
     ) {
@@ -490,7 +495,7 @@ public final class AnnotationCommandCompiler {
                     builder.aliases(aliases.toArray(String[]::new));
                 }
                 description.ifPresent(builder::description);
-                permission.ifPresent(builder::permission);
+                permission.ifPresent(value -> PermissionBinder.apply(builder, value));
                 if (metadata.hidden()) {
                     builder.hidden();
                 }
@@ -513,7 +518,7 @@ public final class AnnotationCommandCompiler {
         List<SubcommandSegment> subcommands,
         List<String> subcommandAliases,
         Optional<String> description,
-        Optional<String> permission,
+        Optional<PermissionSpec> permission,
         CasePolicy casePolicy,
         MethodCommandBinder.BoundMethod boundMethod
     ) {
@@ -543,7 +548,7 @@ public final class AnnotationCommandCompiler {
             if (kind == RegistrationKind.ROUTE) {
                 CommandRegistry.RouteBuilder builder = registry.route(route);
                 description.ifPresent(builder::description);
-                permission.ifPresent(builder::permission);
+                permission.ifPresent(value -> PermissionBinder.apply(builder, value));
                 applyMetadata(builder, routeTypes);
                 builder.executes(boundMethod::invoke);
                 return;
@@ -561,7 +566,7 @@ public final class AnnotationCommandCompiler {
 
             registry.command(route, builder -> {
                 description.ifPresent(builder::description);
-                permission.ifPresent(builder::permission);
+                permission.ifPresent(value -> PermissionBinder.apply(builder, value));
                 applyMetadata(builder);
                 if (!aliases.isEmpty()) {
                     builder.aliases(aliases.toArray(String[]::new));
@@ -576,7 +581,7 @@ public final class AnnotationCommandCompiler {
                 segment.apply(child);
                 if (index == subcommands.size() - 1) {
                     description.ifPresent(child::description);
-                    permission.ifPresent(child::permission);
+                    permission.ifPresent(value -> PermissionBinder.apply(child, value));
                     applyMetadata(child);
                     child.executes(boundMethod::invoke);
                 } else {
@@ -649,7 +654,7 @@ public final class AnnotationCommandCompiler {
         String literal,
         List<String> aliases,
         Optional<String> description,
-        Optional<String> permission,
+        Optional<PermissionSpec> permission,
         MethodCommandBinder.CommandMetadata metadata
     ) {
         public SubcommandSegment {
@@ -675,7 +680,7 @@ public final class AnnotationCommandCompiler {
                 builder.aliases(aliases.toArray(String[]::new));
             }
             description.ifPresent(builder::description);
-            permission.ifPresent(builder::permission);
+            permission.ifPresent(value -> PermissionBinder.apply(builder, value));
             if (metadata.hidden()) {
                 builder.hidden();
             }
@@ -688,9 +693,5 @@ public final class AnnotationCommandCompiler {
         }
     }
 
-    public enum RegistrationKind {
-        COMMAND,
-        ROUTE,
-        SUBCOMMAND
-    }
+    public enum RegistrationKind {COMMAND, ROUTE, SUBCOMMAND}
 }

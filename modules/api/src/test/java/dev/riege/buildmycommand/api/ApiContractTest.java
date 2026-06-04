@@ -339,6 +339,7 @@ class ApiContractTest {
         assertEquals("root", root.literal());
         assertEquals(Optional.of("Root command"), root.description());
         assertEquals(Optional.of("root.use"), root.permission());
+        assertEquals(Optional.of(PermissionSpec.exact("root.use")), root.permissionSpec());
         assertEquals(List.of("r", "main", "base"), root.aliases());
         assertEquals(List.of(child), root.children());
         assertEquals(Optional.of(executor), root.executor());
@@ -348,6 +349,7 @@ class ApiContractTest {
         assertThrows(IllegalArgumentException.class, () -> Commands.literal(" ").build());
         assertThrows(IllegalArgumentException.class, () -> Commands.literal("root").description(" "));
         assertThrows(IllegalArgumentException.class, () -> Commands.literal("root").permission(""));
+        assertThrows(IllegalArgumentException.class, () -> Commands.literal("root").permissionRegex("["));
         assertThrows(NullPointerException.class, () -> Commands.literal("root").alias(null));
         assertThrows(NullPointerException.class, () -> Commands.literal("root").aliases((String[]) null));
         assertThrows(NullPointerException.class, () -> Commands.literal("root").argument(null));
@@ -355,6 +357,44 @@ class ApiContractTest {
         assertThrows(NullPointerException.class, () -> Commands.literal("root").child(null));
         assertThrows(NullPointerException.class, () -> Commands.literal("root").metadata(null));
         assertThrows(NullPointerException.class, () -> Commands.literal("root").handler(null));
+
+        CommandNode regexRoot = Commands.literal("secure")
+            .permissionRegex("secure\\..*")
+            .build();
+        assertEquals(Optional.of("secure\\..*"), regexRoot.permission());
+        assertEquals(Optional.of(PermissionSpec.regex("secure\\..*")), regexRoot.permissionSpec());
+    }
+
+    @Test
+    void permissionSpecsSupportExactAndRegexPolicies() {
+        PermissionSpec exact = PermissionSpec.exact("admin.reload");
+        PermissionSpec regex = PermissionSpec.regex("admin\\..*");
+        CommandSource source = new CommandSource() {
+            @Override
+            public boolean hasPermission(String permission) {
+                return "admin.reload".equals(permission);
+            }
+
+            @Override
+            public java.util.Set<String> permissions() {
+                return java.util.Set.of("admin.audit.view");
+            }
+        };
+
+        assertEquals("admin.reload", exact.value());
+        assertFalse(exact.regex());
+        assertEquals("admin.reload", exact.display());
+        assertEquals("admin\\..*", regex.value());
+        assertTrue(regex.regex());
+        assertEquals("/admin\\..*/", regex.display());
+        assertTrue(source.hasPermissionSpec(exact));
+        assertTrue(source.hasPermissionSpec(regex));
+        assertThrows(IllegalStateException.class, exact::pattern);
+        assertThrows(IllegalArgumentException.class, () -> PermissionSpec.exact(" "));
+        assertThrows(IllegalArgumentException.class, () -> PermissionSpec.regex("["));
+        assertThrows(NullPointerException.class, () -> PermissionSpec.exact(null));
+        assertThrows(NullPointerException.class, () -> source.hasPermissionSpec(null));
+        assertThrows(NullPointerException.class, () -> source.hasPermissionMatching(null));
     }
 
     @Test
@@ -496,6 +536,7 @@ class ApiContractTest {
         assertEquals(Optional.empty(), source.unwrap(String.class));
         assertEquals(Optional.empty(), source.metadata("key"));
         assertTrue(source.hasPermission("anything"));
+        assertEquals(java.util.Set.of(), source.permissions());
         assertThrows(NullPointerException.class, () -> source.unwrap(null));
         assertThrows(NullPointerException.class, () -> source.metadata(null));
         assertThrows(NullPointerException.class, () -> source.reply((CommandMessage) null));
@@ -513,6 +554,7 @@ class ApiContractTest {
         assertThrows(UnsupportedOperationException.class, () -> registry.unregister("x"));
         assertEquals(Map.of(), registry.routeTypes());
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").hidden());
+        assertThrows(UnsupportedOperationException.class, () -> registry.route("x").permissionRegex("x\\..*"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").usage("u"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").example("e"));
         assertThrows(UnsupportedOperationException.class, () -> registry.route("x").cooldown(Duration.ofSeconds(1)));
@@ -529,6 +571,7 @@ class ApiContractTest {
         assertSame(delegatingRoute, delegatingRoute.optionSuggestions("o", "named", ctx -> List.of()));
 
         assertThrows(UnsupportedOperationException.class, builder::hidden);
+        assertThrows(UnsupportedOperationException.class, () -> builder.permissionRegex("x\\..*"));
         assertThrows(UnsupportedOperationException.class, () -> builder.usage("u"));
         assertThrows(UnsupportedOperationException.class, () -> builder.example("e"));
         assertThrows(UnsupportedOperationException.class, () -> builder.cooldown(Duration.ofSeconds(1)));

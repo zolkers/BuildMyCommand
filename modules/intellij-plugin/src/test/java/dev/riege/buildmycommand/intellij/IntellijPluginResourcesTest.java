@@ -36,12 +36,15 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("lang.syntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("BuildMyCommandRequirementSyntaxHighlighterFactory"));
+        assertTrue(pluginXml.contains("BuildMyCommandPermissionRegexSyntaxHighlighterFactory"));
         assertTrue(pluginXml.contains("multiHostInjector"));
         assertTrue(!pluginXml.contains("<languageInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRequirementInjector"));
+        assertTrue(pluginXml.contains("BuildMyCommandPermissionRegexInjector"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteAnnotator"));
         assertTrue(pluginXml.contains("BuildMyCommandRequirementAnnotator"));
+        assertTrue(pluginXml.contains("BuildMyCommandPermissionRegexAnnotator"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteCompletionContributor"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInspection"));
         assertTrue(pluginXml.contains("localInspection"));
@@ -88,10 +91,14 @@ class IntellijPluginResourcesTest {
         assertTrue(light.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REQUIRE"));
         assertTrue(light.contains("KEYWORD_OPERATOR_BUILDMYCOMMAND_REQUIRE"));
         assertTrue(light.contains("PUNCTUATION_GROUP_BUILDMYCOMMAND_REQUIRE"));
+        assertTrue(light.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REGEX"));
+        assertTrue(light.contains("CONSTANT_CHARACTER_ESCAPE_BUILDMYCOMMAND_REGEX"));
+        assertTrue(light.contains("KEYWORD_OPERATOR_QUANTIFIER_BUILDMYCOMMAND_REGEX"));
         assertTrue(dark.contains("<attributes>"));
         assertTrue(!dark.contains("<scheme"));
         assertTrue(dark.contains("TEXTMATE_SOURCE_BUILDMYCOMMAND_ROUTE"));
         assertTrue(dark.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REQUIRE"));
+        assertTrue(dark.contains("ENTITY_NAME_PERMISSION_BUILDMYCOMMAND_REGEX"));
     }
 
     @Test

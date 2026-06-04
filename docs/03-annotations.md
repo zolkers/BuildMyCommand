@@ -38,15 +38,23 @@ Blank metadata is invalid.
 | Annotation | Use |
 | --- | --- |
 | `@Permission("mod.punish")` | One simple permission node. |
-| `@Require("staff || owner")` | Boolean permission expression. |
+| `@Permission(value = "mod\\..*", regex = true)` | Java regex matched against source permissions. |
+| `@Require("staff \|\| owner")` | Boolean permission expression. |
 
 Do not put boolean expressions in `@Permission`; use `@Require`.
+Regex permissions are still one permission guard, not a boolean expression.
 
 ```java
 @SubRoute("reload")
 @Permission("admin.reload")
 CommandResult reload(@RouteCtx CommandContext ctx) {
     return Results.success("reloaded");
+}
+
+@SubRoute("audit")
+@Permission(value = "admin\\.audit\\..*", regex = true)
+CommandResult audit(@RouteCtx CommandContext ctx) {
+    return Results.success("audit");
 }
 
 @SubRoute("debug")
@@ -103,6 +111,7 @@ The plugin highlights route/requirement strings and reports concrete mistakes:
 | `@RouteCtx String ctx` | Yes |
 | `@Command("root <arg:String>")` | Yes, use `@Route`. |
 | `@Subcommand("leaf <arg:String>")` | Yes, use `@SubRoute`. |
-| `@Permission("staff || owner")` | Yes, use `@Require`. |
+| `@Permission("staff \|\| owner")` | Yes, use `@Require`. |
+| `@Permission(value = "[", regex = true)` | Yes, invalid Java regex. |
 | `@Suggest("missing")` with no route binding | Yes |
 | `@Middleware(Bad.class)` with no no-arg constructor | Yes |

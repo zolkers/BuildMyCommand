@@ -202,6 +202,66 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         assertEquals(List.of(PsiLiteralExpression.class), injector.elementsToInjectIn());
     }
 
+    public void testPermissionRegexLiteralMatcherAndInjectorUseRegexLanguageOnly() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @dev.riege.buildmycommand.annotation.Permission(value = "admin\\\\..*", regex = true)
+                @Permission(regex = true, value = "audit\\\\.[a-z]+")
+                @Permission(value = "", regex = true)
+                @Permission(value = "disabled\\\\..*", regex = false)
+                @Permission("plain.node")
+                @Permission(value = "named.node", regex = true, message = "Permission denied")
+                void annotated() {
+                    registry.route("admin reload")
+                        .permissionRegex("shop\\\\.[a-z]+")
+                        .permission("admin.reload");
+                    String plain = "owner\\\\..*";
+                }
+            }
+            """);
+        PsiLiteralExpression annotation = literal(file, "admin\\..*");
+        PsiLiteralExpression shortAnnotation = literal(file, "audit\\.[a-z]+");
+        PsiLiteralExpression empty = literal(file, "");
+        PsiLiteralExpression disabled = literal(file, "disabled\\..*");
+        PsiLiteralExpression named = literal(file, "named.node");
+        PsiLiteralExpression message = literal(file, "Permission denied");
+        PsiLiteralExpression builder = literal(file, "shop\\.[a-z]+");
+        PsiLiteralExpression permission = literal(file, "plain.node");
+        PsiLiteralExpression builderPermission = literal(file, "admin.reload");
+        PsiLiteralExpression plain = literal(file, "owner\\..*");
+        PsiLiteralExpression orphanAnnotationValue = literalWithParent(nameValuePairWithParent(null));
+        PsiLiteralExpression orphanRegexCall = literalWithParent(expressionListForMethodCall("permissionRegex",
+            new PsiExpression[] {literalWithText("\"route\"")}, file));
+        PsiLiteralExpression emptyRegexCall = literalWithParent(expressionListForMethodCall("permissionRegex",
+            new PsiExpression[0], null));
+        RecordingRegistrar registrar = new RecordingRegistrar();
+        BuildMyCommandPermissionRegexInjector injector = new BuildMyCommandPermissionRegexInjector();
+
+        assertTrue(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(annotation));
+        assertTrue(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(shortAnnotation));
+        assertTrue(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(builder));
+        assertTrue(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(empty));
+        assertTrue(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(named));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(disabled));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(message));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(permission));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(builderPermission));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(plain));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(orphanAnnotationValue));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(orphanRegexCall));
+        assertFalse(BuildMyCommandPermissionRegexLiteralMatcher.isPermissionRegexLiteral(emptyRegexCall));
+
+        injector.getLanguagesToInject(registrar, annotation);
+        injector.getLanguagesToInject(new RecordingRegistrar(), permission);
+        injector.getLanguagesToInject(new RecordingRegistrar(), empty);
+
+        assertSame(BuildMyCommandPermissionRegexLanguage.INSTANCE, registrar.language);
+        assertSame(annotation, registrar.host);
+        assertEquals(TextRange.create(1, annotation.getText().length() - 1), registrar.range);
+        assertTrue(registrar.done);
+        assertEquals(List.of(PsiLiteralExpression.class), injector.elementsToInjectIn());
+    }
+
     public void testAnnotatorHighlightsAndWarnsForRouteDsl() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -355,6 +415,47 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 && BuildMyCommandRequirementDsl.MISSING_OPERAND.equals(record.message)));
     }
 
+    public void testPermissionRegexAnnotatorHighlightsAndWarnsMalformedRegex() {
+        PsiElement file = myFixture.configureByText("Demo.java", """
+            final class Demo {
+                @dev.riege.buildmycommand.annotation.Permission(value = "admin\\\\.[a-z]+(read|write)?", regex = true)
+                void valid() {
+                }
+
+                @Permission(value = "[", regex = true)
+                void invalid() {
+                    String plain = "admin\\\\..*";
+                }
+            }
+            """);
+        PsiLiteralExpression valid = literal(file, "admin\\.[a-z]+(read|write)?");
+        PsiLiteralExpression invalid = literal(file, "[");
+        PsiLiteralExpression plain = literal(file, "admin\\..*");
+        RecordingAnnotationHolder holder = new RecordingAnnotationHolder();
+        BuildMyCommandPermissionRegexAnnotator annotator = new BuildMyCommandPermissionRegexAnnotator();
+
+        annotator.annotate(file, holder.proxy());
+        annotator.annotate(plain, holder.proxy());
+        annotator.annotate(valid, holder.proxy());
+        annotator.annotate(invalid, holder.proxy());
+
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandPermissionRegexSyntaxHighlighter.LITERAL.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandPermissionRegexSyntaxHighlighter.ESCAPE.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandPermissionRegexSyntaxHighlighter.CHAR_CLASS.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.INFORMATION
+                && BuildMyCommandPermissionRegexSyntaxHighlighter.QUANTIFIER.equals(record.attributes)));
+        assertTrue(holder.records.stream().anyMatch(record ->
+            record.severity == HighlightSeverity.WARNING
+                && BuildMyCommandRouteInspection.PERMISSION_REGEX_INVALID.equals(record.message)));
+    }
+
     public void testInspectionReportsRouteContractAndDslProblems() {
         PsiElement file = myFixture.configureByText("Demo.java", """
             final class Demo {
@@ -473,10 +574,20 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
                 void annotated() {
                 }
 
+                @Permission(value = "admin\\\\..*", regex = true)
+                void regexAnnotated() {
+                }
+
+                @Permission(value = "[", regex = true)
+                void badRegexAnnotated() {
+                }
+
                 void registry(dev.riege.buildmycommand.api.CommandRegistry registry) {
                     registry.route("admin reload")
                         .permission(12)
                         .permission("admin.reload && staff")
+                        .permissionRegex("admin\\\\..*")
+                        .permissionRegex("[")
                         .permission("admin.simple", "ignored")
                         .requirement("staff && (!banned || owner)")
                         .executes(ctx -> dev.riege.buildmycommand.api.Results.silent());
@@ -497,6 +608,7 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         }
 
         assertTrue(holder.messages.contains("@Permission accepts one permission node; use @Require for boolean expressions"));
+        assertTrue(holder.messages.contains(BuildMyCommandRouteInspection.PERMISSION_REGEX_INVALID));
         assertTrue(holder.messages.contains("Requirement expression is missing an operand"));
         assertFalse(holder.messages.contains("staff && (!banned || owner)"));
     }
@@ -826,6 +938,8 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         BuildMyCommandRouteSyntaxHighlighter highlighter = new BuildMyCommandRouteSyntaxHighlighter();
         BuildMyCommandRequirementSyntaxHighlighter requirementHighlighter =
             new BuildMyCommandRequirementSyntaxHighlighter();
+        BuildMyCommandPermissionRegexSyntaxHighlighter regexHighlighter =
+            new BuildMyCommandPermissionRegexSyntaxHighlighter();
 
         assertHighlight(highlighter, BuildMyCommandRouteTokenType.LITERAL, BuildMyCommandRouteSyntaxHighlighter.LITERAL);
         assertHighlight(highlighter, BuildMyCommandRouteTokenType.ARGUMENT, BuildMyCommandRouteSyntaxHighlighter.ARGUMENT);
@@ -846,11 +960,27 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
             BuildMyCommandRequirementSyntaxHighlighter.GROUPING);
         assertEquals(0, requirementHighlighter.getTokenHighlights(TokenType.WHITE_SPACE).length);
         assertNotNull(new BuildMyCommandRequirementSyntaxHighlighterFactory().getSyntaxHighlighter(null, null));
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.LITERAL,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.LITERAL);
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.ESCAPE,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.ESCAPE);
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.CHAR_CLASS,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.CHAR_CLASS);
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.QUANTIFIER,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.QUANTIFIER);
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.GROUPING,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.GROUPING);
+        assertRegexHighlight(regexHighlighter, BuildMyCommandPermissionRegexTokenType.OPERATOR,
+            BuildMyCommandPermissionRegexSyntaxHighlighter.OPERATOR);
+        assertEquals(0, regexHighlighter.getTokenHighlights(TokenType.WHITE_SPACE).length);
+        assertNotNull(regexHighlighter.getHighlightingLexer());
+        assertNotNull(new BuildMyCommandPermissionRegexSyntaxHighlighterFactory().getSyntaxHighlighter(null, null));
     }
 
     public void testLexerCoversWhitespaceOffsetsAndTokenBoundaries() {
         Lexer lexer = new BuildMyCommandRouteLexer();
         Lexer requirementLexer = new BuildMyCommandRequirementLexer();
+        Lexer regexLexer = new BuildMyCommandPermissionRegexLexer();
 
         lexer.start("  give <target:String> . ! - [--flag|-f]", 2, 39, 0);
         assertEquals(0, lexer.getState());
@@ -912,6 +1042,44 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         requirementLexer.advance();
         assertNull(requirementLexer.getTokenType());
         assertEquals(1, requirementLexer.getTokenStart());
+
+        regexLexer.start(" admin\\.[a-z]+(read|write)?", 1, 28, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.LITERAL, regexLexer.getTokenType());
+        assertEquals("admin", tokenText(regexLexer));
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.ESCAPE, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.CHAR_CLASS, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.QUANTIFIER, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.GROUPING, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.LITERAL, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertEquals(BuildMyCommandPermissionRegexTokenType.OPERATOR, regexLexer.getTokenType());
+        regexLexer.start("{1,3}", 0, 5, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.QUANTIFIER, regexLexer.getTokenType());
+        regexLexer.start("\\", 0, 1, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.ESCAPE, regexLexer.getTokenType());
+        assertEquals(0, regexLexer.getState());
+        assertEquals(1, regexLexer.getBufferEnd());
+        regexLexer.advance();
+        assertNull(regexLexer.getTokenType());
+        assertEquals(1, regexLexer.getTokenStart());
+        regexLexer.start(" \t", 0, 2, 0);
+        assertEquals(TokenType.WHITE_SPACE, regexLexer.getTokenType());
+        regexLexer.start("#", 0, 1, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.LITERAL, regexLexer.getTokenType());
+        regexLexer.start("[a\\]b]", 0, 6, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.CHAR_CLASS, regexLexer.getTokenType());
+        assertEquals("[a\\]b]", tokenText(regexLexer));
+        regexLexer.start("[abc", 0, 4, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.CHAR_CLASS, regexLexer.getTokenType());
+        regexLexer.start("}", 0, 1, 0);
+        assertEquals(BuildMyCommandPermissionRegexTokenType.LITERAL, regexLexer.getTokenType());
+        regexLexer.advance();
+        assertNull(regexLexer.getTokenType());
     }
 
     public void testDslValidationCoversMalformedInputsAndCompletionFallbacks() throws Exception {
@@ -963,11 +1131,15 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
     public void testAnnotatorPrivateTokenMappingCoversGreedyAndFallback() throws Exception {
         Method keyForToken = BuildMyCommandRouteAnnotator.class.getDeclaredMethod("keyForToken", Object.class);
+        Method regexKeyForToken =
+            BuildMyCommandPermissionRegexAnnotator.class.getDeclaredMethod("keyForToken", Object.class);
         keyForToken.setAccessible(true);
+        regexKeyForToken.setAccessible(true);
 
         assertEquals(BuildMyCommandRouteSyntaxHighlighter.GREEDY,
             keyForToken.invoke(null, BuildMyCommandRouteTokenType.GREEDY));
         assertNull(keyForToken.invoke(null, TokenType.WHITE_SPACE));
+        assertNull(regexKeyForToken.invoke(null, TokenType.WHITE_SPACE));
     }
 
     public void testTextMateBundleProviderConvertsInvalidResourceUriToIllegalState() throws Exception {
@@ -1124,6 +1296,14 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
 
     private static void assertRequirementHighlight(
         BuildMyCommandRequirementSyntaxHighlighter highlighter,
+        IElementType tokenType,
+        TextAttributesKey key
+    ) {
+        assertEquals(key, highlighter.getTokenHighlights(tokenType)[0]);
+    }
+
+    private static void assertRegexHighlight(
+        BuildMyCommandPermissionRegexSyntaxHighlighter highlighter,
         IElementType tokenType,
         TextAttributesKey key
     ) {

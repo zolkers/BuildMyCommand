@@ -25,9 +25,11 @@
     <extensions defaultExtensionNs="com.intellij">
         <multiHostInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInjector"/>
         <multiHostInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementInjector"/>
+        <multiHostInjector implementation="dev.riege.buildmycommand.intellij.BuildMyCommandPermissionRegexInjector"/>
         <implicitUsageProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandImplicitUsageProvider"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteAnnotator"/>
         <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementAnnotator"/>
+        <annotator language="JAVA" implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandPermissionRegexAnnotator"/>
         <completion.contributor language="BuildMyCommandRoute"
                                 implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteCompletionContributor"/>
         <localInspection language="JAVA"
@@ -41,6 +43,8 @@
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRequirement"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementSyntaxHighlighterFactory"/>
+        <lang.syntaxHighlighterFactory language="BuildMyCommandPermissionRegex"
+                                       implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandPermissionRegexSyntaxHighlighterFactory"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
         <additionalTextAttributes scheme="Default" file="colorSchemes/BuildMyCommandRoute.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/BuildMyCommandRouteDarcula.xml"/>

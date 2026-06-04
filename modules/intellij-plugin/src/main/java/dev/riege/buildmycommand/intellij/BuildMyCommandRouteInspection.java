@@ -37,6 +37,8 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalInspectionTool {
     static final String ROUTE_CONTEXT_REQUIRED =
@@ -55,6 +57,8 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         "@RouteCtx is only valid on @Route/@SubRoute methods";
     static final String PERMISSION_BOOLEAN_EXPRESSION =
         "@Permission accepts one permission node; use @Require for boolean expressions";
+    static final String PERMISSION_REGEX_INVALID =
+        "Permission regex is not a valid Java regular expression";
     static final String DEEP_SUBCOMMAND_TREE_DISCOURAGED =
         "Deep @Subcommand nesting is supported but @SubRoute route DSL is recommended for command paths";
     static final String PATH_LITERAL_ONLY =
@@ -205,6 +209,9 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
                         PERMISSION_BOOLEAN_EXPRESSION,
                         new ConvertPermissionToRequireFix()
                     );
+                }
+                if (accessLiteral == AccessLiteral.PERMISSION_REGEX) {
+                    inspectRegexLiteral(expression, range, value, holder);
                 }
                 if (accessLiteral == AccessLiteral.REQUIREMENT) {
                     for (BuildMyCommandRequirementDsl.Issue issue : BuildMyCommandRequirementDsl.validate(value)) {
@@ -540,6 +547,9 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         PsiAnnotation annotation = parentAnnotation(expression);
         if (annotation != null) {
             if (hasAnnotationName(annotation, PERMISSION)) {
+                if (annotationBooleanAttribute(annotation, "regex")) {
+                    return AccessLiteral.PERMISSION_REGEX;
+                }
                 return AccessLiteral.PERMISSION;
             }
             if (hasAnnotationName(annotation, REQUIRE)) {
@@ -558,10 +568,32 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
         if ("permission".equals(method)) {
             return AccessLiteral.PERMISSION;
         }
+        if ("permissionRegex".equals(method)) {
+            return AccessLiteral.PERMISSION_REGEX;
+        }
         if ("requirement".equals(method)) {
             return AccessLiteral.REQUIREMENT;
         }
         return AccessLiteral.NONE;
+    }
+
+    private static boolean annotationBooleanAttribute(PsiAnnotation annotation, String name) {
+        PsiAnnotationMemberValue value = annotation.findDeclaredAttributeValue(name);
+        return value instanceof PsiLiteralExpression literal
+            && Boolean.TRUE.equals(literal.getValue());
+    }
+
+    private static void inspectRegexLiteral(
+        PsiLiteralExpression expression,
+        TextRange range,
+        String value,
+        ProblemsHolder holder
+    ) {
+        try {
+            Pattern.compile(value);
+        } catch (PatternSyntaxException exception) {
+            holder.registerProblem(expression, range, PERMISSION_REGEX_INVALID);
+        }
     }
 
     private static PsiAnnotation parentAnnotation(PsiElement element) {
@@ -617,6 +649,7 @@ public final class BuildMyCommandRouteInspection extends AbstractBaseJavaLocalIn
     private enum AccessLiteral {
         NONE,
         PERMISSION,
+        PERMISSION_REGEX,
         REQUIREMENT
     }
 

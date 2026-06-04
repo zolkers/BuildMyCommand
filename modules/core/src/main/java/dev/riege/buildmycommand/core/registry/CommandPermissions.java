@@ -8,6 +8,7 @@
 package dev.riege.buildmycommand.core.registry;
 
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.PermissionSpec;
 import dev.riege.buildmycommand.core.requirement.RequirementExpression;
 
 import java.util.ArrayList;
@@ -76,9 +77,9 @@ public final class CommandPermissions {
         List<RegistryCommandNode> commands
     ) {
         for (RegistryCommandNode command : commands) {
-            Optional<String> permission = command.permissionOptional();
-            if (permission.isPresent() && !source.hasPermission(permission.get())) {
-                return permission;
+            Optional<PermissionSpec> permission = command.permissionSpecOptional();
+            if (permission.isPresent() && !source.hasPermissionSpec(permission.get())) {
+                return permission.map(PermissionSpec::display);
             }
             Optional<String> requirement = command.metadata().requirement();
             if (requirement.isPresent() && !matchesRequirement(source, requirement.get())) {
