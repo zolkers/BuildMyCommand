@@ -23,6 +23,10 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+        shell: bash
+
       - name: Resolve release version
         id: version
         shell: bash
