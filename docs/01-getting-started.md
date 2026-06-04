@@ -53,12 +53,50 @@ dependencies {
 }
 ```
 
+
+Maven:
+
+```xml
+<properties>
+    <buildmycommand.version>0.1.1</buildmycommand.version>
+</properties>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-api</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-core</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>io.github.zolkers</groupId>
+        <artifactId>buildmycommand-annotations</artifactId>
+        <version>${buildmycommand.version}</version>
+    </dependency>
+</dependencies>
+```
+
 Add one adapter for your runtime:
 
 ```kotlin
 implementation("io.github.zolkers:buildmycommand-adapters-minecraft-fabric:$buildMyCommandVersion")
 implementation("io.github.zolkers:buildmycommand-adapters-brigadier:$buildMyCommandVersion")
 implementation("io.github.zolkers:buildmycommand-adapters-terminal:$buildMyCommandVersion")
+```
+
+
+Maven adapter example:
+
+```xml
+<dependency>
+    <groupId>io.github.zolkers</groupId>
+    <artifactId>buildmycommand-adapters-minecraft-fabric</artifactId>
+    <version>${buildmycommand.version}</version>
+</dependency>
 ```
 
 The complete adapter artifact table lives in [Adapters](05-adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.
