@@ -18,7 +18,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.3.0"
+val buildMyCommandVersion = "0.3.1"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -32,7 +32,7 @@ Maven:
 
 ```xml
 <properties>
-    <buildmycommand.version>0.3.0</buildmycommand.version>
+    <buildmycommand.version>0.3.1</buildmycommand.version>
 </properties>
 
 <dependencies>
