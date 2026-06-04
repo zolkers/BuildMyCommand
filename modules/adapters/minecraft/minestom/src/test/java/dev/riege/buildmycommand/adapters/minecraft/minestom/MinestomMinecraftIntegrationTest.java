@@ -82,6 +82,10 @@ class MinestomMinecraftIntegrationTest {
     void bridgesNativeCommandExecutionSuggestionAndCommandSourceReply() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("minestom reload").executes(ctx -> Results.success("done"));
+        framework.registry()
+            .route("minestom bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
         MinestomNativeCommand command = MinestomMinecraftIntegration.nativeCommand(
             MinestomMinecraftIntegration.commandAdapter(framework)
         );
@@ -91,6 +95,7 @@ class MinestomMinecraftIntegrationTest {
 
         assertEquals(List.of("done"), sender.messages());
         assertEquals(List.of("reload"), command.suggest(sender, new String[] {"r"}));
+        assertEquals(List.of("bang"), command.suggest(sender, new String[] {"b"}));
         assertEquals(Optional.of(sender), MinestomMinecraftIntegration.commandSource(sender).unwrap(MessageSender.class));
         assertEquals(Optional.empty(), MinestomMinecraftIntegration.commandSource(sender).unwrap(String.class));
         MinestomMinecraftIntegration.commandSource(new Object()).reply("ignored");

@@ -21,7 +21,7 @@ public final class DiscordSlashCommandSync {
         return new DiscordSlashCommand(
             node.literal(),
             node.description().orElse("No description provided."),
-            node.aliases(),
+            aliases(node),
             options(node),
             node.children().stream()
                 .filter(child -> !child.metadata().hidden())
@@ -29,6 +29,10 @@ public final class DiscordSlashCommandSync {
                 .toList(),
             node.permission()
         );
+    }
+
+    private static List<String> aliases(CommandNode node) {
+        return node.metadata().suggestAliases() ? node.aliases() : List.of();
     }
 
     private static List<DiscordSlashOption> options(CommandNode node) {

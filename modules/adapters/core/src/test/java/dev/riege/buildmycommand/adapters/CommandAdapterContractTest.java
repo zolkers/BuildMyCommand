@@ -75,6 +75,10 @@ class CommandAdapterContractTest {
             .command("ping", command -> command
                 .alias("p")
                 .executes(ctx -> Results.success("pong")));
+        framework.registry()
+            .route("bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
         IAdapter<NativeSource, NativeInput, RenderedResult> adapter = new ContractAdapter(framework);
 
         List<Suggestion> richSuggestions = adapter.suggestRich(
@@ -85,6 +89,11 @@ class CommandAdapterContractTest {
 
         assertEquals(List.of("ping", "p"), adapter.suggest(new NativeSource("1", "Ada"), new NativeInput("!P", 2), 2));
         assertEquals(List.of("ping", "p"), richSuggestions.stream().map(Suggestion::value).toList());
+        assertEquals(List.of("bang"), adapter.suggest(new NativeSource("1", "Ada"), new NativeInput("!b", 2), 2));
+        assertEquals(Optional.of("Ada"), adapter.dispatch(
+            new NativeSource("1", "Ada"),
+            new NativeInput("!b Ada", 6)
+        ).reply());
         assertEquals(new AdapterMatchingPolicy(true, true, true), adapter.matchingPolicy());
     }
 

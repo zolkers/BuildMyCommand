@@ -92,6 +92,9 @@ class SpigotMinecraftIntegrationTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("ban|block <target:String> appeal|reason")
             .executes(ctx -> Results.silent());
+        framework.registry().route("ban|block bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.silent());
         RecordingSender sender = new RecordingSender("Ada", "minecraft.command.ban");
 
         SpigotNativeCommand command = SpigotMinecraftIntegration.nativeCommand(
@@ -104,6 +107,12 @@ class SpigotMinecraftIntegrationTest {
             command,
             "block",
             new String[] {"Alex", "a"}
+        ));
+        assertEquals(List.of("bang"), command.onTabComplete(
+            sender.proxy(),
+            command,
+            "block",
+            new String[] {"b"}
         ));
     }
 

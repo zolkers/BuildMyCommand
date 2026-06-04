@@ -48,6 +48,10 @@ class TerminalAdapterTest {
     void runLoopSupportsHistoryCompletionAndExitCommand() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().command("ping", command -> command.executes(ctx -> Results.success("Pong")));
+        framework.registry()
+            .route("bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
         TerminalAdapter adapter = TerminalAdapter.attach(framework)
             .input(input("ping\nquit\n"))
@@ -60,6 +64,7 @@ class TerminalAdapterTest {
         assertEquals(line("Pong"), text(captured));
         assertEquals(List.of("ping"), adapter.history());
         assertEquals(List.of("ping"), adapter.complete(source(), "pi", 2));
+        assertEquals(List.of("bang"), adapter.complete(source(), "b", 1));
     }
 
     @Test

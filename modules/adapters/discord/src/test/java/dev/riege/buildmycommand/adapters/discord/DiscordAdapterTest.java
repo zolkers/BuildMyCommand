@@ -52,6 +52,11 @@ class DiscordAdapterTest {
                 .option("rawSmall", float.class)
                 .executes(ctx -> Results.silent()));
         framework.registry()
+            .command("bang", command -> command
+                .alias("b")
+                .suggestAliases(false)
+                .executes(ctx -> Results.silent()));
+        framework.registry()
             .command("say", command -> command
                 .greedyArgument("note", String.class)
                 .executes(ctx -> Results.silent()));
@@ -87,11 +92,13 @@ class DiscordAdapterTest {
             new DiscordSlashOption("small", DiscordSlashOptionType.NUMBER, false, "Option small"),
             new DiscordSlashOption("rawSmall", DiscordSlashOptionType.NUMBER, false, "Option rawSmall")
         ), command.options());
-        assertEquals("say", adapter.slashCommands().get(1).name());
+        assertEquals("bang", adapter.slashCommands().get(1).name());
+        assertEquals(List.of(), adapter.slashCommands().get(1).aliases());
+        assertEquals("say", adapter.slashCommands().get(2).name());
         assertEquals(new DiscordSlashOption("note", DiscordSlashOptionType.STRING, true, "Argument note"),
-            adapter.slashCommands().get(1).options().get(0));
-        assertEquals("admin", adapter.slashCommands().get(2).name());
-        assertEquals(List.of("visible"), adapter.slashCommands().get(2).subcommands().stream()
+            adapter.slashCommands().get(2).options().get(0));
+        assertEquals("admin", adapter.slashCommands().get(3).name());
+        assertEquals(List.of("visible"), adapter.slashCommands().get(3).subcommands().stream()
             .map(DiscordSlashCommand::name)
             .toList());
     }

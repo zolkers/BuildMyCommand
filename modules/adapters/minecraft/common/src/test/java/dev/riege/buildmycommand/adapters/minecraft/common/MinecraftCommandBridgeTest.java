@@ -127,6 +127,10 @@ class MinecraftCommandBridgeTest {
         framework.registry()
             .route("gamemode|gm set|apply <target:String> [--silent|-s]")
             .executes(ctx -> Results.silent());
+        framework.registry()
+            .route("wecc bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
 
         MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(framework, sender -> new CommandSource() {
         });
@@ -134,6 +138,7 @@ class MinecraftCommandBridgeTest {
         assertEquals(List.of("gamemode"), bridge.suggest(new FakeSender(Set.of()), "/ga", 3));
         assertEquals(List.of("gamemode", "gm"), bridge.suggest(new FakeSender(Set.of()), "/g", 2));
         assertEquals(List.of("set", "apply"), bridge.suggest(new FakeSender(Set.of()), "/gamemode ", 10));
+        assertEquals(List.of("bang"), bridge.suggest(new FakeSender(Set.of()), "/wecc b", 7));
         assertEquals(List.of("--silent", "-s"), bridge.suggest(new FakeSender(Set.of()),
             MinecraftInvocation.slash("/gamemode set Ada -", 19)));
     }

@@ -88,6 +88,10 @@ class BungeeMinecraftIntegrationTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("server|srv lobby").executes(ctx -> Results.silent());
         framework.registry().route("server|srv survival").executes(ctx -> Results.silent());
+        framework.registry()
+            .route("server|srv bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
         RecordingSender sender = new RecordingSender("Ada");
 
         BungeeNativeCommand command = BungeeMinecraftIntegration.nativeCommand(
@@ -95,6 +99,7 @@ class BungeeMinecraftIntegrationTest {
         );
 
         assertEquals(List.of("survival"), toList(command.onTabComplete(sender.proxy(), new String[] {"s"})));
+        assertEquals(List.of("bang"), toList(command.onTabComplete(sender.proxy(), new String[] {"b"})));
     }
 
     @Test

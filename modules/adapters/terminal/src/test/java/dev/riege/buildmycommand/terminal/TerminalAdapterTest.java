@@ -109,9 +109,14 @@ class TerminalAdapterTest {
         CommandFramework framework = CommandFramework.create();
         framework.registry().command("ping", command -> command.executes(ctx -> Results.silent()));
         framework.registry().command("pong", command -> command.executes(ctx -> Results.silent()));
+        framework.registry()
+            .route("bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success(ctx.arg("target", String.class)));
         TerminalAdapter adapter = TerminalAdapter.attach(framework);
 
         assertEquals(List.of("ping"), adapter.complete(source(), "pi", 2));
+        assertEquals(List.of("bang"), adapter.complete(source(), "b", 1));
     }
 
     @Test
