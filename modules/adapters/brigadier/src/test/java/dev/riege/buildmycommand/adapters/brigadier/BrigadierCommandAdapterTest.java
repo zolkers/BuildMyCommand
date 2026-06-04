@@ -411,6 +411,28 @@ class BrigadierCommandAdapterTest {
     }
 
     @Test
+    void frameworkTunnelSuggestionsPreserveReplacementRangeForTrailingOptions() throws Exception {
+        CommandFramework framework = CommandFramework.create();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+            .executes(ctx -> Results.success("help"));
+        CommandDispatcher<NativeSource> dispatcher = new CommandDispatcher<>();
+
+        bridge.registration().register(dispatcher);
+
+        String input = "help --page 2 --alph";
+        com.mojang.brigadier.suggestion.Suggestion suggestion =
+            dispatcher.getCompletionSuggestions(dispatcher.parse(input, new NativeSource()))
+                .get()
+                .getList()
+                .get(0);
+        assertEquals("--alphabetic", suggestion.getText());
+        assertEquals(StringRange.between(input.indexOf("--alph"), input.length()), suggestion.getRange());
+        assertEquals("help --page 2 --alphabetic", suggestion.apply(input));
+    }
+
+    @Test
     void greedyArgumentsUseGreedyBrigadierArgumentType() {
         CommandFramework framework = CommandFramework.create();
         BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);

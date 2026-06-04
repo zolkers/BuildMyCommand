@@ -17,6 +17,7 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
@@ -148,8 +149,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             CommandSource source = sourceMapper.apply(context.getSource());
             CommandInput input = input(source, context.getInput(), context.getInput().length());
             for (Suggestion suggestion : framework.suggestRich(input)) {
-                suggestionsBuilder.suggest(suggestion.value(),
-                    suggestion.tooltip().map(LiteralMessage::new).orElse(null));
+                suggest(suggestionsBuilder, suggestion);
             }
             return suggestionsBuilder.buildFuture();
         });
@@ -273,11 +273,16 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             CommandSource source = sourceMapper.apply(context.getSource());
             CommandInput input = input(source, context.getInput(), context.getInput().length());
             for (Suggestion suggestion : framework.suggestRich(input)) {
-                suggestionsBuilder.suggest(suggestion.value(),
-                    suggestion.tooltip().map(LiteralMessage::new).orElse(null));
+                suggest(suggestionsBuilder, suggestion);
             }
             return suggestionsBuilder.buildFuture();
         });
+    }
+
+    private static void suggest(SuggestionsBuilder builder, Suggestion suggestion) {
+        SuggestionsBuilder replacementBuilder = new SuggestionsBuilder(builder.getInput(), suggestion.replacementStart());
+        replacementBuilder.suggest(suggestion.value(), suggestion.tooltip().map(LiteralMessage::new).orElse(null));
+        builder.add(replacementBuilder);
     }
 
     private void attachExecutor(ArgumentBuilder<N, ?> builder) {

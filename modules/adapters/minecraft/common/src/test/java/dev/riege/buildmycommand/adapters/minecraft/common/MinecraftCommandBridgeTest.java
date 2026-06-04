@@ -151,6 +151,26 @@ class MinecraftCommandBridgeTest {
     }
 
     @Test
+    void richSuggestionsExposeReplacementRangeForTrailingOptions() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry()
+            .route("help|h [query:String...] [--page:Integer|-p] [--size:Integer|-s] [--alphabetic|-a] [--group:String|-g]")
+            .executes(ctx -> Results.success("help"));
+        MinecraftCommandBridge<FakeSender> bridge = new MinecraftCommandBridge<>(framework, sender -> new CommandSource() {
+        });
+
+        List<Suggestion> suggestions = bridge.suggestRich(
+            new FakeSender(Set.of()),
+            MinecraftInvocation.slash("/help --page 2 --alph", 21),
+            21
+        );
+
+        assertEquals("--alphabetic", suggestions.get(0).value());
+        assertEquals("help --page 2 ".length(), suggestions.get(0).replacementStart());
+        assertEquals("help --page 2 --alph".length(), suggestions.get(0).replacementEnd());
+    }
+
+    @Test
     void canUseRootLabelHonorsAliasesCasePolicyPermissionsAndUnknownLabels() {
         CommandFramework framework = CommandFramework.builder()
             .caseInsensitiveLiterals()
