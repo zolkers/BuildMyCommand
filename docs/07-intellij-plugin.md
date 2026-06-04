@@ -15,6 +15,7 @@ It provides:
 | --- | --- |
 | Route highlighting | `@Route`, `@SubRoute`, `registry.route(...)`, `subRoute(...)`. |
 | Requirement highlighting | `@Require("staff \|\| owner")`, builder `.requirement(...)`. |
+| Permission regex highlighting | `@Permission(value = "admin\\..*", regex = true)`, builder `.permissionRegex(...)`. |
 | Inspections | Wrong annotation targets, bad method signatures, missing route context, bad suggestions. |
 | Custom route types | Project-level `.type(...)` and `.types(...register...)` registrations. |
 | Local setup scripts | Declare/install the plugin for this project. |
@@ -185,5 +186,6 @@ The plugin bundles a TextMate grammar and color scheme for route DSL tokens:
 | Greedy | `<reason:String...>` |
 | Option | `[--duration:Integer|-d]` |
 | Requirement operator | `staff \|\| owner` |
+| Permission regex | `admin\\.audit\\..*` |
 
 If highlighting does not appear after installing, restart IntelliJ and check that the plugin is enabled.
