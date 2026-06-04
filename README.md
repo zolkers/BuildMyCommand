@@ -75,7 +75,7 @@ public final class PingCommand {
 | [Route And SubRoute](docs/02-route-and-subroute.md) | The recommended DSL style. |
 | [Annotations](docs/03-annotations.md) | Annotation contracts and IntelliJ rules. |
 | [Builder API](docs/04-builder-api.md) | Programmatic command trees when annotations are not enough. |
-| [Adapters](docs/05-adapters.md) | `IAdapter` concepts and custom adapter shape. |
+| [Adapters](docs/05-adapters.md) | Adapter artifacts, `IAdapter`, and custom adapter examples. |
 | [Minecraft/Fabric](docs/06-minecraft.md) | Fabric client setup, `ModCommandSource`, and suggestions. |
 | [IntelliJ Plugin](docs/07-intellij-plugin.md) | Local plugin install, highlighting, inspections. |
 | [Middleware And Permissions](docs/08-errors-middleware-permissions.md) | `@Middleware`, `@Require`, `@Permission`, errors. |

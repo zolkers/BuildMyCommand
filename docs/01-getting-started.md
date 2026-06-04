@@ -61,6 +61,8 @@ implementation("io.github.zolkers:adapters-brigadier:$buildMyCommandVersion")
 implementation("io.github.zolkers:adapters-terminal:$buildMyCommandVersion")
 ```
 
+The complete adapter artifact table lives in [Adapters](05-adapters.md). Most applications need exactly one adapter artifact. Minecraft projects usually use one loader/platform artifact, while libraries that integrate their own command system can depend on `adapters-core` and implement their own adapter.
+
 ## CommandSource
 
 `CommandSource` is your bridge from the native runtime to BuildMyCommand.
