@@ -7,11 +7,16 @@
 
 package dev.riege.buildmycommand.core.help;
 
+import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandSource;
+import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.Results;
 import dev.riege.buildmycommand.api.Suggestion;
+import dev.riege.buildmycommand.api.SuggestionContext;
 import dev.riege.buildmycommand.api.SuggestionType;
+import dev.riege.buildmycommand.api.help.HelpProviderAPI;
 import dev.riege.buildmycommand.core.CommandMatchingPolicy;
 import dev.riege.buildmycommand.core.parse.ArgumentParserRegistry;
 import dev.riege.buildmycommand.core.parse.CommandTokenizer;
@@ -20,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -146,8 +152,56 @@ class SuggestionEngineCoverageTest {
         assertEquals(List.of("bang"), values(engine.suggestRich(input(source(Set.of()), "wecc b", 6))));
     }
 
+    @Test
+    void greedyHelpSuggestionProvidersReceiveTheWholeArgumentInput() {
+        SimpleCommandRegistry registry = new SimpleCommandRegistry();
+        HelpProviderAPI help = HelpProviderAPI.create(() -> new CommandGraph(List.of(
+            Commands.literal("profile")
+                .child(leaf("view").build())
+                .child(leaf("message").build())
+                .build()
+        )), (source, path) -> path);
+        registry.route("help [query:String...]")
+            .argumentSuggestions("query", "help commands",
+                context -> help.suggest(SuggestionContext.from(context)))
+            .executes(ctx -> Results.success("help"));
+        SuggestionEngine engine = new SuggestionEngine(registry, new CommandTokenizer());
+
+        assertEquals(List.of("message", "view"), values(engine.suggestRich(input(source(Set.of()),
+            "help profile ", 13))));
+        assertEquals(List.of("profile"), values(engine.suggestRich(input(source(Set.of()),
+            "help profile", 12))));
+    }
+
+    @Test
+    void requiredGreedySuggestionProvidersReceiveTheWholeArgumentInput() throws Exception {
+        SimpleCommandRegistry registry = new SimpleCommandRegistry();
+        registry.route("search <query:String...>")
+            .argumentSuggestions("query", "search terms", context -> List.of(
+                context.currentInput(),
+                String.valueOf(context.currentInputStart())
+            ))
+            .executes(ctx -> Results.success("search"));
+        SuggestionEngine engine = new SuggestionEngine(registry, new CommandTokenizer());
+
+        assertEquals(List.of("red blue ", "7"), values(engine.suggestRich(input(source(Set.of()),
+            "search red blue ", 16))));
+
+        Method tokenStart = SuggestionEngine.class.getDeclaredMethod("tokenStart", String.class, int.class);
+        tokenStart.setAccessible(true);
+        assertEquals(0, tokenStart.invoke(null, "", 0));
+        assertEquals(5, tokenStart.invoke(null, "root ", 4));
+        assertEquals(4, tokenStart.invoke(null, "root", 1));
+    }
+
     private static List<String> values(List<Suggestion> suggestions) {
         return suggestions.stream().map(Suggestion::value).toList();
+    }
+
+    private static CommandNode.Builder leaf(String literal) {
+        return Commands.literal(literal)
+            .description(literal)
+            .handler(ctx -> Results.success(literal));
     }
 
     private static CommandInput input(CommandSource source, String text, int cursor) {

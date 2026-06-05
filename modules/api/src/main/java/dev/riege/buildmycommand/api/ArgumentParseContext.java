@@ -17,7 +17,9 @@ public record ArgumentParseContext(
     String rawToken,
     int replacementStart,
     int replacementEnd,
-    SuggestionType suggestionType
+    SuggestionType suggestionType,
+    String currentInput,
+    int currentInputStart
 ) {
     public ArgumentParseContext {
         Objects.requireNonNull(source, "source");
@@ -29,8 +31,26 @@ public record ArgumentParseContext(
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(rawToken, "rawToken");
         Objects.requireNonNull(suggestionType, "suggestionType");
+        Objects.requireNonNull(currentInput, "currentInput");
         if (replacementStart < 0 || replacementEnd < replacementStart) {
             throw new IllegalArgumentException("invalid replacement range");
         }
+        if (currentInputStart < 0) {
+            throw new IllegalArgumentException("current input start must not be negative");
+        }
+    }
+
+    public ArgumentParseContext(
+        CommandSource source,
+        CommandInput input,
+        String name,
+        Class<?> type,
+        String rawToken,
+        int replacementStart,
+        int replacementEnd,
+        SuggestionType suggestionType
+    ) {
+        this(source, input, name, type, rawToken, replacementStart, replacementEnd, suggestionType, rawToken,
+            replacementStart);
     }
 }

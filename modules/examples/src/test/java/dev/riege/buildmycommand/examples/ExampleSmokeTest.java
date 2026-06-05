@@ -310,7 +310,7 @@ class ExampleSmokeTest {
 
         assertEquals(Set.of("profile"),
             Set.copyOf(framework.suggest(player, "help profile", 12)));
-        assertEquals(Set.of(),
+        assertEquals(Set.of("message", "view"),
             Set.copyOf(framework.suggest(player, "help profile ", 13)));
         assertEquals(List.of("Ada", "Alex"),
             framework.suggest(player, "profile view A", 14));

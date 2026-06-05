@@ -52,7 +52,7 @@ final class HelpCommands {
 
     @Suggest("query")
     SuggestionSet commands(SuggestionContext context) {
-        return SuggestionSet.of(help.suggest(context.source(), context.currentToken()));
+        return SuggestionSet.of(help.suggest(context));
     }
 
     @Suggest("group")
@@ -88,7 +88,7 @@ HelpProviderAPI help = framework.helpProvider()
 framework.registry()
     .route(HelpProviderAPI.DEFAULT_ROUTE)
     .description("Show command help")
-    .argumentSuggestions("query", "visible commands", ctx -> help.suggest(ctx.source(), ctx.rawToken()))
+    .argumentSuggestions("query", "visible commands", ctx -> help.suggest(SuggestionContext.from(ctx)))
     .optionSuggestions("group", "help groups", ctx -> help.suggestGroups(ctx.source(), ctx.rawToken()))
     .executes(ctx -> Results.success(help.render(
         ctx.source(),
@@ -143,6 +143,23 @@ String page = help.render(
 String details = help.render(source, "profile message", HelpOptions.defaults());
 ```
 
+For richer UIs, use the provider as an API instead of only calling `render(...)`.
+
+| API | Use |
+| --- | --- |
+| `render(source, query, options)` | One-call text rendering. It returns command details when `query` exactly matches a visible route, otherwise a filtered page. |
+| `resolve(source, query, options)` | Returns a `HelpResolution` so a UI can decide between details and a page before formatting. |
+| `details(source, path)` | Returns details for one exact visible command path, or throws when the path is not visible. |
+| `page(source, query, options)` | Returns a `HelpPage` filtered by query and options. |
+| `page(entries, options)` | Paginates a pre-filtered entry list. |
+| `entries(source)` | Returns all visible `HelpEntry` values for a source. |
+| `entries(source, options)` | Returns visible entries with group and ordering options applied. |
+| `suggest(context)` | Recommended for `@Suggest("query")`; understands greedy route input and suggests the next path segment. |
+| `suggest(context, mode)` | Same as above, with explicit `HelpSuggestionMode`. |
+| `suggest(source, HelpQuery, mode)` | Adapter/UI-level completion API when you already own the full query text and cursor. |
+| `suggestPaths(source, currentToken)` | Suggests complete visible paths. Use this only when full route suggestions are desired. |
+| `suggestGroups(source, currentToken)` | Suggests visible command groups for `--group`. |
+
 ## Options
 
 | API | CLI flag | Default | Meaning |
@@ -156,10 +173,23 @@ String details = help.render(source, "profile message", HelpOptions.defaults());
 
 ## Suggestions
 
-Use `help.suggest(source, currentTokenOrQuery)` for shell-style command suggestions and `help.suggestGroups(source, currentToken)` for group suggestions. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.
+Use `help.suggest(context)` for shell-style command suggestions and `help.suggestGroups(source, currentToken)` for group suggestions. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.
 
 `help.suggest(...)` returns the next useful path segment instead of full command paths. For example, if visible commands include `admin audit player` and `admin reload`, then passing `admin ` suggests `audit` and `reload`, and passing `admin audit ` suggests `player`. This matches the way most command-line completion systems guide users progressively instead of flooding the menu with every full route.
 
 Use `help.suggestPaths(source, currentToken)` only when you intentionally want full route suggestions such as `admin audit player`.
 
-When used through `@Suggest("query")`, `SuggestionContext.currentToken()` is the token currently being completed. That is usually the right behavior for Minecraft-style completion menus because it avoids flooding the list with full routes. If you build a custom adapter or UI that can pass the whole help query, `help.suggest(...)` can also progressively suggest deeper segments.
+When used through `@Suggest("query")`, the provider reads `SuggestionContext.helpQuery()`, not only the last token. That matters for greedy arguments: with `@Route("help [query:String...]")`, completing `/help profile ` can suggest `message` and `view`, while completing `/help profile` can still suggest `profile`.
+
+| Mode | Behavior |
+| --- | --- |
+| `HelpSuggestionMode.SEGMENT` | Suggest the next path segment. Recommended for command lines and Minecraft completion. |
+| `HelpSuggestionMode.PATH` | Suggest full visible command paths. Useful for search boxes or palette-style UIs. |
+| `HelpSuggestionMode.SMART` | Try segment suggestions first, then fall back to full path suggestions. |
+
+If you build a custom adapter or UI, create a `HelpQuery` from the full help input:
+
+```java
+HelpQuery query = HelpQuery.of(textInsideHelpArgument, cursorInsideHelpArgument);
+List<String> suggestions = help.suggest(source, query, HelpSuggestionMode.SEGMENT);
+```

@@ -9,11 +9,16 @@ package dev.riege.buildmycommand.api.help;
 
 import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandContext;
+import dev.riege.buildmycommand.api.ArgumentParseContext;
 import dev.riege.buildmycommand.api.CommandMetadata;
 import dev.riege.buildmycommand.api.CommandNode;
+import dev.riege.buildmycommand.api.CommandInput;
+import dev.riege.buildmycommand.api.CommandPlatform;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.Commands;
 import dev.riege.buildmycommand.api.Results;
+import dev.riege.buildmycommand.api.SuggestionContext;
+import dev.riege.buildmycommand.api.SuggestionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -75,10 +80,48 @@ class HelpProviderAPITest {
         assertEquals(List.of("audit", "reload"), help.suggest(admin, "admin "));
         assertEquals(List.of("player"), help.suggest(admin, "admin audit "));
         assertEquals(List.of("admin audit player", "admin reload"), help.suggestPaths(admin, "admin"));
+        assertEquals(List.of("audit", "reload"), help.suggest(admin, HelpQuery.parse("admin "),
+            HelpSuggestionMode.SEGMENT));
+        assertEquals(List.of("admin audit player", "admin reload"), help.suggest(admin, HelpQuery.parse("admin"),
+            HelpSuggestionMode.PATH));
+        assertEquals(List.of("audit", "reload"), help.suggest(admin, HelpQuery.parse("admin "),
+            HelpSuggestionMode.SMART));
+        assertEquals(List.of(), help.suggest(admin, HelpQuery.parse("zz "),
+            HelpSuggestionMode.SEGMENT));
+        assertEquals(List.of(), help.suggest(admin, HelpQuery.parse("zz "),
+            HelpSuggestionMode.SMART));
         assertEquals(List.of("Administration", "Players", "Staff", "System"), help.suggestGroups(admin, ""));
         assertEquals(List.of("Administration"), help.suggestGroups(admin, "Adm"));
+        assertEquals(HelpResolution.Kind.DETAILS, help.resolve(guest, "profile view", HelpOptions.defaults()).kind());
+        assertEquals(HelpResolution.Kind.PAGE, help.resolve(guest, "missing", HelpOptions.defaults()).kind());
+        assertEquals("Usage: /profile view <target>\nDescription: profile view", help.details(guest, "profile view"));
+        assertEquals("Usage: /help <target>\nDescription: help", help.details(guest, "help"));
         assertEquals("profile view", help.entries(guest).get(0).path());
         assertEquals(Optional.empty(), help.entries(guest).get(0).permission());
+    }
+
+    @Test
+    void suggestionContextFeedsFullGreedyHelpQueryToProviderApi() {
+        HelpProviderAPI help = help();
+        CommandSource admin = source(Set.of("admin.reload", "admin.audit.read", "staff.notes"));
+        SuggestionContext context = SuggestionContext.from(new ArgumentParseContext(
+            admin,
+            new CommandInput(admin, "help admin ", "help admin ", "help admin ".length(), "", CommandPlatform.test()),
+            "query",
+            String.class,
+            "",
+            "help admin ".length(),
+            "help admin ".length(),
+            SuggestionType.ARGUMENT,
+            "admin ",
+            "help ".length()
+        ));
+
+        assertEquals(List.of("audit", "reload"), help.suggest(context, HelpSuggestionMode.SEGMENT));
+        assertEquals(List.of("audit", "reload"), help.suggest(context));
+        assertEquals(HelpQuery.parse("admin "), context.helpQuery());
+        assertEquals("admin ", context.currentInput());
+        assertEquals("admin ".length(), context.helpQuery().cursor());
     }
 
     @Test
@@ -154,7 +197,35 @@ class HelpProviderAPITest {
         assertThrows(NullPointerException.class, () -> help().entries(null));
         assertThrows(NullPointerException.class, () -> help().entries(source(Set.of()), null));
         assertThrows(NullPointerException.class, () -> help().suggest(source(Set.of()), null));
+        assertThrows(NullPointerException.class, () -> help().suggest(source(Set.of()), null,
+            HelpSuggestionMode.SEGMENT));
+        assertThrows(NullPointerException.class, () -> help().suggest(source(Set.of()), HelpQuery.parse(""),
+            null));
+        assertThrows(NullPointerException.class, () -> help().suggest(null, HelpQuery.parse(""),
+            HelpSuggestionMode.SEGMENT));
+        assertThrows(NullPointerException.class, () -> help().suggest((SuggestionContext) null));
         assertThrows(NullPointerException.class, () -> help().suggestGroups(source(Set.of()), null));
+        assertThrows(NullPointerException.class, () -> HelpQuery.parse(null));
+        assertThrows(NullPointerException.class, () -> HelpQuery.of(null, 0));
+        assertThrows(IllegalArgumentException.class, () -> HelpQuery.of("admin", -1));
+        assertThrows(IllegalArgumentException.class, () -> HelpQuery.of("admin", 6));
+        assertThrows(IllegalArgumentException.class,
+            () -> new HelpQuery("admin", -1, "admin", List.of("admin"), "admin"));
+        assertEquals(true, HelpQuery.parse("   ").blank());
+        assertEquals(List.of(), HelpQuery.parse("").prefixTokens());
+        assertThrows(IllegalArgumentException.class,
+            () -> new ArgumentParseContext(source, CommandInput.raw(source, "x"), "name", String.class,
+                "", 0, 0, SuggestionType.ARGUMENT, "", -1));
+        assertThrows(NullPointerException.class, () -> help().details(null, "profile view"));
+        assertThrows(NullPointerException.class, () -> help().details(source(Set.of()), null));
+        assertThrows(IllegalArgumentException.class, () -> help().details(source(Set.of()), " "));
+        assertThrows(IllegalArgumentException.class, () -> help().details(source(Set.of()), "admin reload"));
+        assertThrows(NullPointerException.class, () -> HelpResolution.details(null));
+        assertThrows(NullPointerException.class, () -> HelpResolution.page(null));
+        assertThrows(IllegalArgumentException.class,
+            () -> new HelpResolution(HelpResolution.Kind.DETAILS, Optional.empty(), Optional.empty()));
+        assertThrows(IllegalArgumentException.class,
+            () -> new HelpResolution(HelpResolution.Kind.PAGE, Optional.empty(), Optional.empty()));
         assertThrows(NullPointerException.class, () -> help().page(null, HelpOptions.defaults()));
         assertThrows(NullPointerException.class, () -> help().page(List.of(), null));
         assertThrows(NullPointerException.class,

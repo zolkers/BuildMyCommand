@@ -11,6 +11,7 @@ import dev.riege.buildmycommand.api.CommandGraph;
 import dev.riege.buildmycommand.api.CommandNode;
 import dev.riege.buildmycommand.api.CommandSource;
 import dev.riege.buildmycommand.api.PermissionSpec;
+import dev.riege.buildmycommand.api.SuggestionContext;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -72,15 +73,21 @@ public final class HelpProviderAPI {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(query, "query");
         Objects.requireNonNull(options, "options");
+        HelpResolution resolution = resolve(source, query, options);
+        return resolution.details()
+            .map(details -> formatter.formatDetails(title, details))
+            .orElseGet(() -> formatter.formatPage(resolution.page().orElseThrow()));
+    }
+
+    public HelpResolution resolve(CommandSource source, String query, HelpOptions options) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(query, "query");
+        Objects.requireNonNull(options, "options");
         String trimmedQuery = query.trim();
         if (!trimmedQuery.isBlank() && hasVisibleEntry(source, trimmedQuery)) {
-            return formatter.formatDetails(title, detailsProvider.apply(source, trimmedQuery));
+            return HelpResolution.details(detailsProvider.apply(source, trimmedQuery));
         }
-
-        List<HelpEntry> entries = entries(source, options).stream()
-            .filter(entry -> trimmedQuery.isBlank() || entry.path().toLowerCase().contains(trimmedQuery.toLowerCase()))
-            .toList();
-        return formatter.formatPage(page(entries, options));
+        return HelpResolution.page(page(source, query, options));
     }
 
     public List<HelpEntry> entries(CommandSource source) {
@@ -105,22 +112,30 @@ public final class HelpProviderAPI {
 
     public List<String> suggest(CommandSource source, String currentToken) {
         Objects.requireNonNull(currentToken, "currentToken");
-        String query = currentToken.stripLeading();
-        boolean completingNextToken = !query.isEmpty() && Character.isWhitespace(query.charAt(query.length() - 1));
-        List<String> queryTokens = tokens(query);
-        List<String> prefixTokens = completingNextToken || queryTokens.isEmpty()
-            ? queryTokens
-            : queryTokens.subList(0, queryTokens.size() - 1);
-        String currentSegment = completingNextToken || queryTokens.isEmpty()
-            ? ""
-            : queryTokens.getLast();
+        return suggest(source, HelpQuery.parse(currentToken), HelpSuggestionMode.SEGMENT);
+    }
 
-        return entries(source, HelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
-            .map(HelpEntry::path)
-            .flatMap(path -> nextSegments(path, prefixTokens, currentSegment).stream())
-            .distinct()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .toList();
+    public List<String> suggest(SuggestionContext context) {
+        return suggest(context, HelpSuggestionMode.SEGMENT);
+    }
+
+    public List<String> suggest(SuggestionContext context, HelpSuggestionMode mode) {
+        Objects.requireNonNull(context, "context");
+        return suggest(context.source(), context.helpQuery(), mode);
+    }
+
+    public List<String> suggest(CommandSource source, HelpQuery query, HelpSuggestionMode mode) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(query, "query");
+        Objects.requireNonNull(mode, "mode");
+        return switch (mode) {
+            case SEGMENT -> suggestSegments(source, query);
+            case PATH -> suggestPaths(source, query.prefix());
+            case SMART -> {
+                List<String> segments = suggestSegments(source, query);
+                yield segments.isEmpty() ? suggestPaths(source, query.prefix()) : segments;
+            }
+        };
     }
 
     public List<String> suggestPaths(CommandSource source, String currentToken) {
@@ -154,8 +169,38 @@ public final class HelpProviderAPI {
         return new HelpPage(title, footer, pageEntries, options, page, pageCount);
     }
 
+    public HelpPage page(CommandSource source, String query, HelpOptions options) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(query, "query");
+        Objects.requireNonNull(options, "options");
+        String trimmedQuery = query.trim();
+        List<HelpEntry> entries = entries(source, options).stream()
+            .filter(entry -> trimmedQuery.isBlank() || entry.path().toLowerCase().contains(trimmedQuery.toLowerCase()))
+            .toList();
+        return page(entries, options);
+    }
+
+    public String details(CommandSource source, String path) {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(path, "path");
+        String trimmedPath = path.trim();
+        if (trimmedPath.isBlank() || !hasVisibleEntry(source, trimmedPath)) {
+            throw new IllegalArgumentException("unknown visible help path: " + path);
+        }
+        return detailsProvider.apply(source, trimmedPath);
+    }
+
     private boolean hasVisibleEntry(CommandSource source, String path) {
         return entries(source).stream().anyMatch(entry -> entry.path().equalsIgnoreCase(path));
+    }
+
+    private List<String> suggestSegments(CommandSource source, HelpQuery query) {
+        return entries(source, HelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
+            .map(HelpEntry::path)
+            .flatMap(path -> nextSegments(path, query.prefixTokens(), query.currentToken()).stream())
+            .distinct()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .toList();
     }
 
     private static List<String> nextSegments(String path, List<String> prefixTokens, String currentSegment) {
@@ -184,11 +229,7 @@ public final class HelpProviderAPI {
     }
 
     private static List<String> tokens(String input) {
-        String trimmed = input.trim();
-        if (trimmed.isEmpty()) {
-            return List.of();
-        }
-        return List.of(trimmed.split("\\s+"));
+        return List.of(input.trim().split("\\s+"));
     }
 
     private List<HelpEntry> visibleEntries(CommandGraph graph, CommandSource source) {

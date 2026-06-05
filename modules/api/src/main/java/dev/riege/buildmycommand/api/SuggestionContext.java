@@ -7,6 +7,8 @@
 
 package dev.riege.buildmycommand.api;
 
+import dev.riege.buildmycommand.api.help.HelpQuery;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -44,6 +46,19 @@ public record SuggestionContext(ArgumentParseContext parseContext) {
 
     public String currentToken() {
         return parseContext.rawToken();
+    }
+
+    public String currentInput() {
+        return parseContext.currentInput();
+    }
+
+    public int currentInputStart() {
+        return parseContext.currentInputStart();
+    }
+
+    public HelpQuery helpQuery() {
+        return HelpQuery.of(currentInput(), Math.min(currentInput().length(),
+            Math.max(0, parseContext.input().normalizedCursor() - currentInputStart())));
     }
 
     public int replacementStart() {

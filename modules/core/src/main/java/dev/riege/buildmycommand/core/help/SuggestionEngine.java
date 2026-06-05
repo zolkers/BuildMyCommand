@@ -157,7 +157,8 @@ public final class SuggestionEngine {
             if (!canAccessMatchedPath || !canDiscoverMatchedPath) {
                 return List.of();
             }
-            ArgumentParseContext suggestionContext = context(input, nextArgument, current, replacementStart, replacementEnd);
+            ArgumentParseContext suggestionContext = context(input, prefixInput, state.tokenIndex(), nextArgument, current,
+                replacementStart, replacementEnd);
             List<Suggestion> suggestions = nextArgument.suggestionProviderOptional()
                 .map(provider -> provider.richSuggestions(suggestionContext))
                 .orElseGet(() -> parsers.suggestions(nextArgument.type(), suggestionContext));
@@ -239,6 +240,13 @@ public final class SuggestionEngine {
             index += option.kind() == RegistryOptionKind.VALUE ? 2 : 1;
         }
         if (positionals >= command.arguments().size()) {
+            if (!command.arguments().isEmpty()) {
+                RegistryArgumentSpec lastArgument = command.arguments().getLast();
+                if (lastArgument.kind() == RegistryArgumentKind.GREEDY
+                    || lastArgument.kind() == RegistryArgumentKind.OPTIONAL_GREEDY) {
+                    return lastArgument;
+                }
+            }
             return null;
         }
         return command.arguments().get(positionals);
@@ -295,13 +303,21 @@ public final class SuggestionEngine {
 
     private static ArgumentParseContext context(
         CommandInput input,
+        String prefixInput,
+        int argumentTokenIndex,
         RegistryArgumentSpec argument,
         String current,
         int replacementStart,
         int replacementEnd
     ) {
+        boolean greedy = argument.kind() == RegistryArgumentKind.GREEDY
+            || argument.kind() == RegistryArgumentKind.OPTIONAL_GREEDY;
+        int currentInputStart = greedy ? tokenStart(prefixInput, argumentTokenIndex) : replacementStart;
+        String currentInput = greedy
+            ? prefixInput.substring(Math.min(currentInputStart, prefixInput.length()))
+            : current;
         return new ArgumentParseContext(input.source(), input, argument.name(), argument.type(), current,
-            replacementStart, replacementEnd, SuggestionType.ARGUMENT);
+            replacementStart, replacementEnd, SuggestionType.ARGUMENT, currentInput, currentInputStart);
     }
 
     private static ArgumentParseContext context(
@@ -333,6 +349,24 @@ public final class SuggestionEngine {
             index--;
         }
         return index;
+    }
+
+    private static int tokenStart(String input, int tokenIndex) {
+        int token = 0;
+        int index = 0;
+        while (index < input.length()) {
+            while (index < input.length() && Character.isWhitespace(input.charAt(index))) {
+                index++;
+            }
+            if (token == tokenIndex || index >= input.length()) {
+                return index;
+            }
+            while (index < input.length() && !Character.isWhitespace(input.charAt(index))) {
+                index++;
+            }
+            token++;
+        }
+        return input.length();
     }
 
     private static SuggestionType typeFor(String value, String current) {

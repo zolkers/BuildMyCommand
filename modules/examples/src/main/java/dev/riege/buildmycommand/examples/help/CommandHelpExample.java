@@ -53,7 +53,7 @@ public final class CommandHelpExample {
 
         @Suggest("query")
         SuggestionSet commands(SuggestionContext context) {
-            return SuggestionSet.of(help.suggest(context.source(), context.currentToken()));
+            return SuggestionSet.of(help.suggest(context));
         }
 
         @Suggest("group")

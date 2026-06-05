@@ -42,6 +42,102 @@ CommandResult punish(@RouteCtx CommandContext ctx) {
 }
 ```
 
+## Native Types
+
+BuildMyCommand ships these route DSL type names out of the box:
+
+| DSL type | Java type | Example |
+| --- | --- | --- |
+| `String` | `java.lang.String` | `<name:String>` |
+| `Integer` | `java.lang.Integer` | `<amount:Integer>` |
+| `int` | `int` | `<amount:int>` |
+| `Long` | `java.lang.Long` | `<ticks:Long>` |
+| `long` | `long` | `<ticks:long>` |
+| `Float` | `java.lang.Float` | `<speed:Float>` |
+| `float` | `float` | `<speed:float>` |
+| `Double` | `java.lang.Double` | `<ratio:Double>` |
+| `double` | `double` | `<ratio:double>` |
+| `Boolean` | `java.lang.Boolean` | `[--enabled:Boolean]` |
+| `boolean` | `boolean` | `[--enabled:boolean]` |
+| `UUID` | `java.util.UUID` | `<id:UUID>` |
+| `Duration` | `java.time.Duration` | `<ttl:Duration>` with ISO-8601 values such as `PT5M` |
+| `LocalDate` | `java.time.LocalDate` | `<day:LocalDate>` with values such as `2026-06-05` |
+| `LocalDateTime` | `java.time.LocalDateTime` | `<at:LocalDateTime>` with values such as `2026-06-05T18:30:00` |
+| `Path` | `java.nio.file.Path` | `<file:Path>` |
+| `URI` | `java.net.URI` | `<uri:URI>` |
+| `URL` | `java.net.URL` | `<url:URL>` |
+
+Numeric types can also use ranges:
+
+```java
+@SubRoute("volume <percent:Integer{0..100}>")
+CommandResult volume(@RouteCtx CommandContext ctx) {
+    int percent = ctx.arg("percent", Integer.class);
+    return Results.success("volume=" + percent);
+}
+```
+
+Inline enum analysis is available for tooling and conflict checks:
+
+```java
+@SubRoute("mode <value:enum(survival,creative,adventure)>")
+```
+
+For runtime enum parsing, prefer registering a named type alias for your enum class. That keeps the DSL, runtime parser, and IntelliJ inspection model aligned.
+
+## Custom Types
+
+Custom route types are the clean path for platform objects such as `Material`, `ItemStack`, `Player`, `World`, or your own domain types. Register the alias once when creating the framework:
+
+```java
+CommandFramework framework = CommandFramework.builder()
+    .types(types -> types
+        .register("Material", Material.class, new MaterialParser())
+        .register("ItemStack", ItemStack.class, new ItemStackParser()))
+    .build();
+```
+
+Then use the alias directly in routes:
+
+```java
+@Command("shop")
+final class ShopCommands {
+    @SubRoute("give <item:Material> [--fallback:Material|-f]")
+    CommandResult give(@RouteCtx CommandContext ctx) {
+        Material item = ctx.arg("item", Material.class);
+        Material fallback = ctx.option("fallback", Material.class).orElse(item);
+        return Results.success("giving " + item + " fallback=" + fallback);
+    }
+}
+```
+
+A parser converts raw input into the Java type and can optionally provide suggestions:
+
+```java
+final class MaterialParser implements ArgumentParser<Material> {
+    @Override
+    public ArgumentParseResult<Material> parse(String rawToken, ArgumentParseContext context) {
+        Material material = Material.matchMaterial(rawToken);
+        if (material == null) {
+            return ArgumentParseResult.failure("Unknown material: " + rawToken);
+        }
+        return ArgumentParseResult.success(material);
+    }
+
+    @Override
+    public List<Suggestion> suggestions(ArgumentParseContext context) {
+        String prefix = context.rawToken().toLowerCase(Locale.ROOT);
+        return Arrays.stream(Material.values())
+            .map(Material::name)
+            .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
+            .map(Suggestion::of)
+            .toList();
+    }
+}
+```
+
+Aliases must be unique. Built-in names such as `String`, `Integer`, `Boolean`, `UUID`, and `Duration` cannot be replaced, and a Java type can only be registered once in a framework instance.
+
 ## Route Context
 
 Route DSL methods should receive exactly one route context:
