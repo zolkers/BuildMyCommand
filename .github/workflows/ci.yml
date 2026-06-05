@@ -43,3 +43,7 @@ jobs:
       - name: Build IntelliJ plugin
         run: ./gradlew :intellij-plugin:buildPlugin
         shell: bash
+      - name: Verify IntelliJ IDEA Community compatibility
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew :intellij-plugin:runPluginVerifier
+        shell: bash

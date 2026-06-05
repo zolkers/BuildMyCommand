@@ -158,6 +158,41 @@ Before publishing, build and verify locally:
 .\gradlew.bat :intellij-plugin:clean :intellij-plugin:buildPlugin :intellij-plugin:check
 ```
 
+## IDEA Community Compatibility
+
+The plugin is built against IntelliJ IDEA Community:
+
+```kotlin
+intellij {
+    type.set("IC")
+}
+```
+
+CI also runs JetBrains Plugin Verifier against IDEA Community releases through:
+
+```bash
+./gradlew :intellij-plugin:runPluginVerifier
+```
+
+The default verification set is:
+
+| IDE | Why |
+| --- | --- |
+| `IC-2024.1` | First supported platform line, matching `sinceBuild=241`. |
+| `IC-2024.3` | Latest 2024 line coverage. |
+| `IC-2025.1` | First 2025 line coverage. |
+| `IC-2025.2` | Recent IDEA Community line coverage. |
+
+Maintainers can override the verification set without editing the build file:
+
+```powershell
+.\gradlew.bat :intellij-plugin:runPluginVerifier -PpluginVerifierIdeVersions="IC-2024.1,IC-2025.2"
+```
+
+```sh
+./gradlew :intellij-plugin:runPluginVerifier -PpluginVerifierIdeVersions="IC-2024.1,IC-2025.2"
+```
+
 ## Inspections
 
 | Example | Diagnostic |

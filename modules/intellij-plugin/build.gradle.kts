@@ -5,6 +5,14 @@
 
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 
+val communityVerifierIdeVersions = providers.gradleProperty("pluginVerifierIdeVersions")
+    .map { versions ->
+        versions.split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+    }
+    .orElse(listOf("IC-2024.1", "IC-2024.3", "IC-2025.1", "IC-2025.2"))
+
 plugins {
     java
     jacoco
@@ -56,6 +64,10 @@ tasks.publishPlugin {
             .map { listOf(it) }
             .orElse(listOf("default"))
     )
+}
+
+tasks.runPluginVerifier {
+    ideVersions.set(communityVerifierIdeVersions)
 }
 
 tasks.withType<Test>().configureEach {

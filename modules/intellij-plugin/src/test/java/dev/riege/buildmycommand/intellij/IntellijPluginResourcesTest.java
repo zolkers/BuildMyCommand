@@ -261,6 +261,7 @@ class IntellijPluginResourcesTest {
         String shellScript = Files.readString(root.resolve("scripts/setup-intellij-plugin.sh"));
         String buildScript = Files.readString(root.resolve("build.gradle.kts"));
         String intellijBuildScript = Files.readString(root.resolve("modules/intellij-plugin/build.gradle.kts"));
+        String ciWorkflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
 
         assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
         assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.dsl\" min-version=\"0.3.2\" />"));
@@ -276,8 +277,14 @@ class IntellijPluginResourcesTest {
         assertTrue(buildScript.contains("setupIntellijPlugin"));
         assertTrue(buildScript.contains("installIntellijPluginLocal"));
         assertTrue(intellijBuildScript.contains("tasks.patchPluginXml"));
+        assertTrue(intellijBuildScript.contains("tasks.runPluginVerifier"));
+        assertTrue(intellijBuildScript.contains("pluginVerifierIdeVersions"));
+        assertTrue(intellijBuildScript.contains("IC-2024.1"));
+        assertTrue(intellijBuildScript.contains("IC-2025.2"));
         assertTrue(intellijBuildScript.contains("sinceBuild.set(\"241\")"));
         assertTrue(intellijBuildScript.contains("untilBuild.set(\"\")"));
+        assertTrue(ciWorkflow.contains(":intellij-plugin:runPluginVerifier"));
+        assertTrue(ciWorkflow.contains("Verify IntelliJ IDEA Community compatibility"));
     }
 
     private static String resource(String path) throws IOException {
