@@ -47,7 +47,7 @@ tasks.patchPluginXml {
         <ul>
           <li>Removes the Route DSL completion space workaround so lookup items no longer appear duplicated with leading spaces.</li>
           <li>Keeps highlighting, inspections and completion active for @Route, @SubRoute, builder route/subRoute/path calls, @Require and regex permissions.</li>
-          <li>Updates the required plugin metadata for BuildMyCommand 0.3.3 projects.</li>
+          <li>Keeps project metadata compatible with BuildMyCommand DSL Support 0.3.2 and newer.</li>
         </ul>
         """.trimIndent()
     )
