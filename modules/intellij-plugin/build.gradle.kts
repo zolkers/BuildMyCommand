@@ -45,9 +45,9 @@ tasks.patchPluginXml {
     changeNotes.set(
         """
         <ul>
-          <li>Removes the Route DSL completion space workaround so lookup items no longer appear duplicated with leading spaces.</li>
+          <li>Improves Brigadier fallback validation so incomplete or unknown framework subcommands render as invalid during parsing instead of only failing on execution.</li>
+          <li>Updates help command suggestions to prefer shell-style path segments instead of noisy full command routes.</li>
           <li>Keeps highlighting, inspections and completion active for @Route, @SubRoute, builder route/subRoute/path calls, @Require and regex permissions.</li>
-          <li>Keeps project metadata compatible with BuildMyCommand DSL Support 0.3.2 and newer.</li>
         </ul>
         """.trimIndent()
     )

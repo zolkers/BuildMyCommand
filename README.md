@@ -68,7 +68,7 @@ repositories {
     mavenCentral()
 }
 
-val buildMyCommandVersion = "0.3.4"
+val buildMyCommandVersion = "0.3.5"
 
 dependencies {
     implementation("io.github.zolkers:buildmycommand-api:$buildMyCommandVersion")
@@ -87,7 +87,7 @@ repositories {
     mavenCentral()
 }
 
-def buildMyCommandVersion = "0.3.4"
+def buildMyCommandVersion = "0.3.5"
 
 dependencies {
     implementation "io.github.zolkers:buildmycommand-api:$buildMyCommandVersion"
@@ -103,7 +103,7 @@ dependencies {
 
 ```xml
 <properties>
-    <buildmycommand.version>0.3.4</buildmycommand.version>
+    <buildmycommand.version>0.3.5</buildmycommand.version>
 </properties>
 
 <dependencies>
@@ -239,7 +239,7 @@ final class HelpCommands {
 }
 ```
 
-`HelpProviderAPI` supports permission-aware listings, command details, pagination, alphabetical sorting, group filtering, command suggestions, group suggestions, and custom `HelpFormatter` implementations.
+`HelpProviderAPI` supports permission-aware listings, command details, pagination, alphabetical sorting, group filtering, shell-style command segment suggestions, full path suggestions when explicitly requested, group suggestions, and custom `HelpFormatter` implementations.
 
 ## Modules
 

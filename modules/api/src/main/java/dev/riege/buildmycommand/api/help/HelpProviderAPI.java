@@ -105,6 +105,26 @@ public final class HelpProviderAPI {
 
     public List<String> suggest(CommandSource source, String currentToken) {
         Objects.requireNonNull(currentToken, "currentToken");
+        String query = currentToken.stripLeading();
+        boolean completingNextToken = !query.isEmpty() && Character.isWhitespace(query.charAt(query.length() - 1));
+        List<String> queryTokens = tokens(query);
+        List<String> prefixTokens = completingNextToken || queryTokens.isEmpty()
+            ? queryTokens
+            : queryTokens.subList(0, queryTokens.size() - 1);
+        String currentSegment = completingNextToken || queryTokens.isEmpty()
+            ? ""
+            : queryTokens.getLast();
+
+        return entries(source, HelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
+            .map(HelpEntry::path)
+            .flatMap(path -> nextSegments(path, prefixTokens, currentSegment).stream())
+            .distinct()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .toList();
+    }
+
+    public List<String> suggestPaths(CommandSource source, String currentToken) {
+        Objects.requireNonNull(currentToken, "currentToken");
         String normalizedToken = currentToken.toLowerCase();
         return entries(source, HelpOptions.defaults().toBuilder().alphabetic(true).build()).stream()
             .map(HelpEntry::path)
@@ -136,6 +156,39 @@ public final class HelpProviderAPI {
 
     private boolean hasVisibleEntry(CommandSource source, String path) {
         return entries(source).stream().anyMatch(entry -> entry.path().equalsIgnoreCase(path));
+    }
+
+    private static List<String> nextSegments(String path, List<String> prefixTokens, String currentSegment) {
+        List<String> pathTokens = tokens(path);
+        String normalizedSegment = currentSegment.toLowerCase();
+        List<String> suggestions = new ArrayList<>();
+        int maxOffset = prefixTokens.isEmpty() && currentSegment.isEmpty() ? 0 : pathTokens.size() - 1;
+        for (int offset = 0; offset <= maxOffset && offset + prefixTokens.size() < pathTokens.size(); offset++) {
+            if (matchesAt(pathTokens, prefixTokens, offset)) {
+                String candidate = pathTokens.get(offset + prefixTokens.size());
+                if (candidate.toLowerCase().startsWith(normalizedSegment)) {
+                    suggestions.add(candidate);
+                }
+            }
+        }
+        return suggestions;
+    }
+
+    private static boolean matchesAt(List<String> pathTokens, List<String> prefixTokens, int offset) {
+        for (int index = 0; index < prefixTokens.size(); index++) {
+            if (!pathTokens.get(offset + index).equalsIgnoreCase(prefixTokens.get(index))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<String> tokens(String input) {
+        String trimmed = input.trim();
+        if (trimmed.isEmpty()) {
+            return List.of();
+        }
+        return List.of(trimmed.split("\\s+"));
     }
 
     private List<HelpEntry> visibleEntries(CommandGraph graph, CommandSource source) {

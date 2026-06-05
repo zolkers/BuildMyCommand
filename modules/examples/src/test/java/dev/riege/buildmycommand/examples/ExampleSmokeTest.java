@@ -308,8 +308,10 @@ class ExampleSmokeTest {
         assertTrue(adminReply.contains("admin audit player - Read player audit information"));
         assertTrue(adminReply.contains("staff notes list - List staff notes"));
 
-        assertEquals(Set.of("profile view", "profile message"),
+        assertEquals(Set.of("profile"),
             Set.copyOf(framework.suggest(player, "help profile", 12)));
+        assertEquals(Set.of(),
+            Set.copyOf(framework.suggest(player, "help profile ", 13)));
         assertEquals(List.of("Ada", "Alex"),
             framework.suggest(player, "profile view A", 14));
         assertEquals(List.of("Ada", "Alex"),

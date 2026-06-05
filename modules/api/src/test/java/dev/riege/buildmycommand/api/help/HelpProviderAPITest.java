@@ -70,7 +70,11 @@ class HelpProviderAPITest {
             == Command Help == page 1/1 group Missing
             No commands are available.""", empty);
 
-        assertEquals(List.of("admin audit player", "admin reload"), help.suggest(admin, "admin"));
+        assertEquals(List.of("admin", "help", "profile", "staff"), help.suggest(admin, ""));
+        assertEquals(List.of("admin"), help.suggest(admin, "admin"));
+        assertEquals(List.of("audit", "reload"), help.suggest(admin, "admin "));
+        assertEquals(List.of("player"), help.suggest(admin, "admin audit "));
+        assertEquals(List.of("admin audit player", "admin reload"), help.suggestPaths(admin, "admin"));
         assertEquals(List.of("Administration", "Players", "Staff", "System"), help.suggestGroups(admin, ""));
         assertEquals(List.of("Administration"), help.suggestGroups(admin, "Adm"));
         assertEquals("profile view", help.entries(guest).get(0).path());

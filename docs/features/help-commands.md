@@ -52,7 +52,7 @@ final class HelpCommands {
 
     @Suggest("query")
     SuggestionSet commands(SuggestionContext context) {
-        return SuggestionSet.of(help.suggest(context.source(), context.currentToken())).filteringCurrentToken();
+        return SuggestionSet.of(help.suggest(context.source(), context.currentToken()));
     }
 
     @Suggest("group")
@@ -156,4 +156,10 @@ String details = help.render(source, "profile message", HelpOptions.defaults());
 
 ## Suggestions
 
-Use `help.suggest(source, currentToken)` for command path suggestions and `help.suggestGroups(source, currentToken)` for group suggestions. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.
+Use `help.suggest(source, currentTokenOrQuery)` for shell-style command suggestions and `help.suggestGroups(source, currentToken)` for group suggestions. Suggestions are permission-aware, so users do not get completion entries for commands they cannot see.
+
+`help.suggest(...)` returns the next useful path segment instead of full command paths. For example, if visible commands include `admin audit player` and `admin reload`, then passing `admin ` suggests `audit` and `reload`, and passing `admin audit ` suggests `player`. This matches the way most command-line completion systems guide users progressively instead of flooding the menu with every full route.
+
+Use `help.suggestPaths(source, currentToken)` only when you intentionally want full route suggestions such as `admin audit player`.
+
+When used through `@Suggest("query")`, `SuggestionContext.currentToken()` is the token currently being completed. That is usually the right behavior for Minecraft-style completion menus because it avoids flooding the list with full routes. If you build a custom adapter or UI that can pass the whole help query, `help.suggest(...)` can also progressively suggest deeper segments.

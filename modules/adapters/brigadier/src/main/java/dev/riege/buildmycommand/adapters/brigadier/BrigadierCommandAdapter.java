@@ -9,6 +9,7 @@ package dev.riege.buildmycommand.adapters.brigadier;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.LiteralMessage;
+import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -175,7 +176,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         }
         if (needsFrameworkTunnel(node)) {
             RequiredArgumentBuilder<N, String> tunnel =
-                RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, StringArgumentType.greedyString());
+                RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, frameworkTunnelArgument(node));
             attachFrameworkSuggestions(tunnel);
             tunnel.executes(context -> executeTunnel(context, node));
             builder.then(tunnel);
@@ -188,10 +189,20 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             || (framework.caseInsensitiveLiterals() && !node.children().isEmpty());
     }
 
+    private ArgumentType<String> frameworkTunnelArgument(CommandNode node) {
+        return reader -> {
+            int start = reader.getCursor();
+            String remaining = reader.getRemaining();
+            reader.setCursor(reader.getTotalLength());
+            if (shouldRejectTunnel(node, remaining)) {
+                reader.setCursor(start);
+                throw INVALID_INPUT.createWithContext(reader);
+            }
+            return remaining;
+        };
+    }
+
     private int executeTunnel(CommandContext<N> context, CommandNode node) throws CommandSyntaxException {
-        if (shouldRejectTunnel(node, context.getArgument(FRAMEWORK_TUNNEL, String.class))) {
-            throw INVALID_INPUT.create();
-        }
         return execute(context.getSource(), context.getInput());
     }
 

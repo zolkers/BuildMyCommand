@@ -178,6 +178,8 @@ class BrigadierCommandAdapterTest {
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc s", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc g", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc nope", new NativeSource()));
+        assertFalse(dispatcher.parse("wecc nope", new NativeSource()).getExceptions().isEmpty());
+        assertFalse(dispatcher.parse("wecc b", new NativeSource()).getExceptions().isEmpty());
         assertTrue(suggestions(dispatcher, "wecc ").contains("bang"));
         assertTrue(suggestions(dispatcher, "wecc ").contains("ping"));
         assertFalse(suggestions(dispatcher, "wecc ").contains("b"));
@@ -216,6 +218,9 @@ class BrigadierCommandAdapterTest {
         strictFramework.registry()
             .route("wecc bang|b <target:String>")
             .executes(ctx -> Results.success("bang " + ctx.arg("target", String.class)));
+        strictFramework.registry()
+            .route("wecc quiet|q")
+            .executes(ctx -> Results.success("quiet"));
         BrigadierCommandAdapter<NativeSource> strictBridge =
             BrigadierCommandAdapter.create(strictFramework, NativeSource::source);
         dev.riege.buildmycommand.api.CommandNode strictRoot = strictFramework.graph().roots().get(0);
@@ -234,6 +239,8 @@ class BrigadierCommandAdapterTest {
         assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, leaf, "anything"));
         assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, " "));
         assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "--silent"));
+        assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "b Ada"));
+        assertFalse((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "q"));
         assertTrue((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "bang"));
         assertTrue((boolean) shouldRejectTunnel.invoke(strictBridge, strictRoot, "BANG"));
 
@@ -251,6 +258,14 @@ class BrigadierCommandAdapterTest {
             caseInsensitiveFramework.graph().roots().get(0),
             "BANG"
         ));
+
+        Method hasRemainderAfterFirstToken = BrigadierCommandAdapter.class.getDeclaredMethod(
+            "hasRemainderAfterFirstToken",
+            String.class
+        );
+        hasRemainderAfterFirstToken.setAccessible(true);
+        assertFalse((boolean) hasRemainderAfterFirstToken.invoke(null, "bang "));
+        assertTrue((boolean) hasRemainderAfterFirstToken.invoke(null, "bang Ada"));
     }
 
     @Test
@@ -457,6 +472,12 @@ class BrigadierCommandAdapterTest {
         assertEquals("debug", suggestion.getText());
         assertEquals(StringRange.between("/help ".length(), "/help deb".length()), suggestion.getRange());
         assertEquals("/help debug", suggestion.apply("/help deb"));
+
+        SuggestionsBuilder plainBuilder = new SuggestionsBuilder("help deb", "help ".length());
+        suggest.invoke(null, plainBuilder, frameworkSuggestion);
+        com.mojang.brigadier.suggestion.Suggestion plainSuggestion = plainBuilder.build().getList().get(0);
+        assertEquals(StringRange.between("help ".length(), "help deb".length()), plainSuggestion.getRange());
+        assertEquals("help debug", plainSuggestion.apply("help deb"));
     }
 
     @Test
