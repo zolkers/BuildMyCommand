@@ -41,10 +41,16 @@
                          implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteInspection"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRoute"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteSyntaxHighlighterFactory"/>
+        <lang.parserDefinition language="BuildMyCommandRoute"
+                               implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRouteParserDefinition"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandRequirement"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementSyntaxHighlighterFactory"/>
+        <lang.parserDefinition language="BuildMyCommandRequirement"
+                               implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandRequirementParserDefinition"/>
         <lang.syntaxHighlighterFactory language="BuildMyCommandPermissionRegex"
                                        implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandPermissionRegexSyntaxHighlighterFactory"/>
+        <lang.parserDefinition language="BuildMyCommandPermissionRegex"
+                               implementationClass="dev.riege.buildmycommand.intellij.BuildMyCommandPermissionRegexParserDefinition"/>
         <textmate.bundleProvider implementation="dev.riege.buildmycommand.intellij.BuildMyCommandTextMateBundleProvider"/>
         <additionalTextAttributes scheme="Default" file="colorSchemes/BuildMyCommandRoute.xml"/>
         <additionalTextAttributes scheme="Darcula" file="colorSchemes/BuildMyCommandRouteDarcula.xml"/>

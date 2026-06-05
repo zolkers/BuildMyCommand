@@ -1139,13 +1139,23 @@ public final class BuildMyCommandRouteFeatureTest extends BasePlatformTestCase {
         Method keyForToken = BuildMyCommandRouteAnnotator.class.getDeclaredMethod("keyForToken", Object.class);
         Method regexKeyForToken =
             BuildMyCommandPermissionRegexAnnotator.class.getDeclaredMethod("keyForToken", Object.class);
+        Method shouldInsertSpaceBefore =
+            BuildMyCommandRouteCompletionContributor.class.getDeclaredMethod("shouldInsertSpaceBefore", char.class);
         keyForToken.setAccessible(true);
         regexKeyForToken.setAccessible(true);
+        shouldInsertSpaceBefore.setAccessible(true);
 
         assertEquals(BuildMyCommandRouteSyntaxHighlighter.GREEDY,
             keyForToken.invoke(null, BuildMyCommandRouteTokenType.GREEDY));
         assertNull(keyForToken.invoke(null, TokenType.WHITE_SPACE));
         assertNull(regexKeyForToken.invoke(null, TokenType.WHITE_SPACE));
+        assertEquals(true, shouldInsertSpaceBefore.invoke(null, '<'));
+        assertEquals(true, shouldInsertSpaceBefore.invoke(null, 'a'));
+        assertEquals(false, shouldInsertSpaceBefore.invoke(null, ' '));
+        assertEquals(false, shouldInsertSpaceBefore.invoke(null, '>'));
+        assertEquals(false, shouldInsertSpaceBefore.invoke(null, ']'));
+        assertEquals(false, shouldInsertSpaceBefore.invoke(null, '|'));
+        assertEquals(false, shouldInsertSpaceBefore.invoke(null, ':'));
     }
 
     public void testTextMateBundleProviderConvertsInvalidResourceUriToIllegalState() throws Exception {

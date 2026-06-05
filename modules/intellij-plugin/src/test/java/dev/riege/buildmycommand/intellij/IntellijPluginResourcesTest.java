@@ -47,6 +47,9 @@ class IntellijPluginResourcesTest {
         assertTrue(pluginXml.contains("BuildMyCommandPermissionRegexAnnotator"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteCompletionContributor"));
         assertTrue(pluginXml.contains("BuildMyCommandRouteInspection"));
+        assertTrue(pluginXml.contains("BuildMyCommandRouteParserDefinition"));
+        assertTrue(pluginXml.contains("BuildMyCommandRequirementParserDefinition"));
+        assertTrue(pluginXml.contains("BuildMyCommandPermissionRegexParserDefinition"));
         assertTrue(pluginXml.contains("localInspection"));
         assertTrue(pluginXml.contains("completion.contributor"));
         assertTrue(pluginXml.contains("additionalTextAttributes"));
@@ -260,7 +263,7 @@ class IntellijPluginResourcesTest {
         String intellijBuildScript = Files.readString(root.resolve("modules/intellij-plugin/build.gradle.kts"));
 
         assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
-        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.dsl\" min-version=\"0.3.1\" />"));
+        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.dsl\" min-version=\"0.3.2\" />"));
         assertTrue(powerShellScript.contains("dev.riege.buildmycommand.dsl"));
         assertTrue(powerShellScript.contains(":intellij-plugin:buildPlugin"));
         assertTrue(powerShellScript.contains("$Install"));

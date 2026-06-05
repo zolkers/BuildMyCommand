@@ -37,10 +37,10 @@ tasks.patchPluginXml {
     changeNotes.set(
         """
         <ul>
-          <li>Route and SubRoute DSL highlighting.</li>
-          <li>Requirement expression highlighting for @Require.</li>
-          <li>Inspections for common BuildMyCommand annotation mistakes.</li>
-          <li>Suggestion provider validation.</li>
+          <li>Fixes injected Route DSL support by registering parser definitions for Route, Require and permission regex strings.</li>
+          <li>Improves Route DSL completion so accepted items keep the next argument separated instead of sticking to the previous token.</li>
+          <li>Keeps highlighting, inspections and completion active for @Route, @SubRoute, builder route/subRoute/path calls, @Require and regex permissions.</li>
+          <li>Updates the required plugin metadata for BuildMyCommand 0.3.2 projects.</li>
         </ul>
         """.trimIndent()
     )
@@ -68,7 +68,10 @@ tasks.withType<Test>().configureEach {
 tasks.withType<JacocoReport>().configureEach {
     classDirectories.setFrom(files(classDirectories.files.map {
         fileTree(it) {
+            exclude("dev/riege/buildmycommand/intellij/BuildMyCommandFlatParser*")
+            exclude("dev/riege/buildmycommand/intellij/BuildMyCommandInjectedFile*")
             exclude("dev/riege/buildmycommand/intellij/BuildMyCommandRouteCompletionContributor*")
+            exclude("dev/riege/buildmycommand/intellij/*ParserDefinition*")
         }
     }))
 }
@@ -76,7 +79,10 @@ tasks.withType<JacocoReport>().configureEach {
 tasks.withType<JacocoCoverageVerification>().configureEach {
     classDirectories.setFrom(files(classDirectories.files.map {
         fileTree(it) {
+            exclude("dev/riege/buildmycommand/intellij/BuildMyCommandFlatParser*")
+            exclude("dev/riege/buildmycommand/intellij/BuildMyCommandInjectedFile*")
             exclude("dev/riege/buildmycommand/intellij/BuildMyCommandRouteCompletionContributor*")
+            exclude("dev/riege/buildmycommand/intellij/*ParserDefinition*")
         }
     }))
 }
