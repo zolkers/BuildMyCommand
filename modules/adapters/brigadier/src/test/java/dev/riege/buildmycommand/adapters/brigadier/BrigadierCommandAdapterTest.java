@@ -12,6 +12,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.riege.buildmycommand.adapters.AdapterCapabilities;
@@ -430,6 +431,32 @@ class BrigadierCommandAdapterTest {
         assertEquals("--alphabetic", suggestion.getText());
         assertEquals(StringRange.between(input.indexOf("--alph"), input.length()), suggestion.getRange());
         assertEquals("help --page 2 --alphabetic", suggestion.apply(input));
+    }
+
+    @Test
+    void frameworkTunnelSuggestionsPreserveSeparatorForSlashPrefixedInputs() throws Exception {
+        SuggestionsBuilder builder = new SuggestionsBuilder("/help deb", "/help ".length());
+        Suggestion frameworkSuggestion = new Suggestion(
+            "debug",
+            Optional.empty(),
+            "help ".length(),
+            "help deb".length(),
+            SuggestionType.ARGUMENT,
+            0
+        );
+        Method suggest = BrigadierCommandAdapter.class.getDeclaredMethod(
+            "suggest",
+            SuggestionsBuilder.class,
+            Suggestion.class
+        );
+        suggest.setAccessible(true);
+
+        suggest.invoke(null, builder, frameworkSuggestion);
+
+        com.mojang.brigadier.suggestion.Suggestion suggestion = builder.build().getList().get(0);
+        assertEquals("debug", suggestion.getText());
+        assertEquals(StringRange.between("/help ".length(), "/help deb".length()), suggestion.getRange());
+        assertEquals("/help debug", suggestion.apply("/help deb"));
     }
 
     @Test

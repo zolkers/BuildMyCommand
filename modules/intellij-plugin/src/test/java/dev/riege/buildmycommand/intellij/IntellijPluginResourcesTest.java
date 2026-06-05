@@ -264,7 +264,7 @@ class IntellijPluginResourcesTest {
         String ciWorkflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
 
         assertTrue(externalDependencies.contains("<component name=\"ExternalDependencies\">"));
-        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.dsl\" min-version=\"0.3.2\" />"));
+        assertTrue(externalDependencies.contains("<plugin id=\"dev.riege.buildmycommand.dsl\" min-version=\"0.3.3\" />"));
         assertTrue(powerShellScript.contains("dev.riege.buildmycommand.dsl"));
         assertTrue(powerShellScript.contains(":intellij-plugin:buildPlugin"));
         assertTrue(powerShellScript.contains("$Install"));

@@ -280,9 +280,18 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
     }
 
     private static void suggest(SuggestionsBuilder builder, Suggestion suggestion) {
-        SuggestionsBuilder replacementBuilder = new SuggestionsBuilder(builder.getInput(), suggestion.replacementStart());
+        int replacementStart = suggestion.replacementStart() + leadingSlashOffset(builder.getInput());
+        SuggestionsBuilder replacementBuilder = new SuggestionsBuilder(builder.getInput(), replacementStart);
         replacementBuilder.suggest(suggestion.value(), suggestion.tooltip().map(LiteralMessage::new).orElse(null));
         builder.add(replacementBuilder);
+    }
+
+    private static int leadingSlashOffset(String input) {
+        int offset = 0;
+        while (offset < input.length() && input.charAt(offset) == '/') {
+            offset++;
+        }
+        return offset;
     }
 
     private void attachExecutor(ArgumentBuilder<N, ?> builder) {
