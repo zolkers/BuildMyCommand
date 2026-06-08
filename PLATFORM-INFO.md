@@ -24,8 +24,8 @@ BuildMyCommand may contain source modules for several platforms before each plat
 
 | Platform / adapter | Module | Status | Notes |
 | --- | --- | --- | --- |
-| Fabric client commands | `buildmycommand-adapters-minecraft-fabric` | Tested | Validated in a real Fabric client-side mod. Route dispatch, Brigadier registration, aliases, suggestions, and invalid input behavior have been exercised. |
-| Brigadier | `buildmycommand-adapters-brigadier` | Tested | Validated through the Fabric adapter path, because Fabric client commands are Brigadier-backed. Also covered by adapter tests. |
+| Fabric client commands | `buildmycommand-adapters-minecraft-fabric` | Tested | Validated in a real Fabric client-side mod. Route dispatch, Brigadier registration, aliases, suggestions, invalid input behavior, and vanilla-serializable Brigadier argument trees have been exercised. |
+| Brigadier | `buildmycommand-adapters-brigadier` | Tested | Validated through the Fabric adapter path, because Fabric client commands are Brigadier-backed. Adapter tests assert fallback tunnel nodes use vanilla `StringArgumentType`, not anonymous/custom argument types. |
 | Minecraft common | `buildmycommand-adapters-minecraft-common` | Contract-tested | Shared Minecraft source, permissions, suggestion, and formatting helpers used by platform adapters. |
 | Paper | `buildmycommand-adapters-minecraft-paper` | Compile-tested | Module exists and compiles; needs a real Paper plugin smoke test before being recommended as production-ready. |
 | Spigot | `buildmycommand-adapters-minecraft-spigot` | Compile-tested | Module exists and compiles; needs a real Spigot plugin smoke test. |

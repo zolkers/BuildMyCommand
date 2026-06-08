@@ -8,6 +8,7 @@
 package dev.riege.buildmycommand.adapters.brigadier;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -178,8 +179,6 @@ class BrigadierCommandAdapterTest {
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc s", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc g", new NativeSource()));
         assertThrows(CommandSyntaxException.class, () -> dispatcher.execute("wecc nope", new NativeSource()));
-        assertFalse(dispatcher.parse("wecc nope", new NativeSource()).getExceptions().isEmpty());
-        assertFalse(dispatcher.parse("wecc b", new NativeSource()).getExceptions().isEmpty());
         assertTrue(suggestions(dispatcher, "wecc ").contains("bang"));
         assertTrue(suggestions(dispatcher, "wecc ").contains("ping"));
         assertFalse(suggestions(dispatcher, "wecc ").contains("b"));
@@ -385,6 +384,24 @@ class BrigadierCommandAdapterTest {
         assertEquals(List.of(), suggestions(dispatcher, "unknown"));
         assertEquals(List.of("admin"), suggestions(dispatcher, "A"));
         assertEquals(List.of("ban"), suggestions(dispatcher, "admin B"));
+    }
+
+    @Test
+    void fallbackTunnelUsesVanillaSerializableStringArgumentType() {
+        CommandFramework framework = CommandFramework.builder()
+            .caseInsensitiveLiterals()
+            .build();
+        BrigadierCommandAdapter<NativeSource> bridge = BrigadierCommandAdapter.create(framework, NativeSource::source);
+        framework.registry()
+            .route("wecc bang|b <target:String>")
+            .suggestAliases(false)
+            .executes(ctx -> Results.success("ok"));
+
+        LiteralCommandNode<NativeSource> root = bridge.roots().get(0);
+        ArgumentCommandNode<NativeSource, ?> tunnel =
+            assertInstanceOf(ArgumentCommandNode.class, root.getChild("_bmc_input"));
+
+        assertInstanceOf(StringArgumentType.class, tunnel.getType());
     }
 
     @Test

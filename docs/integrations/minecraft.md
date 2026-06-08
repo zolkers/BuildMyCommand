@@ -216,3 +216,25 @@ Then connect it through the Fabric adapter and convert Fabric sources with `ModC
 | Client-only mods | Prefer a client source wrapper and client command registration. |
 
 The command framework should not own your mod state. Use `CommandSource.unwrap(...)`, `SuggestionContext`, and middleware to reach platform state when needed.
+
+## Brigadier Argument Types
+
+Minecraft serializes the Brigadier command tree to the client. That means every `ArgumentType`
+present in the registered tree must be a vanilla/client-known argument type, or a custom argument
+type registered on both sides by the mod. BuildMyCommand adapters keep the public tree safe by using
+vanilla Brigadier string argument types and then delegating parsing, custom route types, permissions,
+middleware, and suggestions back to the framework.
+
+This is intentional:
+
+| BuildMyCommand feature | Minecraft tree representation |
+| --- | --- |
+| `<target:String>` | Vanilla `StringArgumentType.string()`. |
+| `<query:String...>` | Vanilla `StringArgumentType.greedyString()`. |
+| Custom DSL type such as `<item:Material>` | Vanilla string argument in Brigadier, parsed by the registered BuildMyCommand `ArgumentParser<Material>`. |
+| `@Suggest` / parser suggestions | Brigadier suggestion provider that calls the framework. |
+| Hidden aliases and fallback dispatch | Internal vanilla greedy string tunnel, not a custom `ArgumentType`. |
+
+Do not replace this with an anonymous/custom Brigadier `ArgumentType` in a Minecraft adapter unless
+you also register its serializer on the client and server. Fabric documents the same constraint for
+custom command arguments: unknown argument types make the client reject the command tree.

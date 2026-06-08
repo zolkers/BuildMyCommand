@@ -176,7 +176,7 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
         }
         if (needsFrameworkTunnel(node)) {
             RequiredArgumentBuilder<N, String> tunnel =
-                RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, frameworkTunnelArgument(node));
+                RequiredArgumentBuilder.argument(FRAMEWORK_TUNNEL, frameworkTunnelArgument());
             attachFrameworkSuggestions(tunnel);
             tunnel.executes(context -> executeTunnel(context, node));
             builder.then(tunnel);
@@ -189,20 +189,17 @@ public final class BrigadierCommandAdapter<N> implements CommandAdapter<N, Strin
             || (framework.caseInsensitiveLiterals() && !node.children().isEmpty());
     }
 
-    private ArgumentType<String> frameworkTunnelArgument(CommandNode node) {
-        return reader -> {
-            int start = reader.getCursor();
-            String remaining = reader.getRemaining();
-            reader.setCursor(reader.getTotalLength());
-            if (shouldRejectTunnel(node, remaining)) {
-                reader.setCursor(start);
-                throw INVALID_INPUT.createWithContext(reader);
-            }
-            return remaining;
-        };
+    private static ArgumentType<String> frameworkTunnelArgument() {
+        return StringArgumentType.greedyString();
     }
 
     private int executeTunnel(CommandContext<N> context, CommandNode node) throws CommandSyntaxException {
+        String tunnelInput = context.getArgument(FRAMEWORK_TUNNEL, String.class);
+        if (shouldRejectTunnel(node, tunnelInput)) {
+            StringReader reader = new StringReader(context.getInput());
+            reader.setCursor(Math.max(0, context.getInput().length() - tunnelInput.length()));
+            throw INVALID_INPUT.createWithContext(reader);
+        }
         return execute(context.getSource(), context.getInput());
     }
 
