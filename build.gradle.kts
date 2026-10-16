@@ -16,7 +16,7 @@ plugins {
 }
 
 group = "io.github.zolkers"
-version = providers.gradleProperty("releaseVersion").orElse("0.3.6").get()
+version = providers.gradleProperty("releaseVersion").orElse("0.3.7").get()
 
 val mainJavaSources = fileTree(layout.projectDirectory.dir("modules")) {
     include("**/src/main/java/**/*.java")
