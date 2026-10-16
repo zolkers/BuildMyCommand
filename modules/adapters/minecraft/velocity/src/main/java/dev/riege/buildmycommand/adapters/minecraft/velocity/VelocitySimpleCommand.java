@@ -44,7 +44,12 @@ public final class VelocitySimpleCommand implements SimpleCommand {
     @Override
     public List<String> suggest(Invocation invocation) {
         Objects.requireNonNull(invocation, "invocation");
-        MinecraftInvocation input = VelocityMinecraftIntegration.simpleCommandInput(invocation.alias(), invocation.arguments());
+        String[] args = invocation.arguments();
+        // Velocity only requests suggestions after the label, even when it provides no arguments.
+        MinecraftInvocation input = VelocityMinecraftIntegration.simpleCommandInput(
+            invocation.alias(),
+            args.length == 0 ? new String[] {""} : args
+        );
         return adapter.suggest(
             invocation.source(),
             input,

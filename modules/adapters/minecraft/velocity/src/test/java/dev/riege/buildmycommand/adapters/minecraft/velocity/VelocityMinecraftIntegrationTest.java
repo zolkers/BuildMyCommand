@@ -88,6 +88,41 @@ class VelocityMinecraftIntegrationTest {
     }
 
     @Test
+    void simpleCommandSuggestsFirstArgumentWhenVelocityProvidesNoArguments() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("permission|perm set group").executes(ctx -> Results.silent());
+        framework.registry().route("permission|perm show").executes(ctx -> Results.silent());
+        RecordingVelocitySource source = new RecordingVelocitySource();
+        VelocitySimpleCommand command = VelocityMinecraftIntegration.simpleCommand(
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
+        );
+
+        for (String label : List.of("permission", "perm")) {
+            assertEquals(List.of("set", "show"), command.suggest(invocation(source.proxy(), label)));
+            assertEquals(List.of("set", "show"), command.suggestAsync(invocation(source.proxy(), label)).join());
+            assertEquals(List.of("set", "show"), command.suggest(invocation(source.proxy(), label, "")));
+            assertEquals(List.of("set", "show"), command.suggest(invocation(source.proxy(), label, "s")));
+            assertEquals(List.of("group"), command.suggest(invocation(source.proxy(), label, "set", "")));
+        }
+    }
+
+    @Test
+    void simpleCommandExecutesRootWithoutAddingAnEmptyArgument() {
+        CommandFramework framework = CommandFramework.create();
+        framework.registry().route("permission|perm").executes(ctx -> Results.success("Root executed"));
+        RecordingVelocitySource source = new RecordingVelocitySource();
+        VelocitySimpleCommand command = VelocityMinecraftIntegration.simpleCommand(
+            VelocityMinecraftIntegration.simpleCommandAdapter(framework)
+        );
+
+        assertEquals("permission", VelocityMinecraftIntegration.simpleCommandInput("permission", new String[0]).normalizedInput());
+        command.execute(invocation(source.proxy(), "permission"));
+        command.execute(invocation(source.proxy(), "perm"));
+
+        assertEquals(List.of("Root executed", "Root executed"), source.messages());
+    }
+
+    @Test
     void simpleCommandHasPermissionDelegatesToRoutePermissionForAliases() {
         CommandFramework framework = CommandFramework.create();
         framework.registry().route("proxy|px reload")
